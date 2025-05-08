@@ -47,7 +47,7 @@ options.add_argument('--disable-dev-shm-usage')
 # Disabilita caricamento immagini per performance
 options.add_argument('--blink-settings=imagesEnabled=false')
 
-@st.cache_resource
+# Non cache il driver: crea una nuova istanza ogni volta
 def get_driver():
     service = Service(
         ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
@@ -67,9 +67,9 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
     driver.get(url)
     # gestisci banner cookie EU se presente
     try:
-        # cerca bottone accetta cookie (Italiano/English)
         btn = driver.find_element(By.XPATH,
-            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta') or contains(., 'I agree') or contains(., 'Accept all')]")
+            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta') or contains(., 'I agree') or contains(., 'Accept all')]"
+        )
         btn.click()
         logger.info('Cookie banner accepted')
         time.sleep(1)
@@ -86,14 +86,16 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
     anchors = driver.find_elements(By.XPATH, "//a[.//h3]")
     items = []
     for a in anchors:
-        h3 = a.find_element(By.TAG_NAME, 'h3')
-        title = h3.text
-        href = a.get_attribute('href')
-        if title and href:
-            items.append({'Title': title, 'URL': href})
-            if len(items) >= num:
-                break
-    # Chiude driver per evitare sessioni multiple
+        try:
+            h3 = a.find_element(By.TAG_NAME, 'h3')
+            title = h3.text
+            href = a.get_attribute('href')
+            if title and href:
+                items.append({'Title': title, 'URL': href})
+                if len(items) >= num:
+                    break
+        except Exception:
+            continue
     driver.quit()
     return items
 
