@@ -13,8 +13,11 @@ def estrai_info(url: str) -> dict:
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
+    # Estraggo elementi
     h1 = soup.find("h1")
     h2s = [h.get_text(strip=True) for h in soup.find_all("h2")]
+    h3s = [h.get_text(strip=True) for h in soup.find_all("h3")]
+    h4s = [h.get_text(strip=True) for h in soup.find_all("h4")]
     title = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
@@ -23,6 +26,8 @@ def estrai_info(url: str) -> dict:
     return {
         "H1": h1.get_text(strip=True) if h1 else "",
         "H2": " | ".join(h2s),
+        "H3": " | ".join(h3s),
+        "H4": " | ".join(h4s),
         "Meta title": title.get_text(strip=True) if title else "",
         "Meta title length": len(title.get_text(strip=True)) if title else 0,
         "Meta description": desc["content"].strip() if desc and desc.has_attr("content") else "",
@@ -35,8 +40,8 @@ def estrai_info(url: str) -> dict:
 def main():
     st.title("🔍 SEO Extractor")
     st.markdown(
-        "Estrai H1, H2, Meta title, Meta description, Canonical e Meta robots.\n"
-        "Le colonne di lunghezza vengono incluse solo se selezioni i relativi campi."
+        "Estrai H1, H2, H3, H4, Meta title e Meta description.\n"
+        "Le colonne 'length' di title e description vengono incluse solo se selezioni i relativi campi."
     )
     st.divider()
 
@@ -48,9 +53,9 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        # Ottieni chiavi base (senza lunghezze)
+        # Ottieni chiavi base (senza i campi 'length')
         sample_info = estrai_info("https://www.example.com")
-        base_keys = [k for k in sample_info.keys() if k not in ("Meta title length", "Meta description length")]
+        base_keys = [k for k in sample_info.keys() if not k.endswith("length")]
         fields = st.pills(
             "Campi da estrarre",
             base_keys,
@@ -75,13 +80,14 @@ def main():
             try:
                 info = estrai_info(u)
             except Exception as e:
-                info = {k: f"Errore: {e}" for k in sample_info.keys()}
+                # Se errore, riempi con messaggi di errore
+                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in sample_info.keys()}
 
             row = {"URL": u}
-            # Aggiungi i campi selezionati
+            # Aggiungo campi selezionati
             for f in fields:
                 row[f] = info.get(f, "")
-            # Aggiungi i campi di lunghezza solo se selezionati
+            # Aggiungo campi length solo se i relativi field sono stati selezionati
             if "Meta title" in fields:
                 row["Meta title length"] = info.get("Meta title length", 0)
             if "Meta description" in fields:
@@ -93,7 +99,7 @@ def main():
         st.success(f"Analizzati {len(url_list)} URL.")
 
         df = pd.DataFrame(results)
-        # Costruisci dinamicamente ordine colonne
+        # Ordina colonne: URL, selezionati, poi eventuali length
         cols = ["URL"] + fields
         if "Meta title" in fields:
             cols.append("Meta title length")
