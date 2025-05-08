@@ -93,7 +93,7 @@ def main():
         num = st.selectbox(
             "Numero di risultati da estrarre",
             options=list(range(1, 11)),
-            index=10
+            index=4
         )
 
     if st.button("🚀 Avvia scraping"):
