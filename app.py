@@ -8,6 +8,7 @@ st.set_page_config(
 )
 
 # Sidebar: logo
+# Sposta questa sezione prima della definizione del menu
 st.sidebar.markdown(
     '<div style="text-align:left; margin-bottom:20px;">'
     '<img src="https://i.ibb.co/C57SRppY/annalect-logo-400x113.png" width="150"/>'
@@ -19,7 +20,7 @@ st.sidebar.markdown(
 pages = {
     "On-Page SEO": [
         st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
-        st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool")
+        st.Page("pages/altro_tool.py",   title="🛠️ Altro Tool")
     ],
     "Technical SEO": [
         # aggiungi qui altri tool
@@ -30,5 +31,6 @@ pages = {
 }
 
 # Renderizza il menu e avvia la pagina selezionata
+# Questa sezione ora viene dopo l'inserimento del logo
 selected_page = st.navigation(pages, position="sidebar", expanded=True)
 selected_page.run()
