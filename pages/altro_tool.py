@@ -2,15 +2,10 @@ import streamlit as st
 import time
 import random
 import pandas as pd
-import os
+import requests
+from bs4 import BeautifulSoup
 from io import BytesIO
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 
 # Lista di User-Agents per rotazione
 USER_AGENTS = [
@@ -35,29 +30,21 @@ PAESI = {
     "Svizzera": {"tld": "ch", "hl": "de", "gl": "ch"}
 }
 
-def configura_browser():
-    """Configura il browser Chrome per lo scraping"""
-    options = Options()
-    options.add_argument("--headless")  # Modalità headless
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    
-    # Usa il ChromeDriver di sistema invece di ChromeDriverManager
-    if os.path.exists("/usr/bin/chromedriver"):
-        service = Service("/usr/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=options)
-    else:
-        # Fallback per ambiente di sviluppo locale
-        driver = webdriver.Chrome(options=options)
-    
-    # Elude il rilevamento dell'automazione
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    
-    return driver
+def get_random_headers():
+    """Genera header casuali per le richieste HTTP"""
+    return {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+    }
 
 def scrape_serp(keyword, paese, num_risultati):
     """Effettua lo scraping dei risultati di ricerca Google"""
@@ -66,47 +53,57 @@ def scrape_serp(keyword, paese, num_risultati):
     hl = paese_info["hl"]
     gl = paese_info["gl"]
     
-    # Formatta la query di ricerca
-    query = quote_plus(keyword)
-    url = f"https://www.google.{tld}/search?q={query}&hl={hl}&gl={gl}&num={num_risultati}"
-    
-    driver = configura_browser()
+    # Costruisci l'URL con parametri di query
+    params = {
+        "q": keyword,
+        "hl": hl,
+        "gl": gl,
+        "num": 100,  # Richiedi più risultati di quelli necessari
+        "ie": "utf8",
+        "oe": "utf8",
+        "pws": 0,     # Disattiva la personalizzazione della ricerca
+        "gws_rd": "ssl"
+    }
+    url = f"https://www.google.{tld}/search?" + urlencode(params)
     
     try:
         # Aggiungi un ritardo casuale prima di ogni richiesta
         time.sleep(random.uniform(1, 3))
         
-        driver.get(url)
+        # Effettua la richiesta HTTP
+        headers = get_random_headers()
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
         
-        # Attendi che i risultati siano caricati
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div.g"))
-        )
+        # Analizza la risposta con BeautifulSoup
+        soup = BeautifulSoup(response.text, "html.parser")
         
-        # Raccogli i risultati organici
+        # Estrai i risultati
         risultati = []
-        elementi = driver.find_elements(By.CSS_SELECTOR, "div.g")
+        elementi = soup.select("div.g")
         
         for i, elemento in enumerate(elementi[:num_risultati], 1):
             try:
                 # Titolo
-                titolo_elem = elemento.find_element(By.CSS_SELECTOR, "h3")
-                titolo = titolo_elem.text if titolo_elem else "N/A"
+                titolo_elem = elemento.select_one("h3")
+                titolo = titolo_elem.get_text() if titolo_elem else "N/A"
                 
                 # URL
-                link_elem = elemento.find_element(By.CSS_SELECTOR, "a")
-                url = link_elem.get_attribute("href") if link_elem else "N/A"
+                link_elem = elemento.select_one("a")
+                url = link_elem.get("href") if link_elem and link_elem.get("href") and link_elem.get("href").startswith("http") else "N/A"
                 
                 # Snippet/descrizione
-                snippet_elem = elemento.find_element(By.CSS_SELECTOR, "div[data-sncf='1']")
-                snippet = snippet_elem.text if snippet_elem else "N/A"
+                snippet_elem = elemento.select_one("div[style='-webkit-line-clamp:2']") or elemento.select_one("div.VwiC3b")
+                snippet = snippet_elem.get_text() if snippet_elem else "N/A"
                 
-                risultati.append({
-                    "Posizione": i,
-                    "Titolo": titolo,
-                    "URL": url,
-                    "Snippet": snippet
-                })
+                # Solo se l'URL è valido
+                if url != "N/A":
+                    risultati.append({
+                        "Posizione": i,
+                        "Titolo": titolo,
+                        "URL": url,
+                        "Snippet": snippet
+                    })
             except Exception as e:
                 st.error(f"Errore nell'estrazione del risultato {i}: {str(e)}")
                 continue
@@ -116,9 +113,6 @@ def scrape_serp(keyword, paese, num_risultati):
     except Exception as e:
         st.error(f"Errore durante lo scraping: {str(e)}")
         return []
-    
-    finally:
-        driver.quit()
 
 def main():
     st.title("🔍 SERP Scraper")
@@ -195,6 +189,11 @@ def main():
                 )
             else:
                 st.warning("Nessun risultato trovato. Riprova con una keyword diversa o controlla la connessione.")
+                
+                # Aggiungi pulsante per usare un servizio proxy come fallback
+                if st.button("Prova con servizio proxy (SerpAPI)"):
+                    st.info("Per utilizzare SerpAPI è necessario registrarsi e ottenere una API key. Questo approccio è più affidabile ma richiede un account.")
+                    st.markdown("[Registrati su SerpAPI](https://serpapi.com/)")
 
 if __name__ == "__main__":
     main()
