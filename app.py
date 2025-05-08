@@ -9,8 +9,8 @@ st.set_page_config(
 
 # Sidebar: logo
 st.sidebar.markdown(
-    '<div style="text-align:center; margin-bottom:20px;">'
-    '<img src="https://i.ibb.co/C57SRppY/annalect-logo-400x113.png" width="120"/>'
+    '<div style="text-align:left; margin-bottom:20px;">'
+    '<img src="https://i.ibb.co/C57SRppY/annalect-logo-400x113.png" width="180"/>'
     '</div>',
     unsafe_allow_html=True
 )
