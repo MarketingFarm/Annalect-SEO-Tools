@@ -22,10 +22,10 @@ pages = {
         st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool")
     ],
     "Technical SEO": [
-        # st.Page("pages/tool2.py", title="🛠️ Tool A"),
+        # aggiungi qui altri tool
     ],
     "Off-Page SEO": [
-        # st.Page("pages/tool4.py", title="🛠️ Tool C"),
+        # aggiungi qui altri tool
     ]
 }
 
