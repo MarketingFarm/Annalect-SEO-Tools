@@ -8,9 +8,12 @@ from io import BytesIO
 st.markdown("""
 <style>
  label[data-testid="stWidgetLabel"] { display: none !important; }
+ /* Barra rossa sempre, stato attivo e completato */
  .stProgress > div > div > div { background-color: #f63366 !important; }
- /* Mantieni rosso anche al termine */
  .stProgress > div > div { background-color: #f63366 !important; }
+ /* Override anche per il progressbar completato */
+ .stProgress > div > div[role="progressbar"] { background-color: #f63366 !important; }
+ .stProgress > div > div[role="progressbar"] > div { background-color: #f63366 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -60,7 +63,6 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        # Mostra i campi disponibili
         example_keys = list(estrai_info("https://www.example.com").keys())
         fields = st.pills(
             "Campi da estrarre",
