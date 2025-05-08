@@ -3,9 +3,9 @@ import pandas as pd
 from io import BytesIO
 import time
 import logging
+import os
 
 # Riduci log di webdriver-manager
-import os
 os.environ['WDM_LOG_LEVEL'] = '0'
 
 # Prova import Selenium, altrimenti mostra messaggio
@@ -36,7 +36,7 @@ COUNTRIES = {
 }
 ALL_COUNTRIES = sorted(COUNTRIES.keys())
 
-# Pre-configuriamo le opzioni in globale come nell'esempio ufficiale
+# Pre-configuriamo le opzioni come nell'esempio ufficiale
 options = Options()
 options.add_argument('--headless')
 options.add_argument('--disable-gpu')
@@ -63,14 +63,17 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
     driver.get(url)
     time.sleep(2)
     items = []
-    results = driver.find_elements(By.CSS_SELECTOR, 'div.g')
-    for res in results:
+    # Trova tutti gli h3 sotto link
+    anchors = driver.find_elements(By.XPATH, "//a[.//h3]")
+    for a in anchors:
         try:
-            h3 = res.find_element(By.TAG_NAME, 'h3')
-            a = h3.find_element(By.XPATH, './ancestor::a')
-            items.append({'Title': h3.text, 'URL': a.get_attribute('href')})
-            if len(items) >= num:
-                break
+            h3 = a.find_element(By.TAG_NAME, 'h3')
+            title = h3.text
+            href = a.get_attribute('href')
+            if title and href:
+                items.append({'Title': title, 'URL': href})
+                if len(items) >= num:
+                    break
         except Exception:
             continue
     return items
