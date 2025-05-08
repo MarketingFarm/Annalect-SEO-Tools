@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
-# Alla prima esecuzione installa browser e dipendenze di sistema
+# Alla prima esecuzione, installa Playwright e dipendenze di sistema
 os.system('playwright install --with-deps chromium')
 os.system('playwright install-deps')
 
@@ -20,8 +20,7 @@ BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 def fetch_html(url: str) -> str:
     """
-    Carica la pagina via Playwright per catturare il post-hydration,
-    altrimenti fallback a requests.get().
+    Carica la pagina con Playwright (post-hydration) o fallback a requests.get().
     """
     if HAS_PLAYWRIGHT:
         with sync_playwright() as p:
@@ -31,14 +30,14 @@ def fetch_html(url: str) -> str:
                 viewport={"width": 1280, "height": 800}
             )
             page.goto(url, wait_until="networkidle")
-            # Attendi esplicitamente un H3 dinamico
+            # Attendi un H3 dinamico (modifica il selettore se serve)
             try:
                 page.wait_for_selector("h3", timeout=15000)
             except:
                 pass
-            content = page.content()
+            html = page.content()
             browser.close()
-            return content
+            return html
 
     resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
     resp.raise_for_status()
@@ -48,7 +47,7 @@ def estrai_info(url: str) -> dict:
     html = fetch_html(url)
     soup = BeautifulSoup(html, "html.parser")
 
-    # Cerca il main content
+    # Seleziona il contenuto principale
     content = (
         soup.find("main")
         or soup.find("article")
@@ -59,7 +58,7 @@ def estrai_info(url: str) -> dict:
         or soup
     )
 
-    # Headings
+    # Estrai headings
     h1 = content.find("h1")
     h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
@@ -87,20 +86,19 @@ def estrai_info(url: str) -> dict:
 def main():
     st.title("🔍 SEO Extractor (Playwright)")
     if not HAS_PLAYWRIGHT:
-        st.warning("Installa `playwright` e lancia:\n"
-                   "`playwright install --with-deps chromium` e\n"
-                   "`playwright install-deps`.")
+        st.warning("Installa `playwright` e poi esegui:\n"
+                   "`playwright install --with-deps chromium`\n"
+                   "`playwright install-deps`")
     st.markdown(
-        "Estrai H1–H4 dal contenuto principale post-hydration,\n"
-        "più Meta title/description.\n"
-        "Seleziona i campi 'length' solo se servono."
+        "Estrai H1–H4 dal contenuto principale post-hydration, più Meta title/description.\n"
+        "Le colonne 'length' appaiono solo se selezioni i campi corrispondenti."
     )
     st.divider()
 
     col1, col2 = st.columns([2, 1], gap="large")
     with col1:
         urls = st.text_area(
-            "Incolla URL (una per riga)",
+            "Incolla URL (uno per riga)",
             height=200,
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
@@ -124,8 +122,7 @@ def main():
             try:
                 info = estrai_info(u)
             except Exception as e:
-                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0)
-                        for k in example.keys()}
+                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in example.keys()}
 
             row = {"URL": u}
             for f in fields:
