@@ -8,21 +8,30 @@ from io import BytesIO
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # Funzione per estrarre info SEO esclusivamente dal contenuto principale
+# con fallback su diversi selettori comuni
 def estrai_info(url: str) -> dict:
     resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Trova sezione principale (<main>) o fallback a <body>
-    content = soup.find("main") or soup.find("body") or soup
+    # Prova diversi selettori di contenuto principale
+    content = (
+        soup.find("main")
+        or soup.find("article")
+        or soup.find("div", id="content")
+        or soup.find("div", class_="entry-content")
+        or soup.find("div", class_="post-body")
+        or soup.find("body")
+        or soup
+    )
 
-    # Estrai headings all'interno del contenuto principale
+    # Estrai headings in content
     h1_tag = content.find("h1")
     h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
     h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
 
-    # Meta e altri dati SEO
+    # Meta e altri dati SEO (prendo da soup intero)
     title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
@@ -45,8 +54,8 @@ def estrai_info(url: str) -> dict:
 def main():
     st.title("🔍 SEO Extractor")
     st.markdown(
-        "Estrai H1, H2, H3, H4 dal contenuto principale, più Meta title e Meta description.\n"
-        "Le colonne 'length' di title e description vengono incluse solo se selezioni i relativi campi."
+        "Estrai H1, H2, H3, H4 dal contenuto principale (main/article/content), plus Meta title e description.\n"
+        "Le colonne 'length' di title e description vengono incluse solo se selezioni i campi corrispondenti."
     )
     st.divider()
 
