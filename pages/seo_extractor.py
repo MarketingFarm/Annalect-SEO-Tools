@@ -117,29 +117,26 @@ def main():
                         for k in example.keys()}
 
             row = {"URL": u}
-            # Costruisci ordine fisso: headings poi meta
-            ordered_fields = []
+            # Costruisci ordine: per ciascun field metti subito il suo length
+            ordered_cols = []
             for key in ["H1", "H2", "H3", "H4", "Meta title", "Meta description"]:
                 if key in fields:
-                    ordered_fields.append(key)
+                    ordered_cols.append(key)
                     row[key] = info.get(key, "")
-            # Lunghezze condizionali
-            if "Meta title" in fields:
-                row["Meta title length"] = info["Meta title length"]
-            if "Meta description" in fields:
-                row["Meta description length"] = info["Meta description length"]
+                    # length immediato per title e description
+                    if key == "Meta title":
+                        ordered_cols.append("Meta title length")
+                        row["Meta title length"] = info["Meta title length"]
+                    if key == "Meta description":
+                        ordered_cols.append("Meta description length")
+                        row["Meta description length"] = info["Meta description length"]
 
             results.append(row)
             prog.progress(int(i / len(url_list) * 100))
 
         st.success(f"Analizzati {len(results)} URL.")
         df = pd.DataFrame(results)
-        # Costruisci colonne in ordine fisso
-        cols = ["URL"] + ordered_fields
-        if "Meta title" in fields:
-            cols.append("Meta title length")
-        if "Meta description" in fields:
-            cols.append("Meta description length")
+        cols = ["URL"] + ordered_cols
         df = df[cols]
 
         st.dataframe(df, use_container_width=True)
