@@ -39,60 +39,66 @@ COUNTRIES = {
 # Ordiniamo alfabeticamente le chiavi
 ALL_COUNTRIES = sorted(COUNTRIES.keys(), key=lambda x: x)
 
+# Impostiamo default nella session state solo una volta
+if "country" not in st.session_state:
+    st.session_state.country = "Italia"
+if "num" not in st.session_state:
+    st.session_state.num = 10
+
+
 def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
-    """
-    Esegue una query su Google con parametro gl (geolocalizzazione),
-    restituisce una lista di dict con 'Title' e 'URL' dei risultati organici.
-    """
     params = {"q": keyword, "num": num, "hl": "it", "gl": country_code}
-    resp = requests.get("https://www.google.com/search",
-                        headers=BASE_HEADERS,
-                        params=params,
-                        timeout=10)
+    resp = requests.get(
+        "https://www.google.com/search",
+        headers=BASE_HEADERS,
+        params=params,
+        timeout=10
+    )
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     results = []
     for h3 in soup.find_all("h3"):
         a = h3.find_parent("a")
-        if not a or not a.has_attr("href"): continue
-        url = a["href"]
-        title = h3.get_text(strip=True)
-        results.append({"Title": title, "URL": url})
-        if len(results) >= num: break
+        if a and a.has_attr("href"):
+            results.append({"Title": h3.get_text(strip=True), "URL": a["href"]})
+            if len(results) >= num:
+                break
     return results
 
 
 def main():
     st.title("🌐 Google Scraper")
-    st.markdown("Scrapa i primi risultati organici di Google per keyword e paese.")
+    st.markdown("Scrapa i primi risultati organici di Google per keyword, paese e numero di risultati.")
     st.divider()
 
-    # Rimuoviamo form per gestire input subito
     col1, col2, col3 = st.columns(3, gap="small")
     with col1:
         keyword = st.text_input(
             "🔑 Keyword da cercare",
             placeholder="es. chatbot AI",
-            value="",
             key="keyword"
         )
     with col2:
         country = st.selectbox(
             "🌍 Seleziona paese",
             ALL_COUNTRIES,
-            index=ALL_COUNTRIES.index("Italia")
+            index=ALL_COUNTRIES.index(st.session_state.country),
+            key="country"
         )
     with col3:
         num = st.selectbox(
             "🎯 Numero di risultati",
             options=list(range(1, 11)),
-            index=9  # default 10
+            index=st.session_state.num - 1,
+            key="num"
         )
 
     if st.button("🚀 Avvia scraping"):
-        if not keyword.strip():
+        if not keyword:
             st.error("Inserisci una keyword valida.")
             return
+        st.session_state.country = country
+        st.session_state.num = num
         with st.spinner(f"Scraping dei primi {num} risultati in {country}..."):
             try:
                 items = scrape_google(keyword, COUNTRIES[country], num)
@@ -104,7 +110,6 @@ def main():
             st.warning("Nessun risultato trovato.")
             return
 
-        # Visualizza risultati e download
         df = pd.DataFrame(items)
         st.dataframe(df, use_container_width=True)
 
@@ -112,11 +117,10 @@ def main():
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Risultati")
             ws = writer.sheets["Risultati"]
-            for col_cells in ws.columns:
-                length = max(len(str(cell.value)) for cell in col_cells) + 2
-                ws.column_dimensions[col_cells[0].column_letter].width = length
+            for col in ws.columns:
+                length = max(len(str(cell.value)) for cell in col) + 2
+                ws.column_dimensions[col[0].column_letter].width = length
         buf.seek(0)
-
         st.download_button(
             "📥 Scarica XLSX",
             data=buf,
