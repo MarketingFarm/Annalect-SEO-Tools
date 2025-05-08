@@ -32,13 +32,15 @@ COUNTRIES = {
 }
 ALL_COUNTRIES = sorted(COUNTRIES.keys())
 
+# Pre-configuriamo le opzioni in globale come nell'esempio ufficiale
+options = Options()
+options.add_argument('--headless')
+options.add_argument('--disable-gpu')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+
 @st.cache_resource
 def get_driver():
-    options = Options()
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
     service = Service(
         ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
     )
@@ -77,8 +79,8 @@ def main():
     if not SELENIUM_AVAILABLE:
         st.error(
             "Il modulo Selenium non è installato. "
-            "Aggiungi `selenium`, `webdriver-manager` e `webdriver-manager-core` "
-            "al tuo requirements.txt e ripubblica l'app. Errore: " + SELENIUM_ERROR
+            "Aggiungi a requirements.txt: selenium, webdriver-manager, webdriver-manager-core. "
+            f"Errore: {SELENIUM_ERROR}"
         )
         return
 
