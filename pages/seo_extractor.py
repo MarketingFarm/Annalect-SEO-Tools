@@ -54,20 +54,30 @@ def estrai_info(url: str) -> dict:
 
 def main():
     st.title("🔍 SEO Extractor")
-
     # Spiegazione
     st.markdown(
         "Estrai H1–H4 dal contenuto principale (main/article), più "
         "Meta title/description, Canonical e Meta robots."
     )
-
     # Avviso in box info
     st.info(
-        "⚠️ Nota: l'estrazione degli heading può variare a seconda di come la pagina viene renderizzata. "
-        "Verifica sempre su una pagina di prova che tutti gli heading vengano estratti correttamente."
+        "⚠️ Nota: l'estrazione degli heading può variare a seconda di come "
+        "la pagina viene renderizzata. Verifica sempre su una pagina di prova "
+        "che tutti gli heading vengano estratti correttamente."
     )
-
     st.divider()
+
+    # CSS per aumentare spazio tra righe dei pills
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stPills"] > button {
+            margin-bottom: 0.5rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
     col1, col2 = st.columns([2, 1], gap="large")
     with col1:
@@ -130,9 +140,17 @@ def main():
         df = df[cols]
 
         st.dataframe(df, use_container_width=True)
+
+        # Genera Excel con colonne auto-adattate
         buf = BytesIO()
-        df.to_excel(buf, index=False, engine="openpyxl")
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Sheet1")
+            ws = writer.sheets["Sheet1"]
+            for col_cells in ws.columns:
+                length = max(len(str(cell.value)) for cell in col_cells) + 2
+                ws.column_dimensions[col_cells[0].column_letter].width = length
         buf.seek(0)
+
         st.download_button(
             "📥 Download XLSX",
             data=buf,
