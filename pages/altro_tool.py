@@ -11,20 +11,34 @@ BASE_HEADERS = {
                   "Chrome/115.0.0.0 Safari/537.36"
 }
 
-# Mappa nome-paese → codice GL per Google
+# Mappa nome-paese → codice GL per Google (principali paesi europei inclusi)
 COUNTRIES = {
-    "Italia": "it",
-    "Stati Uniti": "us",
-    "Regno Unito": "uk",
-    "Germania": "de",
-    "Francia": "fr",
-    "Spagna": "es",
+    "Australia": "au",
+    "Belgio": "be",
     "Brasile": "br",
-    "Giappone": "jp",
     "Canada": "ca",
+    "Germania": "de",
+    "Spagna": "es",
+    "Stati Uniti": "us",
+    "Francia": "fr",
+    "Grecia": "gr",
     "India": "in",
-    # aggiungi altri paesi se ti servono…
+    "Irlanda": "ie",
+    "Italia": "it",
+    "Giappone": "jp",
+    "Paesi Bassi": "nl",
+    "Polonia": "pl",
+    "Portogallo": "pt",
+    "Repubblica Ceca": "cz",
+    "Regno Unito": "uk",
+    "Romania": "ro",
+    "Svezia": "se",
+    "Svizzera": "ch",
+    "Ungheria": "hu"
 }
+
+# Ordiniamo alfabeticamente le chiavi
+ALL_COUNTRIES = sorted(COUNTRIES.keys(), key=lambda x: x)
 
 def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
     """
@@ -69,7 +83,11 @@ def main():
     with col1:
         keyword = st.text_input("🔑 Keyword da cercare", placeholder="es. chatbot AI")
     with col2:
-        country = st.selectbox("🌍 Seleziona paese", list(COUNTRIES.keys()), index=0)
+        # Filtro di ricerca per il paese
+        filter_text = st.text_input("🔎 Filtra paese", placeholder="Digita per cercare...")
+        countries = [c for c in ALL_COUNTRIES if filter_text.lower() in c.lower()] if filter_text else ALL_COUNTRIES
+        # Selezione paese
+        country = st.selectbox("🌍 Seleziona paese", countries, index=countries.index("Italia") if "Italia" in countries else 0)
     with col3:
         num = st.selectbox(
             "🎯 Numero di risultati",
