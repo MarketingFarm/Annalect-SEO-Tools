@@ -7,13 +7,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Sidebar: logo
-st.sidebar.markdown(
-    '<div style="text-align:center; margin-bottom:20px;">'
-    '<img src="https://i.ibb.co/0yMG6kDs/logo.png" width="40"/>'
-    '</div>',
-    unsafe_allow_html=True
-)
+# Sidebar: logo in alto
+with st.sidebar:
+    st.image(
+        "https://i.ibb.co/C57SRppY/annalect-logo-400x113.png",
+        use_column_width=True
+    )
+    st.markdown("---")  # separatore
 
 # Definizione delle pagine (tool)
 pages = {
@@ -29,6 +29,12 @@ pages = {
     ]
 }
 
-# Renderizza il menu e avvia la pagina selezionata
-selected_page = st.navigation(pages, position="sidebar", expanded=True)
+# Menu di navigazione subito sotto il logo
+selected_page = st.sidebar.navigation(
+    pages,
+    position="sidebar",
+    expanded=True
+)
+
+# Esegui la pagina selezionata
 selected_page.run()
