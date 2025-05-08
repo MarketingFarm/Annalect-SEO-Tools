@@ -23,14 +23,12 @@ pages = {
     ],
     "Technical SEO": [
         # st.Page("pages/tool2.py", title="🛠️ Tool A"),
-        # …
     ],
     "Off-Page SEO": [
         # st.Page("pages/tool4.py", title="🛠️ Tool C"),
-        # …
     ]
 }
 
-# Renderizza il menu di navigazione e avvia la pagina selezionata
+# Renderizza il menu e avvia la pagina selezionata
 selected_page = st.navigation(pages, position="sidebar", expanded=True)
 selected_page.run()
