@@ -34,14 +34,14 @@ def estrai_info(url: str) -> dict:
         "Meta robots": robots["content"].strip() if robots and robots.has_attr("content") else ""
     }
 
-
+# Funzione main per l'interfaccia Streamlit
 def main():
-    # Titolo e descrizione
     st.title("🔍 SEO Extractor")
-    st.markdown("Estrai H1, H2, Meta title/length, Meta description/length, Canonical e Meta robots.")
+    st.markdown(
+        "Estrai H1, H2, Meta title/length, Meta description/length, Canonical e Meta robots."
+    )
     st.divider()
 
-    # Layout colonne
     col1, col2 = st.columns([2, 1], gap="large")
     with col1:
         urls = st.text_area(
@@ -50,7 +50,7 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        # Selezione campi da estrarre usando un esempio
+        # Mostra i campi disponibili
         example_keys = list(estrai_info("https://www.example.com").keys())
         fields = st.pills(
             "Campi da estrarre",
@@ -59,7 +59,6 @@ def main():
             default=[]
         )
 
-    # Avvio estrazione
     if st.button("🚀 Avvia Estrazione"):
         if not fields:
             st.error("Seleziona almeno un campo.")
@@ -78,6 +77,7 @@ def main():
                     info = estrai_info(u)
                 except Exception as e:
                     info = {k: f"Errore: {e}" for k in example_keys}
+
                 row = {"URL": u}
                 for f in fields:
                     row[f] = info.get(f, "")
@@ -87,11 +87,9 @@ def main():
         st.success(f"Analizzati {len(url_list)} URL.")
         st.balloons()
 
-        # Mostro DataFrame
         df = pd.DataFrame(results)
         st.dataframe(df, use_container_width=True)
 
-        # Bottone per download Excel
         buf = BytesIO()
         df.to_excel(buf, index=False, engine="openpyxl")
         buf.seek(0)
@@ -102,7 +100,5 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-
-# Esegui main solo quando importato come pagina
-if __name__ == "__page__":
-    main()
+# Esegui la pagina al caricamente (rimuovi qualsiasi guardia)
+main()
