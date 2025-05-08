@@ -7,13 +7,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Sidebar: logo in alto
-with st.sidebar:
-    st.image(
-        "https://i.ibb.co/C57SRppY/annalect-logo-400x113.png",
-        use_container_width=True
-    )
-    st.markdown("---")  # separatore
+# Logo in alto nella sidebar
+st.sidebar.image(
+    "https://i.ibb.co/C57SRppY/annalect-logo-400x113.png",
+    use_container_width=True
+)
+st.sidebar.markdown("---")  # linea di separazione
 
 # Definizione delle pagine (tool)
 pages = {
@@ -22,14 +21,14 @@ pages = {
         st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool")
     ],
     "Technical SEO": [
-        # aggiungi qui altri tool
+        # st.Page("pages/tool2.py", title="🛠️ Tool A"),
     ],
     "Off-Page SEO": [
-        # aggiungi qui altri tool
+        # st.Page("pages/tool4.py", title="🛠️ Tool C"),
     ]
 }
 
-# Menu di navigazione (renderizzato nella sidebar, subito sotto il logo)
+# Menu di navigazione subito sotto il logo nella stessa sidebar
 selected_page = st.navigation(
     pages,
     position="sidebar",
