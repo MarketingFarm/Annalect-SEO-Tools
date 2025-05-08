@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit import Page
 
 # Configurazione pagina
 st.set_page_config(
@@ -20,16 +19,16 @@ st.sidebar.markdown(
 # Definizione delle pagine (tool)
 pages = {
     "On-Page SEO": [
-        Page("pages/seo_extractor.py", title="🔍 SEO Extractor", icon="🔍"),
-        Page("pages/altro_tool.py",    title="🛠️ Altro Tool",      icon="🛠️")
+        st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor", icon="🔍"),
+        st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool",      icon="🛠️")
     ],
     "Technical SEO": [
-        # Page("pages/tool2.py", title="🛠️ Tool A", icon="⚙️"),
-        # Page("pages/tool3.py", title="🛠️ Tool B", icon="⚙️")
+        # st.Page("pages/tool2.py", title="🛠️ Tool A", icon="⚙️"),
+        # st.Page("pages/tool3.py", title="🛠️ Tool B", icon="⚙️")
     ],
     "Off-Page SEO": [
-        # Page("pages/tool4.py", title="🛠️ Tool C", icon="📈"),
-        # Page("pages/tool5.py", title="🛠️ Tool D", icon="🔗")
+        # st.Page("pages/tool4.py", title="🛠️ Tool C", icon="📈"),
+        # st.Page("pages/tool5.py", title="🛠️ Tool D", icon="🔗")
     ]
 }
 
