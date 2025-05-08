@@ -7,10 +7,11 @@ import logging
 # Prova import Selenium, altrimenti mostra messaggio
 try:
     from selenium import webdriver
-    from selenium.webdriver.chrome.service import Service
     from selenium.webdriver.common.by import By
     from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
     from webdriver_manager.chrome import ChromeDriverManager
+    from webdriver_manager.core.os_manager import ChromeType
     SELENIUM_AVAILABLE = True
 except ImportError as e:
     SELENIUM_AVAILABLE = False
@@ -38,7 +39,9 @@ def get_driver():
     options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    service = Service(ChromeDriverManager().install())
+    service = Service(
+        ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+    )
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
@@ -47,7 +50,7 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
     driver = get_driver()
     query = keyword.replace(' ', '+')
     url = (
-        f"https://www.google.com/search?q={query}&num={num}" 
+        f"https://www.google.com/search?q={query}&num={num}"
         f"&hl=it&gl={country_code}&pws=0&filter=0"
     )
     logger.info(f"Navigating to {url}")
@@ -74,8 +77,8 @@ def main():
     if not SELENIUM_AVAILABLE:
         st.error(
             "Il modulo Selenium non è installato. "
-            "Aggiungi `selenium` e `webdriver-manager` al tuo requirements.txt "
-            "e ripubblica l'app. Errore: " + SELENIUM_ERROR
+            "Aggiungi `selenium`, `webdriver-manager` e `webdriver-manager-core` "
+            "al tuo requirements.txt e ripubblica l'app. Errore: " + SELENIUM_ERROR
         )
         return
 
