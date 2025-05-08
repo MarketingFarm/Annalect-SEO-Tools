@@ -14,6 +14,8 @@ try:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
     from webdriver_manager.chrome import ChromeDriverManager
     from webdriver_manager.core.os_manager import ChromeType
     SELENIUM_AVAILABLE = True
@@ -36,12 +38,14 @@ COUNTRIES = {
 }
 ALL_COUNTRIES = sorted(COUNTRIES.keys())
 
-# Pre-configuriamo le opzioni come nell'esempio ufficiale
+# ChromeOptions configurate come da esempio Streamlit Cloud
 options = Options()
-options.add_argument('--headless')
+options.add_argument('--headless=new')
 options.add_argument('--disable-gpu')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
+# Disabilita caricamento immagini per performance
+options.add_argument('--blink-settings=imagesEnabled=false')
 
 @st.cache_resource
 def get_driver():
@@ -61,27 +65,32 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
     )
     logger.info(f"Navigating to {url}")
     driver.get(url)
-    time.sleep(2)
-    items = []
-    # Trova tutti gli h3 sotto link
+    # Aspetta fino a 10s che appaiano i risultati
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//a[.//h3]"))
+        )
+    except Exception:
+        logger.warning("Timeout waiting for search results")
+    # Trova link con h3
     anchors = driver.find_elements(By.XPATH, "//a[.//h3]")
+    items = []
     for a in anchors:
-        try:
-            h3 = a.find_element(By.TAG_NAME, 'h3')
-            title = h3.text
-            href = a.get_attribute('href')
-            if title and href:
-                items.append({'Title': title, 'URL': href})
-                if len(items) >= num:
-                    break
-        except Exception:
-            continue
+        h3 = a.find_element(By.TAG_NAME, 'h3')
+        title = h3.text
+        href = a.get_attribute('href')
+        if title and href:
+            items.append({'Title': title, 'URL': href})
+            if len(items) >= num:
+                break
+    # Chiude driver per evitare sessioni multiple
+    driver.quit()
     return items
 
 
 def main():
     st.title("🌐 Google Scraper con Selenium")
-    st.markdown("Scrapa i risultati di Google usando Selenium headless.")
+    st.markdown("Scrapa i risultati di Google usando Selenium headless con explicit wait.")
 
     if not SELENIUM_AVAILABLE:
         st.error(
