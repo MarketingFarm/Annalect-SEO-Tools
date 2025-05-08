@@ -65,6 +65,16 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
     )
     logger.info(f"Navigating to {url}")
     driver.get(url)
+    # gestisci banner cookie EU se presente
+    try:
+        # cerca bottone accetta cookie (Italiano/English)
+        btn = driver.find_element(By.XPATH,
+            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accetta') or contains(., 'I agree') or contains(., 'Accept all')]")
+        btn.click()
+        logger.info('Cookie banner accepted')
+        time.sleep(1)
+    except Exception:
+        pass
     # Aspetta fino a 10s che appaiano i risultati
     try:
         WebDriverWait(driver, 10).until(
