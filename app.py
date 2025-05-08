@@ -16,25 +16,25 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Definizione delle pagine (tool)
-pages = {
+# Definizione delle pagine (tool) senza icone separate
+docs_pages = {
     "On-Page SEO": [
-        st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor", icon="🔍"),
-        st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool",      icon="🛠️")
+        st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
+        st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool")
     ],
     "Technical SEO": [
-        # st.Page("pages/tool2.py", title="🛠️ Tool A", icon="⚙️"),
-        # st.Page("pages/tool3.py", title="🛠️ Tool B", icon="⚙️")
+        # st.Page("pages/tool2.py", title="🛠️ Tool A"),
+        # st.Page("pages/tool3.py", title="🛠️ Tool B")
     ],
     "Off-Page SEO": [
-        # st.Page("pages/tool4.py", title="🛠️ Tool C", icon="📈"),
-        # st.Page("pages/tool5.py", title="🛠️ Tool D", icon="🔗")
+        # st.Page("pages/tool4.py", title="🛠️ Tool C"),
+        # st.Page("pages/tool5.py", title="🛠️ Tool D")
     ]
 }
 
 # Renderizza il menu di navigazione nella sidebar
 selected_page = st.navigation(
-    pages,
+    docs_pages,
     position="sidebar",
     expanded=True
 )
