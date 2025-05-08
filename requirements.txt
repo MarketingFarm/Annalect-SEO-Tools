@@ -3,5 +3,5 @@ requests
 beautifulsoup4
 pandas
 openpyxl
-selenium
-webdriver-manager
+selenium>=4.10.0
+webdriver-manager>=4.0.0
