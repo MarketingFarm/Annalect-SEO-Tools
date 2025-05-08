@@ -3,11 +3,11 @@ import pandas as pd
 from io import BytesIO
 import time
 
-# Import dei parser SERP da cartella parserp
+# Import dei parser SERP da cartella pages/parserp
 from pages.parserp.inline_shopping import parse_inline_shopping
-from parserp.organic_results import parse_organic_results
-from parserp.paa_results import parse_paa_results
-from parserp.related_searches import parse_related_searches
+from pages.parserp.organic_results import parse_organic_results
+from pages.parserp.paa_results import parse_paa_results
+from pages.parserp.related_searches import parse_related_searches
 
 # Configurazione delle pagine e lingua
 PAESI_GOOGLE = {
