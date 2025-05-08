@@ -54,16 +54,19 @@ def estrai_info(url: str) -> dict:
 
 def main():
     st.title("🔍 SEO Extractor")
-    # Nota evidenziata sull'influenza del rendering
-    st.markdown(
-        "⚠️ **Nota:** l'estrazione degli heading potrebbe dipendere da come la pagina viene renderizzata. "
-        "Verifica sempre su una pagina di prova che tutti gli heading vengano estratti correttamente.",
-        unsafe_allow_html=True
-    )
+
+    # Spiegazione
     st.markdown(
         "Estrai H1–H4 dal contenuto principale (main/article), più "
         "Meta title/description, Canonical e Meta robots."
     )
+
+    # Avviso in box info
+    st.info(
+        "⚠️ Nota: l'estrazione degli heading può variare a seconda di come la pagina viene renderizzata. "
+        "Verifica sempre su una pagina di prova che tutti gli heading vengano estratti correttamente."
+    )
+
     st.divider()
 
     col1, col2 = st.columns([2, 1], gap="large")
