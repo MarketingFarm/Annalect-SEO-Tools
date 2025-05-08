@@ -4,17 +4,37 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
+# Proviamo a importare requests_html per rendering JS
+try:
+    from requests_html import HTMLSession
+    HAS_JS_RENDER = True
+except ImportError:
+    HAS_JS_RENDER = False
+
 # Headers per richieste HTTP
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# Funzione per estrarre info SEO esclusivamente dal contenuto principale
-# con fallback su diversi selettori comuni
-def estrai_info(url: str) -> dict:
-    resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+# Funzione per ottenere HTML, con render JS se possibile
+def fetch_html(url: str) -> str:
+    if HAS_JS_RENDER:
+        session = HTMLSession()
+        r = session.get(url, headers=BASE_HEADERS, timeout=10)
+        try:
+            r.html.render(timeout=20)
+        except Exception:
+            pass
+        return r.html.html
+    else:
+        resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
+        resp.raise_for_status()
+        return resp.text
 
-    # Prova diversi selettori di contenuto principale
+# Funzione per estrarre info SEO dal contenuto principale
+def estrai_info(url: str) -> dict:
+    html = fetch_html(url)
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Selettori contenuto principale comuni
     content = (
         soup.find("main")
         or soup.find("article")
@@ -25,13 +45,13 @@ def estrai_info(url: str) -> dict:
         or soup
     )
 
-    # Estrai headings in content
+    # Estrai headings
     h1_tag = content.find("h1")
     h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
     h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
 
-    # Meta e altri dati SEO (prendo da soup intero)
+    # Meta dati
     title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
@@ -50,12 +70,15 @@ def estrai_info(url: str) -> dict:
         "Meta robots": robots["content"].strip() if robots and robots.has_attr("content") else ""
     }
 
-# Funzione main per interfaccia Streamlit
+# Interfaccia Streamlit
+
 def main():
-    st.title("🔍 SEO Extractor")
+    st.title("🔍 SEO Extractor con JS Rendering")
+    if not HAS_JS_RENDER:
+        st.warning("Per estrarre contenuti caricati via JS installa `requests-html` nelle dipendenze.")
     st.markdown(
-        "Estrai H1, H2, H3, H4 dal contenuto principale (main/article/content), plus Meta title e description.\n"
-        "Le colonne 'length' di title e description vengono incluse solo se selezioni i campi corrispondenti."
+        "Estrai H1–H4 dal contenuto principale, anche se gestito via JS, e Meta title/description.\n"
+        "Le colonne 'length' vengono incluse solo se selezionati i rispettivi campi."
     )
     st.divider()
 
@@ -80,7 +103,6 @@ def main():
         if not fields:
             st.error("Seleziona almeno un campo.")
             return
-
         url_list = [u.strip() for u in urls.splitlines() if u.strip()]
         if not url_list:
             st.error("Inserisci almeno un URL valido.")
@@ -88,13 +110,11 @@ def main():
 
         prog = st.progress(0)
         results = []
-
         for i, u in enumerate(url_list, 1):
             try:
                 info = estrai_info(u)
             except Exception as e:
                 info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in sample_info.keys()}
-
             row = {"URL": u}
             for f in fields:
                 row[f] = info.get(f, "")
@@ -102,12 +122,10 @@ def main():
                 row["Meta title length"] = info.get("Meta title length", 0)
             if "Meta description" in fields:
                 row["Meta description length"] = info.get("Meta description length", 0)
-
             results.append(row)
             prog.progress(int(i / len(url_list) * 100))
 
         st.success(f"Analizzati {len(url_list)} URL.")
-
         df = pd.DataFrame(results)
         cols = ["URL"] + fields
         if "Meta title" in fields:
@@ -115,9 +133,7 @@ def main():
         if "Meta description" in fields:
             cols.append("Meta description length")
         df = df[cols]
-
         st.dataframe(df, use_container_width=True)
-
         buf = BytesIO()
         df.to_excel(buf, index=False, engine="openpyxl")
         buf.seek(0)
@@ -128,6 +144,5 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# Esegui la pagina
 if __name__ == "__main__":
     main()
