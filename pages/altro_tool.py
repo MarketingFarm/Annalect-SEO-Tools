@@ -49,14 +49,19 @@ options.add_argument('--blink-settings=imagesEnabled=false')
 
 # Non cache il driver: crea una nuova istanza ogni volta
 def get_driver():
-        # Install Chromium driver matching the installed Chromium
+    """
+    Installa e configura il ChromeDriver compatibile con Chromium.
+    """
+    # Installa il driver per Chromium
     driver_path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
     service = Service(driver_path)
-    # Explicitly set binary location for Chromium
+    # Imposta percorso del binario di Chromium
     options.binary_location = '/usr/bin/chromium'
-    driver = webdriver.Chrome(service=service, options=options).install()
-    )
-    driver = webdriver.Chrome(service=service, options=options)
+    try:
+        driver = webdriver.Chrome(service=service, options=options)
+    except Exception as e:
+        st.error(f"Errore durante l'avvio di ChromeDriver: {e}")
+        return None
     return driver
 
 
