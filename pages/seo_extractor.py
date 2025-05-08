@@ -1,23 +1,27 @@
+import os
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
-# Proviamo a importare Playwright
+# Alla prima esecuzione installa browser e dipendenze di sistema
+os.system('playwright install --with-deps chromium')
+os.system('playwright install-deps')
+
+# Import Playwright
 try:
     from playwright.sync_api import sync_playwright
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
 
-# Headers per requests
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 def fetch_html(url: str) -> str:
     """
-    Usa Playwright per caricare la pagina e aspettare il tuo H3 dinamico,
-    poi torna l'HTML. Se Playwright non c'è o fallisce, fallback a requests.
+    Carica la pagina via Playwright per catturare il post-hydration,
+    altrimenti fallback a requests.get().
     """
     if HAS_PLAYWRIGHT:
         with sync_playwright() as p:
@@ -27,15 +31,15 @@ def fetch_html(url: str) -> str:
                 viewport={"width": 1280, "height": 800}
             )
             page.goto(url, wait_until="networkidle")
-            # Attendi esplicitamente l'H3 (sostituisci '.tuo-h3-selector' con il selettore reale)
+            # Attendi esplicitamente un H3 dinamico
             try:
                 page.wait_for_selector("h3", timeout=15000)
             except:
                 pass
-            html = page.content()
+            content = page.content()
             browser.close()
-            return html
-    # fallback
+            return content
+
     resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
     resp.raise_for_status()
     return resp.text
@@ -44,7 +48,7 @@ def estrai_info(url: str) -> dict:
     html = fetch_html(url)
     soup = BeautifulSoup(html, "html.parser")
 
-    # Selettori contenuto principale
+    # Cerca il main content
     content = (
         soup.find("main")
         or soup.find("article")
@@ -55,11 +59,13 @@ def estrai_info(url: str) -> dict:
         or soup
     )
 
+    # Headings
     h1 = content.find("h1")
     h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
     h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
 
+    # Meta globali
     title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
@@ -81,14 +87,17 @@ def estrai_info(url: str) -> dict:
 def main():
     st.title("🔍 SEO Extractor (Playwright)")
     if not HAS_PLAYWRIGHT:
-        st.warning("Per il JS-rendering installa `playwright` e lancia `playwright install chromium`.")
+        st.warning("Installa `playwright` e lancia:\n"
+                   "`playwright install --with-deps chromium` e\n"
+                   "`playwright install-deps`.")
     st.markdown(
-        "Estrai H1–H4 dal contenuto principale, anche post-hydration, più Meta title/description.\n"
-        "Le colonne 'length' appaiono solo se selezioni i corrispondenti campi."
+        "Estrai H1–H4 dal contenuto principale post-hydration,\n"
+        "più Meta title/description.\n"
+        "Seleziona i campi 'length' solo se servono."
     )
     st.divider()
 
-    col1, col2 = st.columns([2,1], gap="large")
+    col1, col2 = st.columns([2, 1], gap="large")
     with col1:
         urls = st.text_area(
             "Incolla URL (una per riga)",
@@ -97,8 +106,8 @@ def main():
         )
     with col2:
         example = estrai_info("https://www.example.com")
-        base_keys = [k for k in example.keys() if not k.endswith("length")]
-        fields = st.pills("Campi da estrarre", base_keys, selection_mode="multi", default=[])
+        keys = [k for k in example.keys() if not k.endswith("length")]
+        fields = st.pills("Campi da estrarre", keys, selection_mode="multi", default=[])
 
     if st.button("🚀 Avvia Estrazione"):
         if not fields:
@@ -111,11 +120,13 @@ def main():
 
         prog = st.progress(0)
         results = []
-        for i,u in enumerate(url_list,1):
+        for i, u in enumerate(url_list, 1):
             try:
                 info = estrai_info(u)
             except Exception as e:
-                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in example.keys()}
+                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0)
+                        for k in example.keys()}
+
             row = {"URL": u}
             for f in fields:
                 row[f] = info.get(f, "")
@@ -123,10 +134,11 @@ def main():
                 row["Meta title length"] = info["Meta title length"]
             if "Meta description" in fields:
                 row["Meta description length"] = info["Meta description length"]
-            results.append(row)
-            prog.progress(int(i/len(url_list)*100))
 
-        st.success(f"Analizzati {len(url_list)} URL.")
+            results.append(row)
+            prog.progress(int(i / len(url_list) * 100))
+
+        st.success(f"Analizzati {len(results)} URL.")
         df = pd.DataFrame(results)
         cols = ["URL"] + fields
         if "Meta title" in fields: cols.append("Meta title length")
@@ -139,7 +151,7 @@ def main():
         buf.seek(0)
         st.download_button(
             "📥 Download XLSX",
-            buf,
+            data=buf,
             file_name="estrazione_seo.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
