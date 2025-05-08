@@ -81,17 +81,17 @@ def main():
     # Disposizione su stessa riga per inputs
     col1, col2, col3 = st.columns(3, gap="small")
     with col1:
-        keyword = st.text_input("🔑 Keyword da cercare", placeholder="es. chatbot AI")
+        keyword = st.text_input("Keyword da ricercare", placeholder="es. chatbot AI")
     with col2:
         # Selezione paese (selectbox integrato è filtrabile digitando)
         country = st.selectbox(
-            "🌍 Seleziona paese",
+            "Seleziona il paese",
             ALL_COUNTRIES,
             index=ALL_COUNTRIES.index("Italia")
         )
     with col3:
         num = st.selectbox(
-            "🎯 Numero di risultati",
+            "Numero di risultati da estrarre",
             options=list(range(1, 11)),
             index=4
         )
