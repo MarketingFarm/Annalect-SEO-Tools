@@ -5,6 +5,11 @@ import pandas as pd
 from io import BytesIO
 import random
 import time
+import logging
+
+# Configura logging interno
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Lista estesa di User-Agent per rotazione
 USER_AGENTS = [
@@ -25,148 +30,87 @@ USER_AGENTS = [
     "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Mobile Safari/537.36",
 ]
 
-# Lista placeholder di proxy gratuiti (puoi popolare con IP:PORT validi)
-PROXIES = [
-    # "203.145.179.117:80",
-    # "138.128.88.83:8080",
-    # "51.158.20.241:8811",
-]
+# Proxy placeholder
+PROXIES = []
 
-# Mappa nome-paese → codice GL per Google (principali paesi europei inclusi)
-COUNTRIES = {
-    "Australia": "au",
-    "Belgio": "be",
-    "Brasile": "br",
-    "Canada": "ca",
-    "Germania": "de",
-    "Spagna": "es",
-    "Stati Uniti": "us",
-    "Francia": "fr",
-    "Grecia": "gr",
-    "India": "in",
-    "Irlanda": "ie",
-    "Italia": "it",
-    "Giappone": "jp",
-    "Paesi Bassi": "nl",
-    "Polonia": "pl",
-    "Portogallo": "pt",
-    "Repubblica Ceca": "cz",
-    "Regno Unito": "uk",
-    "Romania": "ro",
-    "Svezia": "se",
-    "Svizzera": "ch",
-    "Ungheria": "hu"
-}
-# Ordiniamo alfabeticamente le chiavi
-ALL_COUNTRIES = sorted(COUNTRIES.keys(), key=lambda x: x)
+# Paesi e codici
+COUNTRIES = {"Australia":"au","Belgio":"be","Brasile":"br","Canada":"ca","Germania":"de","Spagna":"es","Stati Uniti":"us","Francia":"fr","Grecia":"gr","India":"in","Irlanda":"ie","Italia":"it","Giappone":"jp","Paesi Bassi":"nl","Polonia":"pl","Portogallo":"pt","Repubblica Ceca":"cz","Regno Unito":"uk","Romania":"ro","Svezia":"se","Svizzera":"ch","Ungheria":"hu"}
+ALL_COUNTRIES = sorted(COUNTRIES.keys())
 
 
 def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
-    """
-    Esegue una query su Google con parametri anti-bot:
-    - rotazione User-Agent
-    - eventuale uso di proxy
-    - delay casuale
-    - parametri pws, filter
-    - header Accept-Language, Referer
-    """
-    # Delay random tra 2 e 5 secondi
-    time.sleep(random.uniform(2, 5))
+    # Ritardo random
+    delay = random.uniform(2, 5)
+    logger.info(f"Sleep for {delay:.2f}s before request")
+    time.sleep(delay)
 
-    # Costruzione headers
+    # Scegli headers e proxy
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
         "Referer": "https://www.google.com/"
     }
-
-    # Imposta proxy se disponibile
     proxies = None
     if PROXIES:
         proxy = random.choice(PROXIES)
         proxies = {"http": proxy, "https": proxy}
+        logger.info(f"Using proxy {proxy}")
 
-    # Parametri di query con timestamp anti-caching
-    params = {
-        "q": keyword,
-        "num": num,
-        "hl": "it",
-        "gl": country_code,
-        "pws": 0,
-        "filter": 0,
-        "_": int(time.time() * 1000)
-    }
+    params = {"q":keyword, "num":num, "hl":"it", "gl":country_code, "pws":0, "filter":0, "_":int(time.time()*1000)}
+    logger.info(f"Requesting Google with params: {params}")
 
-    resp = requests.get(
-        "https://www.google.com/search",
-        headers=headers,
-        params=params,
-        timeout=10,
-        proxies=proxies
-    )
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+    resp = requests.get("https://www.google.com/search", headers=headers, params=params, timeout=10, proxies=proxies)
+    logger.info(f"Response status: {resp.status_code}")
+    text = resp.text
+    # debug: log snippet
+    logger.debug(f"Response snippet: {text[:500]}")
 
+    if "Our systems have detected unusual traffic" in text:
+        logger.error("Captcha detected in response")
+        raise Exception("Google captcha detected: blocco temporaneo.")
+
+    soup = BeautifulSoup(text, "html.parser")
     results = []
     for h3 in soup.find_all("h3"):
         a = h3.find_parent("a")
         if a and a.has_attr("href"):
-            results.append({"Title": h3.get_text(strip=True), "URL": a["href"]})
-            if len(results) >= num:
+            title = h3.get_text(strip=True)
+            url = a["href"]
+            results.append({"Title":title, "URL":url})
+            if len(results)>=num:
                 break
+    logger.info(f"Found {len(results)} results")
     return results
 
 
 def main():
-    st.title("🌐 Google Scraper")
-    st.markdown(
-        "Scrapa i primi risultati organici di Google con pratiche anti-bot gratuite."
-    )
+    st.title("🌐 Google Scraper (DEBUG)")
+    st.markdown("*Versione con logging e controlli aggiuntivi*.")
     st.divider()
-
     col1, col2, col3 = st.columns(3, gap="small")
     with col1:
-        keyword = st.text_input("🔑 Keyword da cercare", placeholder="es. chatbot AI", key="keyword")
+        keyword = st.text_input("Keyword", key="keyword")
     with col2:
-        country = st.selectbox("🌍 Seleziona paese", ALL_COUNTRIES, index=ALL_COUNTRIES.index("Italia"), key="country")
+        country = st.selectbox("Paese", ALL_COUNTRIES, index=ALL_COUNTRIES.index("Italia"), key="country")
     with col3:
-        num = st.selectbox("🎯 Numero di risultati", options=list(range(1, 11)), index=9, key="num")
+        num = st.selectbox("Risultati", list(range(1,11)), index=9, key="num")
 
-    if st.button("🚀 Avvia scraping"):
-        if not keyword.strip():
-            st.error("Inserisci una keyword valida.")
+    if st.button("Avvia scraping"):
+        try:
+            items = scrape_google(keyword, COUNTRIES[country], num)
+        except Exception as e:
+            st.error(f"Errore: {e}")
             return
-        with st.spinner(f"Scraping dei primi {num} risultati in {country}..."):
-            try:
-                items = scrape_google(keyword, COUNTRIES[country], num)
-            except Exception as e:
-                st.error(f"Errore durante lo scraping: {e}")
-                return
-
         if not items:
-            st.warning(
-                "Nessun risultato trovato. Potresti essere bloccato: considera di aggiungere proxy o usare un servizio API dedicato."
-            )
+            st.warning("Nessun risultato rilevato dal parser. Controlla gli snippet nei log.")
             return
-
         df = pd.DataFrame(items)
-        st.dataframe(df, use_container_width=True)
-
+        st.dataframe(df)
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Risultati")
-            ws = writer.sheets["Risultati"]
-            for col_cells in ws.columns:
-                length = max(len(str(cell.value)) for cell in col_cells) + 2
-                ws.column_dimensions[col_cells[0].column_letter].width = length
+            df.to_excel(writer, index=False)
         buf.seek(0)
+        st.download_button("Download XLSX", data=buf, file_name="results.xlsx")
 
-        st.download_button(
-            "📥 Scarica XLSX",
-            data=buf,
-            file_name="google_scraping.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
