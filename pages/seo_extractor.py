@@ -54,6 +54,7 @@ def estrai_info(url: str) -> dict:
 
 def main():
     st.title("🔍 SEO Extractor")
+
     # Spiegazione
     st.markdown(
         "Estrai H1–H4 dal contenuto principale (main/article), più "
@@ -116,10 +117,12 @@ def main():
                         for k in example.keys()}
 
             row = {"URL": u}
-            # Ordina sempre H1–H4 se selezionati
-            ordered_h = [h for h in ["H1", "H2", "H3", "H4"] if h in fields]
-            for h in ordered_h:
-                row[h] = info.get(h, "")
+            # Costruisci ordine fisso: headings poi meta
+            ordered_fields = []
+            for key in ["H1", "H2", "H3", "H4", "Meta title", "Meta description"]:
+                if key in fields:
+                    ordered_fields.append(key)
+                    row[key] = info.get(key, "")
             # Lunghezze condizionali
             if "Meta title" in fields:
                 row["Meta title length"] = info["Meta title length"]
@@ -132,7 +135,7 @@ def main():
         st.success(f"Analizzati {len(results)} URL.")
         df = pd.DataFrame(results)
         # Costruisci colonne in ordine fisso
-        cols = ["URL"] + ordered_h
+        cols = ["URL"] + ordered_fields
         if "Meta title" in fields:
             cols.append("Meta title length")
         if "Meta description" in fields:
