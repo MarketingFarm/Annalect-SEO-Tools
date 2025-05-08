@@ -34,8 +34,10 @@ def estrai_info(url: str) -> dict:
 # Funzione main per interfaccia Streamlit
 def main():
     st.title("🔍 SEO Extractor")
-    st.markdown("Estrai H1, H2, Meta title, Meta description, Canonical e Meta robots.\n" \
-                "I campi 'Meta title length' e 'Meta description length' sono sempre inclusi nell'export.")
+    st.markdown(
+        "Estrai H1, H2, Meta title, Meta description, Canonical e Meta robots.\n"
+        "Le colonne di lunghezza vengono incluse solo se selezioni i relativi campi."
+    )
     st.divider()
 
     col1, col2 = st.columns([2, 1], gap="large")
@@ -46,12 +48,12 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        # Ottieni chiavi e rimuovi i campi di lunghezza
+        # Ottieni chiavi base (senza lunghezze)
         sample_info = estrai_info("https://www.example.com")
-        example_keys = [k for k in sample_info.keys() if k not in ("Meta title length", "Meta description length")]
+        base_keys = [k for k in sample_info.keys() if k not in ("Meta title length", "Meta description length")]
         fields = st.pills(
             "Campi da estrarre",
-            example_keys,
+            base_keys,
             selection_mode="multi",
             default=[]
         )
@@ -79,9 +81,11 @@ def main():
             # Aggiungi i campi selezionati
             for f in fields:
                 row[f] = info.get(f, "")
-            # Aggiungi sempre le lunghezze
-            row["Meta title length"] = info.get("Meta title length", 0)
-            row["Meta description length"] = info.get("Meta description length", 0)
+            # Aggiungi i campi di lunghezza solo se selezionati
+            if "Meta title" in fields:
+                row["Meta title length"] = info.get("Meta title length", 0)
+            if "Meta description" in fields:
+                row["Meta description length"] = info.get("Meta description length", 0)
 
             results.append(row)
             prog.progress(int(i / len(url_list) * 100))
@@ -89,8 +93,12 @@ def main():
         st.success(f"Analizzati {len(url_list)} URL.")
 
         df = pd.DataFrame(results)
-        # Riordina colonne: URL, campi selezionati, poi lunghezze
-        cols = ["URL"] + fields + ["Meta title length", "Meta description length"]
+        # Costruisci dinamicamente ordine colonne
+        cols = ["URL"] + fields
+        if "Meta title" in fields:
+            cols.append("Meta title length")
+        if "Meta description" in fields:
+            cols.append("Meta description length")
         df = df[cols]
 
         st.dataframe(df, use_container_width=True)
