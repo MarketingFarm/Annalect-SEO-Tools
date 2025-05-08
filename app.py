@@ -11,7 +11,7 @@ st.set_page_config(
 with st.sidebar:
     st.image(
         "https://i.ibb.co/C57SRppY/annalect-logo-400x113.png",
-        use_column_width=True
+        use_container_width=True
     )
     st.markdown("---")  # separatore
 
@@ -29,8 +29,8 @@ pages = {
     ]
 }
 
-# Menu di navigazione subito sotto il logo
-selected_page = st.sidebar.navigation(
+# Menu di navigazione (renderizzato nella sidebar, subito sotto il logo)
+selected_page = st.navigation(
     pages,
     position="sidebar",
     expanded=True
