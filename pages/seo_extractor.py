@@ -4,19 +4,6 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizzato per Streamlit
-st.markdown("""
-<style>
- label[data-testid="stWidgetLabel"] { display: none !important; }
- /* Barra rossa sempre, stato attivo e completato */
- .stProgress > div > div > div { background-color: #f63366 !important; }
- .stProgress > div > div { background-color: #f63366 !important; }
- /* Override anche per il progressbar completato */
- .stProgress > div > div[role="progressbar"] { background-color: #f63366 !important; }
- .stProgress > div > div[role="progressbar"] > div { background-color: #f63366 !important; }
-</style>
-""", unsafe_allow_html=True)
-
 # Headers per richieste HTTP
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
@@ -83,21 +70,20 @@ def main():
 
         prog = st.progress(0)
         results = []
-        with st.spinner("Analisi in corso…"):
-            for i, u in enumerate(url_list, 1):
-                try:
-                    info = estrai_info(u)
-                except Exception as e:
-                    info = {k: f"Errore: {e}" for k in example_keys}
+        # Esegui estrazione
+        for i, u in enumerate(url_list, 1):
+            try:
+                info = estrai_info(u)
+            except Exception as e:
+                info = {k: f"Errore: {e}" for k in example_keys}
 
-                row = {"URL": u}
-                for f in fields:
-                    row[f] = info.get(f, "")
-                results.append(row)
-                prog.progress(int(i / len(url_list) * 100))
+            row = {"URL": u}
+            for f in fields:
+                row[f] = info.get(f, "")
+            results.append(row)
+            prog.progress(int(i / len(url_list) * 100))
 
         st.success(f"Analizzati {len(url_list)} URL.")
-        st.balloons()
 
         df = pd.DataFrame(results)
         st.dataframe(df, use_container_width=True)
@@ -112,9 +98,6 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# Esegui la pagina al caricamento
-def run():
-    main()
-
+# Esegui la pagina
 if __name__ == "__main__":
-    run()
+    main()
