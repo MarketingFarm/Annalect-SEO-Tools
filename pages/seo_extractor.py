@@ -1,53 +1,22 @@
-import os
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
-# Alla prima esecuzione, installa Playwright e dipendenze di sistema
-os.system('playwright install --with-deps chromium')
-os.system('playwright install-deps')
-
-# Import Playwright
-try:
-    from playwright.sync_api import sync_playwright
-    HAS_PLAYWRIGHT = True
-except ImportError:
-    HAS_PLAYWRIGHT = False
-
+# User-Agent per le richieste
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-def fetch_html(url: str) -> str:
+def estrai_info(url: str) -> dict:
     """
-    Carica la pagina con Playwright (post-hydration) o fallback a requests.get().
+    Fa GET via requests, parsea con BeautifulSoup e restituisce
+    dizionario con H1–H4, Meta title/description, canonical e robots.
     """
-    if HAS_PLAYWRIGHT:
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page(
-                user_agent=BASE_HEADERS["User-Agent"],
-                viewport={"width": 1280, "height": 800}
-            )
-            page.goto(url, wait_until="networkidle")
-            # Attendi un H3 dinamico (modifica il selettore se serve)
-            try:
-                page.wait_for_selector("h3", timeout=15000)
-            except:
-                pass
-            html = page.content()
-            browser.close()
-            return html
-
     resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
     resp.raise_for_status()
-    return resp.text
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-def estrai_info(url: str) -> dict:
-    html = fetch_html(url)
-    soup = BeautifulSoup(html, "html.parser")
-
-    # Trova il contenuto principale
+    # Selezione del main content (fallback su body)
     content = (
         soup.find("main")
         or soup.find("article")
@@ -58,13 +27,13 @@ def estrai_info(url: str) -> dict:
         or soup
     )
 
-    # Estrai headings
+    # Estrazione headings
     h1 = content.find("h1")
     h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
     h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
 
-    # Meta dati globali
+    # Meta SEO globali
     title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
@@ -84,14 +53,10 @@ def estrai_info(url: str) -> dict:
     }
 
 def main():
-    st.title("🔍 SEO Extractor (Playwright)")
-    if not HAS_PLAYWRIGHT:
-        st.warning("Installa `playwright` e poi esegui:\n"
-                   "`playwright install --with-deps chromium`\n"
-                   "`playwright install-deps`")
+    st.title("🔍 SEO Extractor")
     st.markdown(
-        "Estrai H1–H4 dal contenuto principale post-hydration, più Meta title/description.\n"
-        "Le colonne 'length' appaiono solo se selezioni i campi corrispondenti."
+        "Estrai H1–H4 dal contenuto principale (main/article), più "
+        "Meta title/description, Canonical e Meta robots."
     )
     st.divider()
 
@@ -104,8 +69,13 @@ def main():
         )
     with col2:
         example = estrai_info("https://www.example.com")
-        keys = [k for k in example.keys() if not k.endswith("length")]
-        fields = st.pills("Campi da estrarre", keys, selection_mode="multi", default=[])
+        # Mostra solo i campi base (senza *length) nel menu
+        fields = st.pills(
+            "Campi da estrarre",
+            [k for k in example.keys() if not k.endswith("length")],
+            selection_mode="multi",
+            default=[]
+        )
 
     if st.button("🚀 Avvia Estrazione"):
         if not fields:
@@ -126,8 +96,10 @@ def main():
                         for k in example.keys()}
 
             row = {"URL": u}
+            # Aggiungi campi scelti
             for f in fields:
                 row[f] = info.get(f, "")
+            # Aggiungi lunghezze solo se selezionate
             if "Meta title" in fields:
                 row["Meta title length"] = info["Meta title length"]
             if "Meta description" in fields:
@@ -138,6 +110,7 @@ def main():
 
         st.success(f"Analizzati {len(results)} URL.")
         df = pd.DataFrame(results)
+        # Riorganizza colonne: URL, selezionati, e lunghezze
         cols = ["URL"] + fields
         if "Meta title" in fields: cols.append("Meta title length")
         if "Meta description" in fields: cols.append("Meta description length")
