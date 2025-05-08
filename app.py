@@ -1,5 +1,4 @@
 import streamlit as st
-from pages import seo_extractor, altro_tool
 
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
@@ -8,32 +7,28 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 1) Logo in alto
-st.sidebar.image(
-    "https://i.ibb.co/C57SRppY/annalect-logo-400x113.png",
-    use_container_width=True
+# Sidebar: logo
+st.sidebar.markdown(
+    '<div style="text-align:center; margin-bottom:20px;">'
+    '<img src="https://i.ibb.co/0yMG6kDs/logo.png" width="40"/>'
+    '</div>',
+    unsafe_allow_html=True
 )
-st.sidebar.markdown("---")
 
-# 2) Menu “manuale” (sezione → tool)
-menu = {
-    "On-Page SEO": {
-        "🔍 SEO Extractor": seo_extractor.main,
-        "🛠️ Altro Tool": altro_tool.main
-    },
-    "Technical SEO": {
-        # "🛠️ Tool A": tool_a.main,
-        # …
-    },
-    "Off-Page SEO": {
-        # "🛠️ Tool C": tool_c.main,
-        # …
-    }
+# Definizione delle pagine (tool)
+pages = {
+    "On-Page SEO": [
+        st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
+        st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool")
+    ],
+    "Technical SEO": [
+        # aggiungi qui altri tool
+    ],
+    "Off-Page SEO": [
+        # aggiungi qui altri tool
+    ]
 }
 
-section = st.sidebar.radio("Sezione", list(menu.keys()))
-tool_label = st.sidebar.radio("", list(menu[section].keys()))
-run_fn = menu[section][tool_label]
-
-# 3) Esegui il tool selezionato
-run_fn()
+# Renderizza il menu e avvia la pagina selezionata
+selected_page = st.navigation(pages, position="sidebar", expanded=True)
+selected_page.run()
