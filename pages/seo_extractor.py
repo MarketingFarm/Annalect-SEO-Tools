@@ -4,27 +4,32 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
-# Proviamo a importare requests_html per rendering JS
+# Proviamo a importare Playwright per rendering JS più affidabile
 try:
-    from requests_html import HTMLSession
-    HAS_JS_RENDER = True
+    from playwright.sync_api import sync_playwright
+    HAS_PLAYWRIGHT = True
 except ImportError:
-    HAS_JS_RENDER = False
+    HAS_PLAYWRIGHT = False
 
 # Headers per richieste HTTP
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # Funzione per ottenere HTML, con render JS se possibile
 def fetch_html(url: str) -> str:
-    if HAS_JS_RENDER:
-        session = HTMLSession()
-        r = session.get(url, headers=BASE_HEADERS, timeout=10)
-        try:
-            r.html.render(timeout=20)
-        except Exception:
-            pass
-        return r.html.html
+    if HAS_PLAYWRIGHT:
+        # Usa Playwright per caricare interamente la pagina e attendere network idle
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(
+                user_agent=BASE_HEADERS["User-Agent"],
+                viewport={"width": 1280, "height": 800}
+            )
+            page.goto(url, wait_until="networkidle")
+            html = page.content()
+            browser.close()
+            return html
     else:
+        # Fallback a requests
         resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
         resp.raise_for_status()
         return resp.text
@@ -71,14 +76,14 @@ def estrai_info(url: str) -> dict:
     }
 
 # Interfaccia Streamlit
-
 def main():
-    st.title("🔍 SEO Extractor con JS Rendering")
-    # Rimuoviamo il warning riguardo a requests-html per evitare avvisi persistenti
-    st.markdown("""
-Estrai H1–H4 dal contenuto principale, anche se gestito via JS, e Meta title/description.
-Le colonne 'length' vengono incluse solo se selezionati i rispettivi campi.
-""")
+    st.title("🔍 SEO Extractor con Playwright JS Rendering")
+    if not HAS_PLAYWRIGHT:
+        st.warning("Per estrarre contenuti caricati via JS installa `playwright` e aggiungi `playwright install chromium` alle dipendenze.")
+    st.markdown(
+        "Estrai H1–H4 dal contenuto principale, anche se generato post-hydration, e Meta title/description.\n"
+        "Le colonne 'length' vengono incluse solo se selezionati i rispettivi campi."
+    )
     st.divider()
 
     col1, col2 = st.columns([2, 1], gap="large")
