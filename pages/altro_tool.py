@@ -36,7 +36,6 @@ COUNTRIES = {
     "Svizzera": "ch",
     "Ungheria": "hu"
 }
-
 # Ordiniamo alfabeticamente le chiavi
 ALL_COUNTRIES = sorted(COUNTRIES.keys(), key=lambda x: x)
 
@@ -45,79 +44,57 @@ def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
     Esegue una query su Google con parametro gl (geolocalizzazione),
     restituisce una lista di dict con 'Title' e 'URL' dei risultati organici.
     """
-    params = {
-        "q": keyword,
-        "num": num,
-        "hl": "it",      # lingua dell'interfaccia
-        "gl": country_code
-    }
+    params = {"q": keyword, "num": num, "hl": "it", "gl": country_code}
     resp = requests.get("https://www.google.com/search",
                         headers=BASE_HEADERS,
                         params=params,
                         timeout=10)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
-
     results = []
     for h3 in soup.find_all("h3"):
         a = h3.find_parent("a")
-        if not a or not a.has_attr("href"):
-            continue
+        if not a or not a.has_attr("href"): continue
         url = a["href"]
         title = h3.get_text(strip=True)
         results.append({"Title": title, "URL": url})
-        if len(results) >= num:
-            break
+        if len(results) >= num: break
     return results
-
 
 def main():
     st.title("🌐 Google Scraper")
-    st.markdown(
-        "Scrapa i primi risultati organici di Google per keyword e paese."
-    )
+    st.markdown("Scrapa i primi risultati organici di Google per keyword e paese.")
     st.divider()
 
-    # Disposizione su stessa riga per inputs
-    col1, col2, col3 = st.columns(3, gap="small")
-    with col1:
-        keyword = st.text_input("Keyword da ricercare", placeholder="es. chatbot AI")
-    with col2:
-        # Selezione paese (selectbox integrato è filtrabile digitando)
-        country = st.selectbox(
-            "Seleziona il paese",
-            ALL_COUNTRIES,
-            index=ALL_COUNTRIES.index("Italia")
-        )
-    with col3:
-        num = st.selectbox(
-            "Numero di risultati da estrarre",
-            options=list(range(1, 11)),
-            index=9
-        )
+    # Usiamo form per evitare problemi di primo click
+    with st.form("scrape_form"):
+        col1, col2, col3 = st.columns(3, gap="small")
+        with col1:
+            keyword = st.text_input("Keyword da ricercare", placeholder="es. chatbot AI")
+        with col2:
+            country = st.selectbox("Seleziona il paese", ALL_COUNTRIES,
+                                   index=ALL_COUNTRIES.index("Italia"))
+        with col3:
+            num = st.selectbox("Numero di risultati da estrarre",
+                               options=list(range(1, 11)),
+                               index=9)
+        submit = st.form_submit_button(label="🚀 Avvia scraping")
 
-    if st.button("🚀 Avvia scraping"):
+    if submit:
         if not keyword.strip():
             st.error("Inserisci una keyword valida.")
-            st.stop()
-
+            return
         with st.spinner(f"Scraping dei primi {num} risultati in {country}..."):
             try:
-                country_code = COUNTRIES[country]
-                items = scrape_google(keyword, country_code, num)
+                items = scrape_google(keyword, COUNTRIES[country], num)
             except Exception as e:
                 st.error(f"Errore durante lo scraping: {e}")
-                st.stop()
-
+                return
         if not items:
             st.warning("Nessun risultato trovato.")
-            st.stop()
-
-        # DataFrame e tabella
+            return
         df = pd.DataFrame(items)
         st.dataframe(df, use_container_width=True)
-
-        # Preparazione Excel
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Risultati")
@@ -126,13 +103,9 @@ def main():
                 length = max(len(str(cell.value)) for cell in col_cells) + 2
                 ws.column_dimensions[col_cells[0].column_letter].width = length
         buf.seek(0)
-
-        st.download_button(
-            "📥 Scarica XLSX",
-            data=buf,
-            file_name="google_scraping.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        st.download_button("📥 Scarica XLSX", data=buf,
+                           file_name="google_scraping.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 if __name__ == "__main__":
     main()
