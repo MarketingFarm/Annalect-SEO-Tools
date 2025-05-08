@@ -7,15 +7,12 @@ from io import BytesIO
 # Headers per richieste HTTP
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
+# Funzione per estrarre info SEO
 def estrai_info(url: str) -> dict:
-    """
-    Estrae H1, H2, meta title, meta description, canonical e meta robots dalla pagina.
-    """
     resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Estraggo elementi
     h1 = soup.find("h1")
     h2s = [h.get_text(strip=True) for h in soup.find_all("h2")]
     title = soup.title
@@ -34,12 +31,11 @@ def estrai_info(url: str) -> dict:
         "Meta robots": robots["content"].strip() if robots and robots.has_attr("content") else ""
     }
 
-# Funzione main per l'interfaccia Streamlit
+# Funzione main per interfaccia Streamlit
 def main():
     st.title("🔍 SEO Extractor")
-    st.markdown(
-        "Estrai H1, H2, Meta title/length, Meta description/length, Canonical e Meta robots."
-    )
+    st.markdown("Estrai H1, H2, Meta title, Meta description, Canonical e Meta robots.\n" \
+                "I campi 'Meta title length' e 'Meta description length' sono sempre inclusi nell'export.")
     st.divider()
 
     col1, col2 = st.columns([2, 1], gap="large")
@@ -50,7 +46,9 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        example_keys = list(estrai_info("https://www.example.com").keys())
+        # Ottieni chiavi e rimuovi i campi di lunghezza
+        sample_info = estrai_info("https://www.example.com")
+        example_keys = [k for k in sample_info.keys() if k not in ("Meta title length", "Meta description length")]
         fields = st.pills(
             "Campi da estrarre",
             example_keys,
@@ -70,22 +68,31 @@ def main():
 
         prog = st.progress(0)
         results = []
-        # Esegui estrazione
+
         for i, u in enumerate(url_list, 1):
             try:
                 info = estrai_info(u)
             except Exception as e:
-                info = {k: f"Errore: {e}" for k in example_keys}
+                info = {k: f"Errore: {e}" for k in sample_info.keys()}
 
             row = {"URL": u}
+            # Aggiungi i campi selezionati
             for f in fields:
                 row[f] = info.get(f, "")
+            # Aggiungi sempre le lunghezze
+            row["Meta title length"] = info.get("Meta title length", 0)
+            row["Meta description length"] = info.get("Meta description length", 0)
+
             results.append(row)
             prog.progress(int(i / len(url_list) * 100))
 
         st.success(f"Analizzati {len(url_list)} URL.")
 
         df = pd.DataFrame(results)
+        # Riordina colonne: URL, campi selezionati, poi lunghezze
+        cols = ["URL"] + fields + ["Meta title length", "Meta description length"]
+        df = df[cols]
+
         st.dataframe(df, use_container_width=True)
 
         buf = BytesIO()
