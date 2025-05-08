@@ -1,103 +1,111 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+import time
 
-# Prova import nuova libreria OpenAI
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except ImportError as e:
-    OPENAI_AVAILABLE = False
-    OPENAI_ERROR = str(e)
+# Import dei parser SERP da cartella parserp
+from pages.parserp.inline_shopping import parse_inline_shopping
+from parserp.organic_results import parse_organic_results
+from parserp.paa_results import parse_paa_results
+from parserp.related_searches import parse_related_searches
 
-# --- Funzione di scraping con OpenAI (nuova API v1) ---
-def scrape_with_openai(keyword: str, country: str, num: int) -> list[dict]:
+# Configurazione delle pagine e lingua
+PAESI_GOOGLE = {
+    "Italia": ("google.it", "it"),
+    "Stati Uniti": ("google.com", "en"),
+    "Regno Unito": ("google.co.uk", "en"),
+    "Francia": ("google.fr", "fr"),
+    "Germania": ("google.de", "de"),
+    "Spagna": ("google.es", "es"),
+}
+
+# Funzione principale di scraping SERP
+@st.cache_data(show_spinner=False)
+def scrape_serp(keyword: str, domain: str, hl: str, num: int):
     """
-    Usa l'API di OpenAI client.chat.completions per simulare una ricerca SERP di Google.
-    Ritorna lista di dict con 'Title' e 'URL'.
+    Fa richiesta a Google SERP e restituisce un dict:
+    - inline_shopping
+    - organic_results
+    - paa_results
+    - related_searches
     """
-    # Inizializza client
-    client = OpenAI(api_key=st.secrets["OPENAI"]["api_key"])  # settata in .streamlit/secrets.toml
-
-    system_prompt = (
-        "You are a helpful assistant that provides the top organic Google search results. "
-        "Given a query, country code (ISO2), and number of results, return ONLY a JSON array of objects with keys 'Title' and 'URL'."
+    url = (
+        f"https://{domain}/search?q={keyword.replace(' ', '+')}"
+        f"&hl={hl}&num={num}&pws=0&filter=0"
     )
-    user_prompt = (
-        f"Query: {keyword}\n"
-        f"Country code: {country}\n"
-        f"Number of results: {num}\n"
-        "Output ONLY the JSON array."
-    )
+    # Richiesta HTTP
+    import requests
+    resp = requests.get(url, headers={"User-Agent": st.secrets.get('USER_AGENT', '')})
+    resp.raise_for_status()
+    html = resp.text
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.0,
-        max_tokens=500
-    )
-    content = response.choices[0].message.content.strip()
-    try:
-        # Carica JSON in pandas per validazione
-        df = pd.read_json(content)
-        records = df.to_dict(orient="records")
-        return records[:num]
-    except Exception as e:
-        st.error(f"Errore parsing JSON da OpenAI: {e}")
-        st.code(content, language='json')
-        return []
+    # Parsing con moduli dedicati
+    inline = parse_inline_shopping(html)
+    organic = parse_organic_results(html)
+    paa = parse_paa_results(html)
+    related = parse_related_searches(html)
 
-# --- Interfaccia Streamlit ---
+    return {
+        "inline_shopping": inline,
+        "organic_results": organic,
+        "paa_results": paa,
+        "related_searches": related
+    }
+
+# Streamlit UI
+st.set_page_config(page_title="Google SERP Parser", layout="wide")
+
 def main():
-    st.title("🔎 Google SERP via OpenAI API")
-    st.markdown("Simula una ricerca SERP con OpenAI e ottieni i primi risultati.")
+    st.title("🔎 Google SERP Parser")
+    st.markdown("Esegui scraping e parsing della SERP di Google usando moduli dedicati.")
 
-    if not OPENAI_AVAILABLE:
-        st.error(
-            "Modulo openai non installato. "
-            "Aggiungi `openai>=1.0.0` al tuo requirements.txt e ripubblica l'app."
-            f" Dettaglio: {OPENAI_ERROR}"
-        )
-        return
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        keyword = st.text_input("Keyword", "chatbot AI")
+    with col2:
+        paese = st.selectbox("Paese", list(PAESI_GOOGLE.keys()), index=0)
+    with col3:
+        num = st.slider("Risultati", 1, 10, 5)
 
-    keyword = st.text_input("🔑 Keyword", "chatbot AI")
-    country = st.text_input("🌍 Codice Paese (ISO2)", "IT").upper()
-    num = st.slider("🔢 Numero di risultati", 1, 10, 5)
-
-    if st.button("🚀 Cerca con OpenAI"):
-        if not keyword.strip():
-            st.error("Inserisci una keyword valida.")
+    if st.button("Avvia scraping"):
+        domain, hl = PAESI_GOOGLE[paese]
+        start = time.time()
+        try:
+            data = scrape_serp(keyword, domain, hl, num)
+        except Exception as e:
+            st.error(f"Errore scraping: {e}")
             return
+        elapsed = time.time() - start
+        st.success(f"Completed in {elapsed:.2f}s")
 
-        with st.spinner("Chiamata a OpenAI in corso..."):
-            results = scrape_with_openai(keyword, country, num)
+        # Mostra tabelle
+        st.subheader("Organic Results")
+        df_org = pd.DataFrame(data['organic_results'])
+        st.dataframe(df_org)
 
-        if results:
-            df = pd.DataFrame(results)
-            st.subheader("Risultati SERP")
-            st.dataframe(df, use_container_width=True)
+        st.subheader("People Also Ask")
+        df_paa = pd.DataFrame(data['paa_results'])
+        st.dataframe(df_paa)
 
-            buf = BytesIO()
-            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False, sheet_name="Results")
-                ws = writer.sheets["Results"]
-                for idx, col in enumerate(df.columns):
-                    max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-                    ws.column_dimensions[chr(65+idx)].width = min(max_len, 50)
-            buf.seek(0)
+        st.subheader("Related Searches")
+        df_rel = pd.DataFrame(data['related_searches'])
+        st.dataframe(df_rel)
 
-            st.download_button(
-                "📥 Download XLSX",
-                data=buf.getvalue(),
-                file_name=f"serp_{keyword.replace(' ','_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        else:
-            st.warning("Nessun risultato restituito dalla API.")
+        if data['inline_shopping']:
+            st.subheader("Inline Shopping")
+            df_shop = pd.DataFrame(data['inline_shopping'])
+            st.dataframe(df_shop)
 
-if __name__ == "__main__":
+        # Download Excel
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_org.to_excel(writer, index=False, sheet_name='Organic')
+            df_paa.to_excel(writer, index=False, sheet_name='PAA')
+            df_rel.to_excel(writer, index=False, sheet_name='Related')
+            if data['inline_shopping']:
+                df_shop.to_excel(writer, index=False, sheet_name='Shopping')
+        output.seek(0)
+        st.download_button("Download XLSX", data=output.getvalue(), file_name="serp_data.xlsx")
+
+if __name__ == '__main__':
     main()
