@@ -1,4 +1,5 @@
 import streamlit as st
+from pages import seo_extractor, altro_tool
 
 # Configurazione pagina
 st.set_page_config(
@@ -16,19 +17,19 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Definizione delle pagine (tool) senza icone separate
+# Definizione delle pagine (tool) tramite callable
 docs_pages = {
     "On-Page SEO": [
-        st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
-        st.Page("pages/altro_tool.py",    title="🛠️ Altro Tool")
+        st.Page(seo_extractor.main, title="🔍 SEO Extractor"),
+        st.Page(altro_tool.main,    title="🛠️ Altro Tool")
     ],
     "Technical SEO": [
-        # st.Page("pages/tool2.py", title="🛠️ Tool A"),
-        # st.Page("pages/tool3.py", title="🛠️ Tool B")
+        # st.Page(tool2.main, title="🛠️ Tool A"),
+        # st.Page(tool3.main, title="🛠️ Tool B")
     ],
     "Off-Page SEO": [
-        # st.Page("pages/tool4.py", title="🛠️ Tool C"),
-        # st.Page("pages/tool5.py", title="🛠️ Tool D")
+        # st.Page(tool4.main, title="🛠️ Tool C"),
+        # st.Page(tool5.main, title="🛠️ Tool D")
     ]
 }
 
