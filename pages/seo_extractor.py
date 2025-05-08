@@ -47,7 +47,7 @@ def estrai_info(url: str) -> dict:
     html = fetch_html(url)
     soup = BeautifulSoup(html, "html.parser")
 
-    # Seleziona il contenuto principale
+    # Trova il contenuto principale
     content = (
         soup.find("main")
         or soup.find("article")
@@ -64,7 +64,7 @@ def estrai_info(url: str) -> dict:
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
     h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
 
-    # Meta globali
+    # Meta dati globali
     title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
@@ -122,7 +122,8 @@ def main():
             try:
                 info = estrai_info(u)
             except Exception as e:
-                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in example.keys()}
+                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0)
+                        for k in example.keys()}
 
             row = {"URL": u}
             for f in fields:
