@@ -54,6 +54,12 @@ def estrai_info(url: str) -> dict:
 
 def main():
     st.title("🔍 SEO Extractor")
+    # Nota evidenziata sull'influenza del rendering
+    st.markdown(
+        "⚠️ **Nota:** l'estrazione degli heading potrebbe dipendere da come la pagina viene renderizzata. "
+        "Verifica sempre su una pagina di prova che tutti gli heading vengano estratti correttamente.",
+        unsafe_allow_html=True
+    )
     st.markdown(
         "Estrai H1–H4 dal contenuto principale (main/article), più "
         "Meta title/description, Canonical e Meta robots."
@@ -69,10 +75,11 @@ def main():
         )
     with col2:
         example = estrai_info("https://www.example.com")
-        # Mostra solo i campi base (senza *length) nel menu
+        # Menu dei campi senza lunghezze
+        all_keys = [k for k in example.keys() if not k.endswith("length")]
         fields = st.pills(
             "Campi da estrarre",
-            [k for k in example.keys() if not k.endswith("length")],
+            all_keys,
             selection_mode="multi",
             default=[]
         )
@@ -96,10 +103,11 @@ def main():
                         for k in example.keys()}
 
             row = {"URL": u}
-            # Aggiungi campi scelti
-            for f in fields:
-                row[f] = info.get(f, "")
-            # Aggiungi lunghezze solo se selezionate
+            # Ordina sempre H1–H4 se selezionati
+            ordered_h = [h for h in ["H1", "H2", "H3", "H4"] if h in fields]
+            for h in ordered_h:
+                row[h] = info.get(h, "")
+            # Lunghezze condizionali
             if "Meta title" in fields:
                 row["Meta title length"] = info["Meta title length"]
             if "Meta description" in fields:
@@ -110,10 +118,12 @@ def main():
 
         st.success(f"Analizzati {len(results)} URL.")
         df = pd.DataFrame(results)
-        # Riorganizza colonne: URL, selezionati, e lunghezze
-        cols = ["URL"] + fields
-        if "Meta title" in fields: cols.append("Meta title length")
-        if "Meta description" in fields: cols.append("Meta description length")
+        # Costruisci colonne in ordine fisso
+        cols = ["URL"] + ordered_h
+        if "Meta title" in fields:
+            cols.append("Meta title length")
+        if "Meta description" in fields:
+            cols.append("Meta description length")
         df = df[cols]
 
         st.dataframe(df, use_container_width=True)
