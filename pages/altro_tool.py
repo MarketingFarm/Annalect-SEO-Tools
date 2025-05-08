@@ -7,7 +7,7 @@ import time
 from pages.parserp.inline_shopping import parse_inline_shopping
 from pages.parserp.organic_results import parse_organic_results
 from pages.parserp.paa_results import parse_paa_results
-from pages.parserp.related_searches import parse_related_searches
+from pages.parserp.related_searches import get_related_searches
 
 # Configurazione delle pagine e lingua
 PAESI_GOOGLE = {
