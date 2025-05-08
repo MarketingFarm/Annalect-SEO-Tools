@@ -3,11 +3,18 @@ import pandas as pd
 from io import BytesIO
 import time
 import logging
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+
+# Prova import Selenium, altrimenti mostra messaggio
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.chrome.options import Options
+    from webdriver_manager.chrome import ChromeDriverManager
+    SELENIUM_AVAILABLE = True
+except ImportError as e:
+    SELENIUM_AVAILABLE = False
+    SELENIUM_ERROR = str(e)
 
 # Configura logging
 logging.basicConfig(level=logging.INFO)
@@ -38,23 +45,21 @@ def get_driver():
 
 def scrape_with_selenium(keyword: str, country_code: str, num: int):
     driver = get_driver()
-    # Costruisci URL di ricerca
     query = keyword.replace(' ', '+')
-    url = f"https://www.google.com/search?q={query}&num={num}&hl=it&gl={country_code}&pws=0&filter=0"
+    url = (
+        f"https://www.google.com/search?q={query}&num={num}" 
+        f"&hl=it&gl={country_code}&pws=0&filter=0"
+    )
     logger.info(f"Navigating to {url}")
     driver.get(url)
-    # Attendi caricamento
     time.sleep(2)
     items = []
-    # Trova i titoli dei risultati organici
     results = driver.find_elements(By.CSS_SELECTOR, 'div.g')
     for res in results:
         try:
             h3 = res.find_element(By.TAG_NAME, 'h3')
             a = h3.find_element(By.XPATH, './ancestor::a')
-            title = h3.text
-            link = a.get_attribute('href')
-            items.append({'Title': title, 'URL': link})
+            items.append({'Title': h3.text, 'URL': a.get_attribute('href')})
             if len(items) >= num:
                 break
         except Exception:
@@ -64,7 +69,16 @@ def scrape_with_selenium(keyword: str, country_code: str, num: int):
 
 def main():
     st.title("🌐 Google Scraper con Selenium")
-    st.markdown("Scrapa i risultati di Google usando Selenium headless per evitare blocchi.")
+    st.markdown("Scrapa i risultati di Google usando Selenium headless.")
+
+    if not SELENIUM_AVAILABLE:
+        st.error(
+            "Il modulo Selenium non è installato. "
+            "Aggiungi `selenium` e `webdriver-manager` al tuo requirements.txt "
+            "e ripubblica l'app. Errore: " + SELENIUM_ERROR
+        )
+        return
+
     col1, col2, col3 = st.columns(3)
     with col1:
         keyword = st.text_input("🔑 Keyword da cercare", placeholder="es. chatbot AI")
@@ -93,9 +107,11 @@ def main():
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Risultati")
         buf.seek(0)
-        st.download_button("📥 Scarica XLSX", data=buf,
-                           file_name="google_selenium.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(
+            "📥 Scarica XLSX", data=buf,
+            file_name="google_selenium.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 if __name__ == "__main__":
     main()
