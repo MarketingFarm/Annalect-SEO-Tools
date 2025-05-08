@@ -66,56 +66,45 @@ def main():
     st.markdown("Scrapa i primi risultati organici di Google per keyword e paese.")
     st.divider()
 
-    # Definiamo chiavi di sessione per persistenza
-    if 'country' not in st.session_state:
-        st.session_state.country = 'Italia'
-    if 'num' not in st.session_state:
-        st.session_state.num = 10
-
-    # Usiamo form per evitare problemi di primo click
+    # Usiamo form per raggruppare input e submit
     with st.form("scrape_form"):
         col1, col2, col3 = st.columns(3, gap="small")
         with col1:
             keyword = st.text_input(
                 "🔑 Keyword da cercare",
-                placeholder="es. chatbot AI",
-                key='keyword'
+                placeholder="es. chatbot AI"
             )
         with col2:
             country = st.selectbox(
                 "🌍 Seleziona paese",
                 ALL_COUNTRIES,
-                index=ALL_COUNTRIES.index(st.session_state.country),
-                key='country'
+                index=ALL_COUNTRIES.index("Italia")
             )
         with col3:
             num = st.selectbox(
                 "🎯 Numero di risultati",
                 options=list(range(1, 11)),
-                index=st.session_state.num - 1,
-                key='num'
+                index=9  # default 10
             )
         submit = st.form_submit_button(label="🚀 Avvia scraping")
 
     if submit:
-        if not st.session_state.keyword.strip():
+        if not keyword.strip():
             st.error("Inserisci una keyword valida.")
             return
-        with st.spinner(f"Scraping dei primi {st.session_state.num} risultati in {st.session_state.country}..."):
+        with st.spinner(f"Scraping dei primi {num} risultati in {country}..."):
             try:
-                items = scrape_google(
-                    st.session_state.keyword,
-                    COUNTRIES[st.session_state.country],
-                    st.session_state.num
-                )
+                items = scrape_google(keyword, COUNTRIES[country], num)
             except Exception as e:
                 st.error(f"Errore durante lo scraping: {e}")
                 return
         if not items:
             st.warning("Nessun risultato trovato.")
             return
+
         df = pd.DataFrame(items)
         st.dataframe(df, use_container_width=True)
+
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Risultati")
@@ -124,8 +113,10 @@ def main():
                 length = max(len(str(cell.value)) for cell in col_cells) + 2
                 ws.column_dimensions[col_cells[0].column_letter].width = length
         buf.seek(0)
+
         st.download_button(
-            "📥 Scarica XLSX", data=buf,
+            "📥 Scarica XLSX",
+            data=buf,
             file_name="google_scraping.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
