@@ -2,6 +2,7 @@ import streamlit as st
 import time
 import random
 import pandas as pd
+import os
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -9,7 +10,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 from urllib.parse import quote_plus
 
 # Lista di User-Agents per rotazione
@@ -46,8 +46,13 @@ def configura_browser():
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
     
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+    # Usa il ChromeDriver di sistema invece di ChromeDriverManager
+    if os.path.exists("/usr/bin/chromedriver"):
+        service = Service("/usr/bin/chromedriver")
+        driver = webdriver.Chrome(service=service, options=options)
+    else:
+        # Fallback per ambiente di sviluppo locale
+        driver = webdriver.Chrome(options=options)
     
     # Elude il rilevamento dell'automazione
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
