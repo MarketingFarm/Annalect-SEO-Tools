@@ -4,6 +4,10 @@ from io import BytesIO
 import time
 import logging
 
+# Riduci log di webdriver-manager
+import os
+os.environ['WDM_LOG_LEVEL'] = '0'
+
 # Prova import Selenium, altrimenti mostra messaggio
 try:
     from selenium import webdriver
