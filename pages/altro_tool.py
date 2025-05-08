@@ -39,6 +39,14 @@ COUNTRIES = {
 # Ordiniamo alfabeticamente le chiavi
 ALL_COUNTRIES = sorted(COUNTRIES.keys(), key=lambda x: x)
 
+# Inizializzazione valori di default in session_state
+if 'keyword' not in st.session_state:
+    st.session_state['keyword'] = ''
+if 'country' not in st.session_state:
+    st.session_state['country'] = 'Italia'
+if 'num' not in st.session_state:
+    st.session_state['num'] = 10
+
 def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
     """
     Esegue una query su Google con parametro gl (geolocalizzazione),
@@ -66,42 +74,50 @@ def main():
     st.markdown("Scrapa i primi risultati organici di Google per keyword e paese.")
     st.divider()
 
-    # Usiamo form per raggruppare input e submit
+    # Form per raggruppare input e submit
     with st.form("scrape_form"):
         col1, col2, col3 = st.columns(3, gap="small")
         with col1:
-            keyword = st.text_input(
+            st.text_input(
                 "🔑 Keyword da cercare",
-                placeholder="es. chatbot AI"
+                placeholder="es. chatbot AI",
+                key='keyword'
             )
         with col2:
-            country = st.selectbox(
+            st.selectbox(
                 "🌍 Seleziona paese",
                 ALL_COUNTRIES,
-                index=ALL_COUNTRIES.index("Italia")
+                key='country'
             )
         with col3:
-            num = st.selectbox(
+            st.selectbox(
                 "🎯 Numero di risultati",
                 options=list(range(1, 11)),
-                index=9  # default 10
+                key='num'
             )
         submit = st.form_submit_button(label="🚀 Avvia scraping")
 
     if submit:
+        keyword = st.session_state['keyword']
+        country = st.session_state['country']
+        num = st.session_state['num']
+
         if not keyword.strip():
             st.error("Inserisci una keyword valida.")
             return
+
         with st.spinner(f"Scraping dei primi {num} risultati in {country}..."):
             try:
                 items = scrape_google(keyword, COUNTRIES[country], num)
             except Exception as e:
                 st.error(f"Errore durante lo scraping: {e}")
                 return
+
         if not items:
             st.warning("Nessun risultato trovato.")
             return
 
+        # Visualizza risultati e download
         df = pd.DataFrame(items)
         st.dataframe(df, use_container_width=True)
 
