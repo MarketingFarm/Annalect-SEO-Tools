@@ -6,12 +6,30 @@ from io import BytesIO
 import random
 import time
 
-# Lista di User-Agent per rotazione
+# Lista estesa di User-Agent per rotazione
 USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
-    # aggiungi altri se vuoi
+    # Chrome
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.5790.170 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+    # Firefox
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:102.0) Gecko/20100101 Firefox/102.0",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:101.0) Gecko/20100101 Firefox/101.0",
+    # Safari
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Safari/605.1.15",
+    # Edge
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.5790.170 Safari/537.36 Edg/115.0.1901.183",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_6_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.5790.170 Safari/537.36 Edg/115.0.1901.183",
+    # Mobile Android
+    "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Mobile Safari/537.36",
+]
+
+# Lista placeholder di proxy gratuiti (puoi popolare con IP:PORT validi)
+PROXIES = [
+    # "203.145.179.117:80",
+    # "138.128.88.83:8080",
+    # "51.158.20.241:8811",
 ]
 
 # Mappa nome-paese → codice GL per Google (principali paesi europei inclusi)
@@ -47,31 +65,44 @@ def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
     """
     Esegue una query su Google con parametri anti-bot:
     - rotazione User-Agent
-    - aggiunta di pws=0 e filter=0
+    - eventuale uso di proxy
     - delay casuale
-    - header Accept-Language e Referer
+    - parametri pws, filter
+    - header Accept-Language, Referer
     """
-    # Delay random tra 1 e 3 secondi
-    time.sleep(random.uniform(1, 3))
+    # Delay random tra 2 e 5 secondi
+    time.sleep(random.uniform(2, 5))
 
+    # Costruzione headers
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
         "Referer": "https://www.google.com/"
     }
+
+    # Imposta proxy se disponibile
+    proxies = None
+    if PROXIES:
+        proxy = random.choice(PROXIES)
+        proxies = {"http": proxy, "https": proxy}
+
+    # Parametri di query con timestamp anti-caching
     params = {
         "q": keyword,
         "num": num,
         "hl": "it",
         "gl": country_code,
-        "pws": 0,       # disabilita risultati personalizzati
-        "filter": 0     # mostra risultati duplicati se necessario
+        "pws": 0,
+        "filter": 0,
+        "_": int(time.time() * 1000)
     }
+
     resp = requests.get(
         "https://www.google.com/search",
         headers=headers,
         params=params,
-        timeout=10
+        timeout=10,
+        proxies=proxies
     )
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -80,9 +111,7 @@ def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
     for h3 in soup.find_all("h3"):
         a = h3.find_parent("a")
         if a and a.has_attr("href"):
-            url = a["href"]
-            title = h3.get_text(strip=True)
-            results.append({"Title": title, "URL": url})
+            results.append({"Title": h3.get_text(strip=True), "URL": a["href"]})
             if len(results) >= num:
                 break
     return results
@@ -90,7 +119,9 @@ def scrape_google(keyword: str, country_code: str, num: int) -> list[dict]:
 
 def main():
     st.title("🌐 Google Scraper")
-    st.markdown("Scrapa i primi risultati organici di Google con pratiche anti-bot.")
+    st.markdown(
+        "Scrapa i primi risultati organici di Google con pratiche anti-bot gratuite."
+    )
     st.divider()
 
     col1, col2, col3 = st.columns(3, gap="small")
@@ -113,7 +144,9 @@ def main():
                 return
 
         if not items:
-            st.warning("Nessun risultato trovato. Potresti essere bloccato o il markup di Google è cambiato.")
+            st.warning(
+                "Nessun risultato trovato. Potresti essere bloccato: considera di aggiungere proxy o usare un servizio API dedicato."
+            )
             return
 
         df = pd.DataFrame(items)
