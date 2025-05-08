@@ -83,11 +83,12 @@ def main():
     with col1:
         keyword = st.text_input("🔑 Keyword da cercare", placeholder="es. chatbot AI")
     with col2:
-        # Filtro di ricerca per il paese
-        filter_text = st.text_input("🔎 Filtra paese", placeholder="Digita per cercare...")
-        countries = [c for c in ALL_COUNTRIES if filter_text.lower() in c.lower()] if filter_text else ALL_COUNTRIES
-        # Selezione paese
-        country = st.selectbox("🌍 Seleziona paese", countries, index=countries.index("Italia") if "Italia" in countries else 0)
+        # Selezione paese (selectbox integrato è filtrabile digitando)
+        country = st.selectbox(
+            "🌍 Seleziona paese",
+            ALL_COUNTRIES,
+            index=ALL_COUNTRIES.index("Italia")
+        )
     with col3:
         num = st.selectbox(
             "🎯 Numero di risultati",
