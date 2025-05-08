@@ -7,29 +7,34 @@ from io import BytesIO
 # Headers per richieste HTTP
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# Funzione per estrarre info SEO
+# Funzione per estrarre info SEO esclusivamente dal contenuto principale
 def estrai_info(url: str) -> dict:
     resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Estraggo elementi
-    h1 = soup.find("h1")
-    h2s = [h.get_text(strip=True) for h in soup.find_all("h2")]
-    h3s = [h.get_text(strip=True) for h in soup.find_all("h3")]
-    h4s = [h.get_text(strip=True) for h in soup.find_all("h4")]
-    title = soup.title
+    # Trova sezione principale (<main>) o fallback a <body>
+    content = soup.find("main") or soup.find("body") or soup
+
+    # Estrai headings all'interno del contenuto principale
+    h1_tag = content.find("h1")
+    h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
+    h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
+    h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
+
+    # Meta e altri dati SEO
+    title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
     robots = soup.find("meta", {"name": "robots"})
 
     return {
-        "H1": h1.get_text(strip=True) if h1 else "",
+        "H1": h1_tag.get_text(strip=True) if h1_tag else "",
         "H2": " | ".join(h2s),
         "H3": " | ".join(h3s),
         "H4": " | ".join(h4s),
-        "Meta title": title.get_text(strip=True) if title else "",
-        "Meta title length": len(title.get_text(strip=True)) if title else 0,
+        "Meta title": title_tag.get_text(strip=True) if title_tag else "",
+        "Meta title length": len(title_tag.get_text(strip=True)) if title_tag else 0,
         "Meta description": desc["content"].strip() if desc and desc.has_attr("content") else "",
         "Meta description length": len(desc["content"].strip()) if desc and desc.has_attr("content") else 0,
         "Canonical": canonical["href"].strip() if canonical and canonical.has_attr("href") else "",
@@ -40,7 +45,7 @@ def estrai_info(url: str) -> dict:
 def main():
     st.title("🔍 SEO Extractor")
     st.markdown(
-        "Estrai H1, H2, H3, H4, Meta title e Meta description.\n"
+        "Estrai H1, H2, H3, H4 dal contenuto principale, più Meta title e Meta description.\n"
         "Le colonne 'length' di title e description vengono incluse solo se selezioni i relativi campi."
     )
     st.divider()
@@ -53,7 +58,6 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        # Ottieni chiavi base (senza i campi 'length')
         sample_info = estrai_info("https://www.example.com")
         base_keys = [k for k in sample_info.keys() if not k.endswith("length")]
         fields = st.pills(
@@ -80,14 +84,11 @@ def main():
             try:
                 info = estrai_info(u)
             except Exception as e:
-                # Se errore, riempi con messaggi di errore
                 info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in sample_info.keys()}
 
             row = {"URL": u}
-            # Aggiungo campi selezionati
             for f in fields:
                 row[f] = info.get(f, "")
-            # Aggiungo campi length solo se i relativi field sono stati selezionati
             if "Meta title" in fields:
                 row["Meta title length"] = info.get("Meta title length", 0)
             if "Meta description" in fields:
@@ -99,7 +100,6 @@ def main():
         st.success(f"Analizzati {len(url_list)} URL.")
 
         df = pd.DataFrame(results)
-        # Ordina colonne: URL, selezionati, poi eventuali length
         cols = ["URL"] + fields
         if "Meta title" in fields:
             cols.append("Meta title length")
