@@ -1,43 +1,50 @@
-import os
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
-# Configurazione servizio di prerendering (client-side)
-# Usa Rendertron di Google o servizio personalizzato tramite variabile d'ambiente
-PRERENDER_SERVICE = os.getenv(
-    "PRERENDER_SERVICE_URL",
-    "https://render-tron.appspot.com/render?url="
-)
+# Proviamo a importare Playwright
+try:
+    from playwright.sync_api import sync_playwright
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
 
-# Headers per richieste HTTP
+# Headers per requests
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# Funzione per ottenere HTML renderizzato client-side in modo sicuro e affidabile
 def fetch_html(url: str) -> str:
     """
-    Prova a recuperare la versione prerenderizzata della pagina tramite Rendertron o servizio configurato.
-    In caso di errore o timeout, effettua fallback a requests.get standard.
+    Usa Playwright per caricare la pagina e aspettare il tuo H3 dinamico,
+    poi torna l'HTML. Se Playwright non c'è o fallisce, fallback a requests.
     """
-    try:
-        rendered_url = PRERENDER_SERVICE + url
-        resp = requests.get(rendered_url, headers=BASE_HEADERS, timeout=20)
-        resp.raise_for_status()
-        return resp.text
-    except Exception:
-        # Fallback
-        resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
-        resp.raise_for_status()
-        return resp.text
+    if HAS_PLAYWRIGHT:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(
+                user_agent=BASE_HEADERS["User-Agent"],
+                viewport={"width": 1280, "height": 800}
+            )
+            page.goto(url, wait_until="networkidle")
+            # Attendi esplicitamente l'H3 (sostituisci '.tuo-h3-selector' con il selettore reale)
+            try:
+                page.wait_for_selector("h3", timeout=15000)
+            except:
+                pass
+            html = page.content()
+            browser.close()
+            return html
+    # fallback
+    resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
+    resp.raise_for_status()
+    return resp.text
 
-# Funzione per estrarre info SEO dal contenuto principale
 def estrai_info(url: str) -> dict:
     html = fetch_html(url)
     soup = BeautifulSoup(html, "html.parser")
 
-    # Selettori contenuto principale comuni
+    # Selettori contenuto principale
     content = (
         soup.find("main")
         or soup.find("article")
@@ -48,20 +55,18 @@ def estrai_info(url: str) -> dict:
         or soup
     )
 
-    # Estrai headings
-    h1_tag = content.find("h1")
+    h1 = content.find("h1")
     h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
     h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
     h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
 
-    # Meta dati (dall'intero documento)
     title_tag = soup.title
     desc = soup.find("meta", {"name": "description"})
     canonical = soup.find("link", rel="canonical")
     robots = soup.find("meta", {"name": "robots"})
 
     return {
-        "H1": h1_tag.get_text(strip=True) if h1_tag else "",
+        "H1": h1.get_text(strip=True) if h1 else "",
         "H2": " | ".join(h2s),
         "H3": " | ".join(h3s),
         "H4": " | ".join(h4s),
@@ -73,17 +78,17 @@ def estrai_info(url: str) -> dict:
         "Meta robots": robots["content"].strip() if robots and robots.has_attr("content") else ""
     }
 
-# Interfaccia Streamlit
 def main():
-    st.title("🔍 SEO Extractor (Client-Side Rendering)")
+    st.title("🔍 SEO Extractor (Playwright)")
+    if not HAS_PLAYWRIGHT:
+        st.warning("Per il JS-rendering installa `playwright` e lancia `playwright install chromium`.")
     st.markdown(
-        "Estrai H1–H4 dal contenuto principale renderizzato in modo affidabile su client, "
-        "più Meta title e description.\n"
-        "Usiamo Rendertron per casi JavaScript/nuxt post-hydration."
+        "Estrai H1–H4 dal contenuto principale, anche post-hydration, più Meta title/description.\n"
+        "Le colonne 'length' appaiono solo se selezioni i corrispondenti campi."
     )
     st.divider()
 
-    col1, col2 = st.columns([2, 1], gap="large")
+    col1, col2 = st.columns([2,1], gap="large")
     with col1:
         urls = st.text_area(
             "Incolla URL (una per riga)",
@@ -91,20 +96,14 @@ def main():
             placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
         )
     with col2:
-        sample_info = estrai_info("https://www.example.com")
-        base_keys = [k for k in sample_info.keys() if not k.endswith("length")]
-        fields = st.pills(
-            "Campi da estrarre",
-            base_keys,
-            selection_mode="multi",
-            default=[]
-        )
+        example = estrai_info("https://www.example.com")
+        base_keys = [k for k in example.keys() if not k.endswith("length")]
+        fields = st.pills("Campi da estrarre", base_keys, selection_mode="multi", default=[])
 
     if st.button("🚀 Avvia Estrazione"):
         if not fields:
             st.error("Seleziona almeno un campo.")
             return
-
         url_list = [u.strip() for u in urls.splitlines() if u.strip()]
         if not url_list:
             st.error("Inserisci almeno un URL valido.")
@@ -112,42 +111,35 @@ def main():
 
         prog = st.progress(0)
         results = []
-
-        for i, u in enumerate(url_list, 1):
+        for i,u in enumerate(url_list,1):
             try:
                 info = estrai_info(u)
             except Exception as e:
-                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in sample_info.keys()}
-
+                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0) for k in example.keys()}
             row = {"URL": u}
             for f in fields:
                 row[f] = info.get(f, "")
             if "Meta title" in fields:
-                row["Meta title length"] = info.get("Meta title length", 0)
+                row["Meta title length"] = info["Meta title length"]
             if "Meta description" in fields:
-                row["Meta description length"] = info.get("Meta description length", 0)
-
+                row["Meta description length"] = info["Meta description length"]
             results.append(row)
-            prog.progress(int(i / len(url_list) * 100))
+            prog.progress(int(i/len(url_list)*100))
 
         st.success(f"Analizzati {len(url_list)} URL.")
-
         df = pd.DataFrame(results)
         cols = ["URL"] + fields
-        if "Meta title" in fields:
-            cols.append("Meta title length")
-        if "Meta description" in fields:
-            cols.append("Meta description length")
+        if "Meta title" in fields: cols.append("Meta title length")
+        if "Meta description" in fields: cols.append("Meta description length")
         df = df[cols]
 
         st.dataframe(df, use_container_width=True)
-
         buf = BytesIO()
         df.to_excel(buf, index=False, engine="openpyxl")
         buf.seek(0)
         st.download_button(
             "📥 Download XLSX",
-            data=buf,
+            buf,
             file_name="estrazione_seo.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
