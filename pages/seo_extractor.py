@@ -4,6 +4,16 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
 
+# CSS personalizzato per Streamlit
+st.markdown("""
+<style>
+ label[data-testid="stWidgetLabel"] { display: none !important; }
+ .stProgress > div > div > div { background-color: #f63366 !important; }
+ /* Mantieni rosso anche al termine */
+ .stProgress > div > div { background-color: #f63366 !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # Headers per richieste HTTP
 BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
@@ -100,5 +110,9 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# Esegui la pagina al caricamente (rimuovi qualsiasi guardia)
-main()
+# Esegui la pagina al caricamento
+def run():
+    main()
+
+if __name__ == "__main__":
+    run()
