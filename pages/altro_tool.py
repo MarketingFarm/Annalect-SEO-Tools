@@ -37,6 +37,65 @@ def scrape_google(keyword: str, country_code: str, num: int):
     logger.info(f"Sleeping {delay:.2f}s before request")
     time.sleep(delay)
 
+    # Seleziona User-Agent e headers
+    ua = random.choice(USER_AGENTS)
+    headers = {
+        "User-Agent": ua,
+        "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://www.google.com/"
+    }
+    logger.info(f"Using User-Agent: {ua}")
+
+    # Imposta proxy se disponibile
+    proxies = None
+    if PROXIES:
+        proxy = random.choice(PROXIES)
+        proxies = {"http": proxy, "https": proxy}
+        logger.info(f"Using proxy: {proxy}")
+
+    params = {"q": keyword, "num": num, "hl": "it", "gl": country_code, "pws": 0, "filter": 0, "_": int(time.time()*1000)}
+    logger.info(f"Requesting Google with params: {params}")
+    try:
+        resp = requests.get(
+            "https://www.google.com/search", headers=headers, params=params,
+            timeout=10, proxies=proxies
+        )
+    except Exception as e:
+        logger.error(f"Request failed: {e}")
+        return "REQUEST_ERROR", str(e), None, ua
+
+    status = resp.status_code
+    text = resp.text or ""
+    snippet = text[:1000]
+    logger.info(f"Response status code: {status}")
+
+    # Differenziazione errori
+    if status == 429:
+        logger.error("429 Too Many Requests")
+        return "TOO_MANY_REQUESTS", snippet, status, ua
+    if status != 200:
+        logger.error(f"Non-OK status code: {status}")
+        return "HTTP_ERROR", snippet, status, ua
+    if "unusual traffic" in text.lower():
+        logger.error("Captcha page detected")
+        return "CAPTCHA", snippet, status, ua
+
+    # Parsing normale
+    soup = BeautifulSoup(text, "html.parser")
+    titles = [h.get_text(strip=True) for h in soup.find_all("h3")]
+    urls = [a["href"] for a in soup.find_all("a") if a.find("h3")]
+    results = []
+    for t, u in zip(titles, urls):
+        results.append({"Title": t, "URL": u})
+        if len(results) >= num:
+            break
+    logger.info(f"Parsed {len(results)} results")
+    return "OK", results, status, ua
+(keyword: str, country_code: str, num: int):
+    delay = random.uniform(2, 5)
+    logger.info(f"Sleeping {delay:.2f}s before request")
+    time.sleep(delay)
+
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
