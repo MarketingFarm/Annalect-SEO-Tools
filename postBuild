@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# Script di post-build per Streamlit Cloud
+echo "Installing Playwright browsers..."
+playwright install chromium
