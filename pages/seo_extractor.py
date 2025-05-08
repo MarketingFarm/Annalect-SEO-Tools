@@ -74,12 +74,11 @@ def estrai_info(url: str) -> dict:
 
 def main():
     st.title("🔍 SEO Extractor con JS Rendering")
-    if not HAS_JS_RENDER:
-        st.warning("Per estrarre contenuti caricati via JS installa `requests-html` nelle dipendenze.")
-    st.markdown(
-        "Estrai H1–H4 dal contenuto principale, anche se gestito via JS, e Meta title/description.\n"
-        "Le colonne 'length' vengono incluse solo se selezionati i rispettivi campi."
-    )
+    # Rimuoviamo il warning riguardo a requests-html per evitare avvisi persistenti
+    st.markdown("""
+Estrai H1–H4 dal contenuto principale, anche se gestito via JS, e Meta title/description.
+Le colonne 'length' vengono incluse solo se selezionati i rispettivi campi.
+""")
     st.divider()
 
     col1, col2 = st.columns([2, 1], gap="large")
