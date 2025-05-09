@@ -51,7 +51,7 @@ def get_organic_results(soup):
             #print(position)
             position +=1
             title = organic_result.find('h3').text.strip()
-            title = re.sub("\s+", " ", title)
+            title = re.sub(r"\s+", " ", title)
             #print(title)
             div_obj['Titles'].append(title)
             link = organic_result.find('a').attrs['href']
