@@ -1,5 +1,3 @@
-# pages/parserp/organic_results.py
-
 from bs4 import BeautifulSoup
 import re
 
