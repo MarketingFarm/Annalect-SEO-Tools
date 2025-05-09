@@ -1,111 +1,165 @@
+# pages/altro_tool.py
+
 import streamlit as st
+import time
+import random
 import pandas as pd
 from io import BytesIO
-import time
+import os
+import logging
 
-# Import dei parser SERP da cartella pages/parserp
-from pages.parserp.inline_shopping import parse_inline_shopping
-from pages.parserp.organic_results import parse_organic_results
-from pages.parserp.paa_results import parse_paa_results
-from pages.parserp.related_searches import get_related_searches
+# Riduci il log di webdriver-manager
+os.environ["WDM_LOG_LEVEL"] = "0"
 
-# Configurazione delle pagine e lingua
-PAESI_GOOGLE = {
-    "Italia": ("google.it", "it"),
-    "Stati Uniti": ("google.com", "en"),
-    "Regno Unito": ("google.co.uk", "en"),
-    "Francia": ("google.fr", "fr"),
-    "Germania": ("google.de", "de"),
-    "Spagna": ("google.es", "es"),
+# Prova import Selenium; se fallisce, mostra errore
+try:
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+    from webdriver_manager.core.os_manager import ChromeType
+    SELENIUM_OK = True
+except ImportError as e:
+    SELENIUM_OK = False
+    IMPORT_ERR = str(e)
+
+# Configura logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Costanti
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+PAESI = {
+    "Italia":      {"domain": "google.it",    "hl": "it"},
+    "Stati Uniti": {"domain": "google.com",   "hl": "en"},
+    "Regno Unito": {"domain": "google.co.uk", "hl": "en"},
+    "Francia":     {"domain": "google.fr",    "hl": "fr"},
+    "Germania":    {"domain": "google.de",    "hl": "de"},
+    "Spagna":      {"domain": "google.es",    "hl": "es"},
 }
 
-# Funzione principale di scraping SERP
-@st.cache_data(show_spinner=False)
-def scrape_serp(keyword: str, domain: str, hl: str, num: int):
-    """
-    Fa richiesta a Google SERP e restituisce un dict:
-    - inline_shopping
-    - organic_results
-    - paa_results
-    - related_searches
-    """
+# Opzioni Chrome (Streamlit Cloud–friendly)
+options = Options()
+options.add_argument(f"user-agent={USER_AGENT}")
+options.add_argument("--headless=new")
+options.add_argument("--disable-gpu")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--blink-settings=imagesEnabled=false")
+# binario Chromium su Cloud
+options.binary_location = "/usr/bin/chromium"
+
+def get_driver():
+    """Installa e restituisce un driver Chrome/Chromium."""
+    path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+    service = Service(path)
+    try:
+        return webdriver.Chrome(service=service, options=options)
+    except Exception as e:
+        st.error(f"Errore avvio ChromeDriver: {e}")
+        return None
+
+def scrape_serp(keyword: str, paese: dict, n: int):
+    driver = get_driver()
+    if not driver:
+        return []
     url = (
-        f"https://{domain}/search?q={keyword.replace(' ', '+')}"
-        f"&hl={hl}&num={num}&pws=0&filter=0"
+        f"https://www.{paese['domain']}/search?"
+        f"q={keyword.replace(' ', '+')}"
+        f"&hl={paese['hl']}&num={n}"
     )
-    # Richiesta HTTP
-    import requests
-    resp = requests.get(url, headers={"User-Agent": st.secrets.get('USER_AGENT', '')})
-    resp.raise_for_status()
-    html = resp.text
+    logger.info(f"Navigating to {url}")
+    driver.get(url)
+    time.sleep(random.uniform(1, 2))
 
-    # Parsing con moduli dedicati
-    inline = parse_inline_shopping(html)
-    organic = parse_organic_results(html)
-    paa = parse_paa_results(html)
-    related = parse_related_searches(html)
+    # Banner cookie
+    try:
+        btn = driver.find_element(
+            By.XPATH,
+            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'accetta')"
+            " or contains(.,'Accept all')]"
+        )
+        btn.click()
+        time.sleep(1)
+    except:
+        pass
 
-    return {
-        "inline_shopping": inline,
-        "organic_results": organic,
-        "paa_results": paa,
-        "related_searches": related
-    }
+    # Aspetta i risultati
+    try:
+        WebDriverWait(driver, 8).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//a[.//h3]"))
+        )
+    except:
+        st.caption("⚠️ Timeout ricezione risultati")
 
-# Streamlit UI
-st.set_page_config(page_title="Google SERP Parser", layout="wide")
+    # Raccogli titoli+link
+    results = []
+    for a in driver.find_elements(By.XPATH, "//a[.//h3]"):
+        try:
+            t = a.find_element(By.TAG_NAME, "h3").text
+            u = a.get_attribute("href")
+            if t and u.startswith("http"):
+                results.append({"Title": t, "URL": u})
+                if len(results) >= n:
+                    break
+        except:
+            continue
+
+    driver.quit()
+    return results
 
 def main():
-    st.title("🔎 Google SERP Parser")
-    st.markdown("Esegui scraping e parsing della SERP di Google usando moduli dedicati.")
+    st.title("🛠️ Google SERP Scraper")
+    st.markdown("Estrai i primi risultati organici di Google per keyword e paese.")
+    if not SELENIUM_OK:
+        st.error(
+            "Manca Selenium/ Webdriver-manager: aggiungi a requirements.txt\n"
+            f"Errore import: {IMPORT_ERR}"
+        )
+        return
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        keyword = st.text_input("Keyword", "chatbot AI")
-    with col2:
-        paese = st.selectbox("Paese", list(PAESI_GOOGLE.keys()), index=0)
-    with col3:
-        num = st.slider("Risultati", 1, 10, 5)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        kw = st.text_input("🔑 Keyword", placeholder="es. scarpe nere")
+    with c2:
+        p  = st.selectbox("🌍 Paese", list(PAESI.keys()))
+    with c3:
+        cnt = st.slider("🔢 # Risultati", 1, 10, 5)
 
-    if st.button("Avvia scraping"):
-        domain, hl = PAESI_GOOGLE[paese]
-        start = time.time()
-        try:
-            data = scrape_serp(keyword, domain, hl, num)
-        except Exception as e:
-            st.error(f"Errore scraping: {e}")
+    if st.button("🚀 Avvia Scraping"):
+        if not kw.strip():
+            st.error("Inserisci una keyword valida.")
             return
-        elapsed = time.time() - start
-        st.success(f"Completed in {elapsed:.2f}s")
+        with st.spinner("Sto cercando…"):
+            data = scrape_serp(kw, PAESI[p], cnt)
+        if not data:
+            st.warning("Nessun risultato trovato o errore.")
+            return
 
-        # Mostra tabelle
-        st.subheader("Organic Results")
-        df_org = pd.DataFrame(data['organic_results'])
-        st.dataframe(df_org)
+        df = pd.DataFrame(data)
+        st.subheader("📊 Risultati")
+        st.dataframe(df, use_container_width=True)
 
-        st.subheader("People Also Ask")
-        df_paa = pd.DataFrame(data['paa_results'])
-        st.dataframe(df_paa)
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as w:
+            df.to_excel(w, index=False, sheet_name="Risultati")
+            ws = w.sheets["Risultati"]
+            for i, col in enumerate(df.columns):
+                width = max(df[col].astype(str).map(len).max(), len(col)) + 2
+                ws.column_dimensions[chr(65 + i)].width = min(width, 50)
+        buf.seek(0)
+        st.download_button(
+            "📥 Download (XLSX)",
+            data=buf.getvalue(),
+            file_name=f"serp_{kw.replace(' ','_')}_{p}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
-        st.subheader("Related Searches")
-        df_rel = pd.DataFrame(data['related_searches'])
-        st.dataframe(df_rel)
-
-        if data['inline_shopping']:
-            st.subheader("Inline Shopping")
-            df_shop = pd.DataFrame(data['inline_shopping'])
-            st.dataframe(df_shop)
-
-        # Download Excel
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_org.to_excel(writer, index=False, sheet_name='Organic')
-            df_paa.to_excel(writer, index=False, sheet_name='PAA')
-            df_rel.to_excel(writer, index=False, sheet_name='Related')
-            if data['inline_shopping']:
-                df_shop.to_excel(writer, index=False, sheet_name='Shopping')
-        output.seek(0)
-        st.download_button("Download XLSX", data=output.getvalue(), file_name="serp_data.xlsx")
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
