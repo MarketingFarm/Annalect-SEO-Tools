@@ -51,7 +51,7 @@ def get_inline_shopping(soup):
         #print(price)
         div_obj['Price'].append(price)
         only_value = price.replace(",", ".")
-        value_comma = re.sub("[^\d\.]", "", only_value)
+        value_comma = re.sub(r"[^\d\.]", "", only_value)
         value = value_comma.replace(".", ",")
         #print(value)
         div_obj['Value'].append(value)
