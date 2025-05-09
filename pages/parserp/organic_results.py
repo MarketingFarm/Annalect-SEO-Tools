@@ -20,6 +20,9 @@ def get_organic_results(soup):
 
     # creazione sezione con risultati organici
     html_organic_results = soup.find("div", {"id": "rso"})
+if html_organic_results is None:
+    # niente organici, ritorna DF vuoto con colonne giuste
+    return pd.DataFrame(columns=["Keyword","Position","Titles","Links"])
     #print(html_organic_results)
 
     # rimozione dei div con class="g" duplicati
