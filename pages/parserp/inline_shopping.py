@@ -1,5 +1,3 @@
-# pages/parserp/inline_shopping.py
-
 from bs4 import BeautifulSoup
 import re
 from typing import List, Dict
