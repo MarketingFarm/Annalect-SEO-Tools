@@ -1,72 +1,59 @@
 from bs4 import BeautifulSoup
 import pandas as pd
-import re, os, time, shutil
-from datetime import datetime
-from datetime import timedelta
-import streamlit as st
-import __main__
+import re
 
-output_files = 'output_data'
-file_organic_results = 'organic_results.csv'
-
-
-def get_organic_results(soup):
-    position = 1
-    div_obj = {}
-    div_obj['Keyword'] = []
-    div_obj['Position'] = []
-    div_obj['Titles'] = []
-    div_obj['Links'] = []
-
-    # creazione sezione con risultati organici
+def get_organic_results(soup: BeautifulSoup, n: int = None) -> list[dict]:
+    """
+    Estrae i risultati organici dalla SERP (contenitore #rso).
+    Se non trova il contenitore ritorna lista vuota.
+    """
     html_organic_results = soup.find("div", {"id": "rso"})
-if html_organic_results is None:
-    # niente organici, ritorna DF vuoto con colonne giuste
-    return pd.DataFrame(columns=["Keyword","Position","Titles","Links"])
-    #print(html_organic_results)
+    if html_organic_results is None:
+        return []
 
-    # rimozione dei div con class="g" duplicati
-    if html_organic_results.find('div',class_='kno-kp') is not None:
-        html_organic_results.find('div',class_='kno-kp').decompose()
-    if html_organic_results.find('div',class_='mnr-c') is not None:
-        html_organic_results.find('div',class_='mnr-c').decompose()
-    if html_organic_results.find('div',class_='ULSxyf') is not None:
-        html_organic_results.find('div',class_='ULSxyf').decompose()
-    if html_organic_results.find('div',class_='mod') is not None:
-        html_organic_results.find('div',class_='mod').decompose()
-    #print(html_organic_results)
+    # Rimuovi eventuali blocchi non organici
+    for cls in ("kno-kp", "mnr-c", "ULSxyf", "mod"):
+        dup = html_organic_results.find("div", class_=cls)
+        if dup:
+            dup.decompose()
 
-    # estrazione dati
-    organic_results = html_organic_results.find_all('div',class_='g')
-    #print(organic_results)
+    div_obj = {
+        "Keyword": [],
+        "Position": [],
+        "Titles": [],
+        "Links": []
+    }
 
-    for organic_result in organic_results:
-        # with open('test.txt', 'a', encoding='utf-8') as f:
-        #     f.write(organic_result.prettify())
-        if organic_result.find('h3') is not None:
+    position = 1
+    for organic_result in html_organic_results.find_all("div", class_="g"):
+        h3 = organic_result.find("h3")
+        if not h3:
+            continue
 
-            keyword = soup.find('title').text.strip().split('-')[0]
-            keyword = keyword.rstrip()
-            #print(keyword)
-            div_obj['Keyword'].append(keyword)
-            # posizione + 1
-            div_obj['Position'].append(position)
-            #print(position)
-            position +=1
-            title = organic_result.find('h3').text.strip()
-            title = re.sub(r"\s+", " ", title)
-            #print(title)
-            div_obj['Titles'].append(title)
-            link = organic_result.find('a').attrs['href']
-            #print(link)
-            div_obj['Links'].append(link)
-        else:
-            print('saltato')
+        title = h3.get_text(strip=True)
+        title = re.sub(r"\s+", " ", title)
 
-    #print(div_obj)
-    div_obj_df = pd.DataFrame(div_obj, index=None)
-    #print(div_obj_df)
-    #div_obj_df.to_csv(f'{output_files}/{dt_string}-{file_organic_results}', mode='a', header=False, index=False, encoding='UTF-8', sep='\t')
-    #print('---- organic_results')
-    div_obj_df_organico = div_obj_df
-    return div_obj_df_organico
+        link_tag = organic_result.find("a", href=True)
+        href = link_tag["href"] if link_tag else None
+        if not href or not href.startswith("http"):
+            continue
+
+        div_obj["Keyword"].append(soup.title.get_text().split(" - ")[0].strip())
+        div_obj["Position"].append(position)
+        div_obj["Titles"].append(title)
+        div_obj["Links"].append(href)
+        position += 1
+        if n and position > n:
+            break
+
+    # Costruisci lista di dict
+    results = [
+        {"Keyword": k, "Position": p, "Titles": t, "Links": u}
+        for k, p, t, u in zip(
+            div_obj["Keyword"],
+            div_obj["Position"],
+            div_obj["Titles"],
+            div_obj["Links"],
+        )
+    ]
+    return results
