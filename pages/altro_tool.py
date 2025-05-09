@@ -40,7 +40,7 @@ PAESI = {
     "Spagna":      {"domain": "google.es",    "hl": "es"},
 }
 
-# Lista di User-Agent per rotazione (desktop e mobile, vari browser)
+# Lista di User-Agent per rotazione (desktop e mobile)
 UA_LIST = [
     # Chrome desktop
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.224 Safari/537.36",
@@ -58,67 +58,41 @@ UA_LIST = [
 ]
 
 def get_random_ua():
+    """Ritorna uno User-Agent casuale dalla lista."""
     return random.choice(UA_LIST)
 
+
 def get_driver():
+    """Installa e restituisce un driver Chrome/Chromium con opzioni stealth."""
     options = Options()
     # Rotazione UA
     options.add_argument(f"user-agent={get_random_ua()}")
-    # Finestra casuale per variare footprint
+    # Finestra casuale
     width = random.choice([1024, 1280, 1366, 1440, 1600, 1920])
     height = random.choice([768, 800, 900, 1050, 1080, 1200])
     options.add_argument(f"--window-size={width},{height}")
-    # Headless e performance
+    # Headless stealth e performance
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-dev-shm-usage")
-    # Blocca immagini per velocità e privacy
+    # Blocca immagini
     options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
-    # Stealth
-    options.add_argument("--blink-settings=imagesEnabled=false")
+    # Rimuovi flag automation
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option('excludeSwitches', ['enable-automation','enable-logging'])
     options.add_experimental_option('useAutomationExtension', False)
     options.binary_location = '/usr/bin/chromium'
 
-    # Monta driver
-    path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-    service = Service(path)
+    driver_path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+    service = Service(driver_path)
     try:
         driver = webdriver.Chrome(service=service, options=options)
-        # Rimuove webdriver flag
-        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        })
-        return driver
-    except Exception as e:
-        st.error(f"Errore avvio ChromeDriver: {e}")
-        return None
-():
-    return random.choice(UA_LIST)
-
-
-def get_driver():
-    options = Options()
-    options.add_argument(f"user-agent={get_random_ua()}")
-    options.add_argument("--headless=new")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--blink-settings=imagesEnabled=false")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option('excludeSwitches', ['enable-automation','enable-logging'])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.binary_location = '/usr/bin/chromium'
-
-    path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-    service = Service(path)
-    try:
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-            'source': "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        })
+        # Rimuove webdriver property
+        driver.execute_cdp_cmd(
+            'Page.addScriptToEvaluateOnNewDocument',
+            {'source': "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"}
+        )
         return driver
     except Exception as e:
         st.error(f"Errore avvio ChromeDriver: {e}")
@@ -126,6 +100,7 @@ def get_driver():
 
 
 def scrape_serp(keyword: str, paese: dict, n: int) -> list:
+    """Esegue scraping dei primi n risultati organici."""
     driver = get_driver()
     if not driver:
         return []
@@ -134,6 +109,7 @@ def scrape_serp(keyword: str, paese: dict, n: int) -> list:
     url = f"https://www.{paese['domain']}/search?q={query}&hl={paese['hl']}&num={n}"
     logger.info(f"Navigating to {url}")
     driver.get(url)
+    # Sleep umano
     time.sleep(random.uniform(2, 4))
 
     try:
@@ -150,7 +126,7 @@ def scrape_serp(keyword: str, paese: dict, n: int) -> list:
     return get_organic_results(soup, n)
 
 
-def main():
+ def main():
     st.title("🛠️ Google SERP Scraper – Solo Organici")
     st.markdown("Estrai i primi risultati organici di Google per keyword e paese.")
 
