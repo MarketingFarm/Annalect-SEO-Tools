@@ -24,6 +24,8 @@ def get_inline_shopping(soup):
 
     #soup = soup_from_file(f'{html_file}/{file}'.format(file=file,html_file=html_file))
     html_inline_shopping = soup.find("div", {"class": "cu-container"})
+if html_inline_shopping is None:
+    return pd.DataFrame(columns=["Keyword","Position","Titles","Merchant","Price","Value","Link"])
     #print(html_inline_shopping)
     inline_shoppings = html_inline_shopping.find_all('div',class_=['mnr-c', 'pla-unit'])
     #print(inline_shoppings)
