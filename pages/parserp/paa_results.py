@@ -18,7 +18,9 @@ def get_paa_results(soup):
     div_obj['Question'] = []
 
     try:
-        html_paa_results = soup.find("div", {"jsname": "Cpkphb"})
+        html_related_searches = soup.find("div", {"id": "botstuff"})
+if html_related_searches is None:
+    return pd.DataFrame(columns=["Keyword","Query","Link"])
         print(html_paa_results)
 
         #html_paa_results = soup.find_all('div', {'class': 'related-question-pair'})
