@@ -100,13 +100,14 @@ def scrape_serp(keyword: str, paese: dict, n: int) -> dict:
     except:
         pass
 
-    # Aspetta i risultati
+        # Aspetta i risultati organici (div.g)
     try:
         WebDriverWait(driver, 8).until(
-            EC.presence_of_all_elements_located((By.XPATH, "//a[.//h3]"))
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.g"))
         )
     except:
-        st.caption("⚠️ Timeout ricezione risultati")
+        st.caption("⚠️ Timeout ricezione risultati – il layout potrebbe essere cambiato")
+
 
     html_source = driver.page_source
     driver.quit()
