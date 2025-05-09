@@ -1,59 +1,59 @@
+# pages/parserp/organic_results.py
+
 from bs4 import BeautifulSoup
-import pandas as pd
 import re
 
 def get_organic_results(soup: BeautifulSoup, n: int = None) -> list[dict]:
     """
-    Estrae i risultati organici dalla SERP (contenitore #rso).
-    Se non trova il contenitore ritorna lista vuota.
+    Estrae i primi risultati organici dalla SERP di Google.
+    - soup: oggetto BeautifulSoup della pagina.
+    - n: numero massimo di risultati (default None = tutti).
+    Restituisce una lista di dict con chiavi:
+    Keyword, Position, Titles, Links
     """
-    html_organic_results = soup.find("div", {"id": "rso"})
-    if html_organic_results is None:
+
+    # Trova il contenitore principale
+    html_rso = soup.find("div", id="rso")
+    if html_rso is None:
         return []
 
-    # Rimuovi eventuali blocchi non organici
+    # Rimuovi blocchi non organici
     for cls in ("kno-kp", "mnr-c", "ULSxyf", "mod"):
-        dup = html_organic_results.find("div", class_=cls)
+        dup = html_rso.find("div", class_=cls)
         if dup:
             dup.decompose()
 
-    div_obj = {
-        "Keyword": [],
-        "Position": [],
-        "Titles": [],
-        "Links": []
-    }
-
+    results = []
     position = 1
-    for organic_result in html_organic_results.find_all("div", class_="g"):
-        h3 = organic_result.find("h3")
+
+    # Cicla sui blocchi 'g'
+    for block in html_rso.find_all("div", class_="g"):
+        h3 = block.find("h3")
         if not h3:
             continue
 
+        # Titolo pulito
         title = h3.get_text(strip=True)
         title = re.sub(r"\s+", " ", title)
 
-        link_tag = organic_result.find("a", href=True)
-        href = link_tag["href"] if link_tag else None
-        if not href or not href.startswith("http"):
+        # URL (primo <a> con href valido)
+        a = block.find("a", href=True)
+        href = a["href"] if a and a["href"].startswith("http") else None
+        if not href:
             continue
 
-        div_obj["Keyword"].append(soup.title.get_text().split(" - ")[0].strip())
-        div_obj["Position"].append(position)
-        div_obj["Titles"].append(title)
-        div_obj["Links"].append(href)
+        # Keyword estratta dal <title>
+        full_title = soup.title.get_text()
+        keyword = full_title.split("-")[0].strip()
+
+        results.append({
+            "Keyword": keyword,
+            "Position": position,
+            "Titles": title,
+            "Links": href
+        })
         position += 1
         if n and position > n:
             break
 
-    # Costruisci lista di dict
-    results = [
-        {"Keyword": k, "Position": p, "Titles": t, "Links": u}
-        for k, p, t, u in zip(
-            div_obj["Keyword"],
-            div_obj["Position"],
-            div_obj["Titles"],
-            div_obj["Links"],
-        )
-    ]
     return results
