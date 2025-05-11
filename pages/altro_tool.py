@@ -58,10 +58,14 @@ def main():
             st.error("Per favore inserisci almeno un URL valido.")
             return
 
-        # Download contenuti
+        # Download contenuti con progress bar
         st.info("🔍 Download dei contenuti in corso...")
-        df = pd.DataFrame({"URL": urls})
-        df["Content"] = df["URL"].apply(lambda u: fetch_content(u))
+        progress_download = st.progress(0)
+        contents = []
+        for i, url in enumerate(urls, start=1):
+            contents.append(fetch_content(url))
+            progress_download.progress(i / len(urls))
+        df = pd.DataFrame({"URL": urls, "Content": contents})
 
         # Calcola TF-IDF e similarità
         st.info("⚙️ Calcolo TF-IDF e matrice di similarità...")
@@ -70,8 +74,12 @@ def main():
         sim_mat = cosine_similarity(tfidf)
         sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
 
-        # Estrai duplicati sopra soglia
+        # Estrai duplicati sopra soglia con progress bar
+        st.info("🔎 Analisi duplicati...")
         duplicates = []
+        total_pairs = sum(1 for i in range(len(urls)) for j in range(i+1, len(urls)))
+        progress_dup = st.progress(0)
+        pair_count = 0
         for i in range(len(urls)):
             for j in range(i+1, len(urls)):
                 score = sim_mat[i, j]
@@ -81,6 +89,9 @@ def main():
                         "URL 2": urls[j],
                         "Similarity": round(score, 4)
                     })
+                pair_count += 1
+                progress_dup.progress(pair_count / total_pairs)
+
         dup_df = pd.DataFrame(duplicates)
 
         # Mostra risultati
