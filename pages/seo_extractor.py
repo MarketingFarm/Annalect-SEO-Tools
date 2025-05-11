@@ -3,160 +3,126 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# User-Agent per le richieste
-BASE_HEADERS = {"User-Agent": "Mozilla/5.0"}
+# ----- Funzioni core -----
 
-def estrai_info(url: str) -> dict:
-    """
-    Fa GET via requests, parsea con BeautifulSoup e restituisce
-    dizionario con H1–H4, Meta title/description, canonical e robots.
-    """
-    resp = requests.get(url, headers=BASE_HEADERS, timeout=10)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+def fetch_content(url):
+    """Scarica e restituisce il testo visibile (<p>) di una pagina."""
+    try:
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            paragraphs = soup.find_all("p")
+            text = " ".join(p.get_text() for p in paragraphs)
+            return text.strip()
+        else:
+            return f"[ERROR {resp.status_code}]"
+    except Exception as e:
+        return f"[EXCEPTION] {e}"
 
-    # Selezione del main content (fallback su body)
-    content = (
-        soup.find("main")
-        or soup.find("article")
-        or soup.find("div", id="content")
-        or soup.find("div", class_="entry-content")
-        or soup.find("div", class_="post-body")
-        or soup.find("body")
-        or soup
-    )
+def analyze_duplicates(urls, threshold):
+    """Dato un elenco di URL e una soglia, torna DataFrame duplicati e matrice di similarità."""
+    df = pd.DataFrame({"URL": urls})
+    df["Content"] = df["URL"].apply(fetch_content)
 
-    # Estrazione headings
-    h1 = content.find("h1")
-    h2s = [h.get_text(strip=True) for h in content.find_all("h2")]
-    h3s = [h.get_text(strip=True) for h in content.find_all("h3")]
-    h4s = [h.get_text(strip=True) for h in content.find_all("h4")]
+    vect = TfidfVectorizer(stop_words="english")
+    tfidf = vect.fit_transform(df["Content"])
+    sim_mat = cosine_similarity(tfidf)
 
-    # Meta SEO globali
-    title_tag = soup.title
-    desc = soup.find("meta", {"name": "description"})
-    canonical = soup.find("link", rel="canonical")
-    robots = soup.find("meta", {"name": "robots"})
+    # Crea lista di duplicati sopra soglia
+    duplicates = []
+    for i in range(len(df)):
+        for j in range(i+1, len(df)):
+            score = sim_mat[i, j]
+            if score >= threshold:
+                duplicates.append({
+                    "URL 1": df.at[i, "URL"],
+                    "URL 2": df.at[j, "URL"],
+                    "Similarity": round(score, 4)
+                })
+    dup_df = pd.DataFrame(duplicates)
+    sim_df = pd.DataFrame(sim_mat, index=df["URL"], columns=df["URL"])
+    return dup_df, sim_df
 
-    return {
-        "H1": h1.get_text(strip=True) if h1 else "",
-        "H2": " | ".join(h2s),
-        "H3": " | ".join(h3s),
-        "H4": " | ".join(h4s),
-        "Meta title": title_tag.get_text(strip=True) if title_tag else "",
-        "Meta title length": len(title_tag.get_text(strip=True)) if title_tag else 0,
-        "Meta description": desc["content"].strip() if desc and desc.has_attr("content") else "",
-        "Meta description length": len(desc["content"].strip()) if desc and desc.has_attr("content") else 0,
-        "Canonical": canonical["href"].strip() if canonical and canonical.has_attr("href") else "",
-        "Meta robots": robots["content"].strip() if robots and robots.has_attr("content") else ""
-    }
+def to_excel_bytes(df: pd.DataFrame) -> bytes:
+    """Serializza un DataFrame in un file Excel in memoria."""
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Duplicates")
+        ws = writer.sheets["Duplicates"]
+        for i, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            ws.column_dimensions[chr(65 + i)].width = min(max_len, 50)
+    buf.seek(0)
+    return buf.getvalue()
 
-def main():
-    st.title("🔍 SEO Extractor")
+# ----- Interfaccia Streamlit -----
 
-    # Spiegazione
-    st.markdown(
-        "Estrai H1–H4 dal contenuto principale (main/article), più "
-        "Meta title/description, Canonical e Meta robots."
-    )
-    # Avviso in box info
-    st.info(
-        "⚠️ Nota: l'estrazione degli heading può variare a seconda di come "
-        "la pagina viene renderizzata. Verifica sempre su una pagina di prova "
-        "che tutti gli heading vengano estratti correttamente."
-    )
-    st.divider()
+st.set_page_config(
+    page_title="Duplicate Content Audit",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-    # CSS per aumentare spazio tra righe dei pills
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stPills"] > button {
-            margin-bottom: 0.5rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+st.title("🕵️‍♀️ Duplicate Content Audit Tool")
+st.markdown("""
+Inserisci una lista di URL (uno per riga) nel form qui sotto e scegli la soglia 
+di similarità (TF-IDF + Cosine) per individuare contenuti duplicati o troppo simili.
+""")
 
-    col1, col2 = st.columns([2, 1], gap="large")
-    with col1:
-        urls = st.text_area(
-            "Incolla URL (uno per riga)",
-            height=200,
-            placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
-        )
-    with col2:
-        example = estrai_info("https://www.example.com")
-        # Menu dei campi senza lunghezze
-        all_keys = [k for k in example.keys() if not k.endswith("length")]
-        fields = st.pills(
-            "Campi da estrarre",
-            all_keys,
-            selection_mode="multi",
-            default=[]
-        )
+# Sidebar: soglia e info
+st.sidebar.header("Impostazioni")
+threshold = st.sidebar.slider(
+    "Soglia di similarità",
+    min_value=0.0,
+    max_value=1.0,
+    value=0.8,
+    step=0.01,
+    help="Valori vicini a 1 richiedono testi quasi identici."
+)
+st.sidebar.markdown("© 2025 by il tuo nome")
 
-    if st.button("🚀 Avvia Estrazione"):
-        if not fields:
-            st.error("Seleziona almeno un campo.")
-            return
-        url_list = [u.strip() for u in urls.splitlines() if u.strip()]
-        if not url_list:
-            st.error("Inserisci almeno un URL valido.")
-            return
+# Main form
+urls_input = st.text_area(
+    "⤵️ Incolla qui i tuoi URL (uno per riga)",
+    height=150,
+    placeholder="https://tuosito.it/pagina1\nhttps://tuosito.it/pagina2\n..."
+)
 
-        prog = st.progress(0)
-        results = []
-        for i, u in enumerate(url_list, 1):
-            try:
-                info = estrai_info(u)
-            except Exception as e:
-                info = {k: (f"Errore: {e}" if not k.endswith("length") else 0)
-                        for k in example.keys()}
+if st.button("🔍 Analizza duplicati"):
+    urls = [u.strip() for u in urls_input.splitlines() if u.strip()]
+    if not urls:
+        st.error("Per favore, inserisci almeno un URL valido.")
+    else:
+        with st.spinner("Analizzo i contenuti…"):
+            dup_df, sim_df = analyze_duplicates(urls, threshold)
 
-            row = {"URL": u}
-            # Costruisci ordine: per ciascun field metti subito il suo length
-            ordered_cols = []
-            for key in ["H1", "H2", "H3", "H4", "Meta title", "Meta description"]:
-                if key in fields:
-                    ordered_cols.append(key)
-                    row[key] = info.get(key, "")
-                    # length immediato per title e description
-                    if key == "Meta title":
-                        ordered_cols.append("Meta title length")
-                        row["Meta title length"] = info["Meta title length"]
-                    if key == "Meta description":
-                        ordered_cols.append("Meta description length")
-                        row["Meta description length"] = info["Meta description length"]
+        if dup_df.empty:
+            st.success(f"Nessun duplicato trovato sopra la soglia {threshold}")
+        else:
+            st.warning(f"Trovate {len(dup_df)} coppie di potenziali duplicati:")
+            st.dataframe(dup_df, use_container_width=True)
 
-            results.append(row)
-            prog.progress(int(i / len(url_list) * 100))
+            # Download CSV
+            csv = dup_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Scarica CSV dei duplicati",
+                data=csv,
+                file_name="duplicate_content.csv",
+                mime="text/csv"
+            )
 
-        st.success(f"Analizzati {len(results)} URL.")
-        df = pd.DataFrame(results)
-        cols = ["URL"] + ordered_cols
-        df = df[cols]
+            # Download Excel
+            xlsx = to_excel_bytes(dup_df)
+            st.download_button(
+                label="📥 Scarica Excel dei duplicati",
+                data=xlsx,
+                file_name="duplicate_content.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-        st.dataframe(df, use_container_width=True)
-
-        # Genera Excel con colonne auto-adattate
-        buf = BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Sheet1")
-            ws = writer.sheets["Sheet1"]
-            for col_cells in ws.columns:
-                length = max(len(str(cell.value)) for cell in col_cells) + 2
-                ws.column_dimensions[col_cells[0].column_letter].width = length
-        buf.seek(0)
-
-        st.download_button(
-            "📥 Download XLSX",
-            data=buf,
-            file_name="estrazione_seo.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-if __name__ == "__main__":
-    main()
+        # Mostra matrice completa
+        with st.expander("📊 Mostra matrice di similarità completa"):
+            st.dataframe(sim_df, use_container_width=True)
