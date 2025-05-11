@@ -1,129 +1,107 @@
+# pages/altro_tool.py
+
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from io import BytesIO
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# ----- Configurazione pagina Streamlit (deve essere la prima chiamata st.***) -----
-st.set_page_config(
-    page_title="Duplicate Content Audit",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# --- Funzioni di supporto ---
 
-# ----- Funzioni core -----
-
-def fetch_content(url):
-    """Scarica e restituisce il testo visibile (<p>) di una pagina."""
+def fetch_content(url: str) -> str:
+    """
+    Scarica il contenuto testuale di una pagina: unisce tutti i paragrafi.
+    Restituisce stringa vuota o messaggio di errore.
+    """
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            paragraphs = soup.find_all("p")
-            text = " ".join(p.get_text() for p in paragraphs)
-            return text.strip()
-        else:
-            return f"[ERROR {resp.status_code}]"
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        paragraphs = soup.find_all("p")
+        text = " ".join(p.get_text() for p in paragraphs)
+        return text.strip()
+    except requests.RequestException as e:
+        return f"[ERROR {getattr(e, 'response', None) and e.response.status_code or 'REQ'}]"
     except Exception as e:
         return f"[EXCEPTION] {e}"
 
-def analyze_duplicates(urls, threshold):
-    """Dato un elenco di URL e una soglia, torna DataFrame duplicati e matrice di similarità."""
-    df = pd.DataFrame({"URL": urls})
-    df["Content"] = df["URL"].apply(fetch_content)
+# --- Interfaccia Streamlit ---
 
-    vect = TfidfVectorizer(stop_words="english")
-    tfidf = vect.fit_transform(df["Content"])
-    sim_mat = cosine_similarity(tfidf)
+def main():
+    st.title("📝 Duplicate Content Checker")
+    st.markdown("Carica una lista di URL e individua possibili contenuti duplicati usando TF-IDF + similarità coseno.")
+    st.divider()
 
-    # Crea lista di duplicati sopra soglia
-    duplicates = []
-    for i in range(len(df)):
-        for j in range(i + 1, len(df)):
-            score = sim_mat[i, j]
-            if score >= threshold:
-                duplicates.append({
-                    "URL 1": df.at[i, "URL"],
-                    "URL 2": df.at[j, "URL"],
-                    "Similarity": round(score, 4)
-                })
-    dup_df = pd.DataFrame(duplicates)
-    sim_df = pd.DataFrame(sim_mat, index=df["URL"], columns=df["URL"])
-    return dup_df, sim_df
+    # Input URL
+    urls_input = st.text_area(
+        label="🔗 Inserisci gli URL (uno per riga)",
+        value="https://example.com/page1\nhttps://example.com/page2",
+        height=200,
+        placeholder="Incolla qui gli URL…"
+    )
 
-def to_excel_bytes(df: pd.DataFrame) -> bytes:
-    """Serializza un DataFrame in un file Excel in memoria."""
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Duplicates")
-        ws = writer.sheets["Duplicates"]
-        for i, col in enumerate(df.columns):
-            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-            ws.column_dimensions[chr(65 + i)].width = min(max_len, 50)
-    buf.seek(0)
-    return buf.getvalue()
+    # Soglia di similarità
+    threshold = st.slider(
+        label="⚖️ Soglia di similarità",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.8,
+        step=0.01
+    )
 
-# ----- Interfaccia Streamlit -----
+    # Pulsante di analisi
+    if st.button("🚀 Analizza duplicati"):
+        urls = [u.strip() for u in urls_input.splitlines() if u.strip()]
+        if not urls:
+            st.error("Per favore inserisci almeno un URL valido.")
+            return
 
-st.title("🕵️‍♀️ Duplicate Content Audit Tool")
-st.markdown("""
-Inserisci una lista di URL (uno per riga) nel form qui sotto e scegli la soglia 
-di similarità (TF-IDF + Cosine) per individuare contenuti duplicati o troppo simili.
-""")
+        # Download contenuti
+        st.info("🔍 Download dei contenuti in corso...")
+        df = pd.DataFrame({"URL": urls})
+        df["Content"] = df["URL"].apply(lambda u: fetch_content(u))
 
-# Sidebar: soglia e info
-st.sidebar.header("Impostazioni")
-threshold = st.sidebar.slider(
-    "Soglia di similarità",
-    min_value=0.0,
-    max_value=1.0,
-    value=0.8,
-    step=0.01,
-    help="Valori vicini a 1 richiedono testi quasi identici."
-)
-st.sidebar.markdown("© 2025 by il tuo nome")
+        # Calcola TF-IDF e similarità
+        st.info("⚙️ Calcolo TF-IDF e matrice di similarità...")
+        vect = TfidfVectorizer(stop_words="english")
+        tfidf = vect.fit_transform(df["Content"])
+        sim_mat = cosine_similarity(tfidf)
+        sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
 
-# Main form
-urls_input = st.text_area(
-    "⤵️ Incolla qui i tuoi URL (uno per riga)",
-    height=150,
-    placeholder="https://tuosito.it/pagina1\nhttps://tuosito.it/pagina2\n..."
-)
+        # Estrai duplicati sopra soglia
+        duplicates = []
+        for i in range(len(urls)):
+            for j in range(i+1, len(urls)):
+                score = sim_mat[i, j]
+                if score >= threshold:
+                    duplicates.append({
+                        "URL 1": urls[i],
+                        "URL 2": urls[j],
+                        "Similarity": round(score, 4)
+                    })
+        dup_df = pd.DataFrame(duplicates)
 
-if st.button("🔍 Analizza duplicati"):
-    urls = [u.strip() for u in urls_input.splitlines() if u.strip()]
-    if not urls:
-        st.error("Per favore, inserisci almeno un URL valido.")
-    else:
-        with st.spinner("Analizzo i contenuti…"):
-            dup_df, sim_df = analyze_duplicates(urls, threshold)
-
+        # Mostra risultati
+        st.subheader("📋 Risultati duplicati")
         if dup_df.empty:
-            st.success(f"Nessun duplicato trovato sopra la soglia {threshold}")
+            st.success(f"✅ Nessun duplicato sopra la soglia {threshold}.")
         else:
-            st.warning(f"Trovate {len(dup_df)} coppie di potenziali duplicati:")
+            st.warning(f"⚠️ Trovati {len(dup_df)} coppie con similarità ≥ {threshold}.")
             st.dataframe(dup_df, use_container_width=True)
 
-            # Download CSV
-            csv = dup_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="📥 Scarica CSV dei duplicati",
-                data=csv,
-                file_name="duplicate_content.csv",
-                mime="text/csv"
-            )
+        st.subheader("📊 Matrice di similarità completa")
+        st.dataframe(sim_df, use_container_width=True)
 
-            # Download Excel
-            xlsx = to_excel_bytes(dup_df)
-            st.download_button(
-                label="📥 Scarica Excel dei duplicati",
-                data=xlsx,
-                file_name="duplicate_content.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # Download matrice completa
+        csv = sim_df.to_csv().encode('utf-8')
+        st.download_button(
+            label="📥 Download matrice (CSV)",
+            data=csv,
+            file_name="similarity_matrix.csv",
+            mime="text/csv"
+        )
 
-        # Mostra matrice completa
-        with st.expander("📊 Mostra matrice di similarità completa"):
-            st.dataframe(sim_df, use_container_width=True)
+if __name__ == "__main__":
+    main()
