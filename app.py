@@ -21,7 +21,7 @@ st.sidebar.markdown(
 pages = {
     "On-Page SEO": [
         st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
-        st.Page("pages/altro_tool.py",   title="🛠️ Google SERP Scraper")
+        st.Page("pages/duplicate_content_checker.py",   title="📝 Duplicate Content Checker")
     ],
     "Technical SEO": [],
     "Off-Page SEO": []
