@@ -6,6 +6,13 @@ from io import BytesIO
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# ----- Configurazione pagina Streamlit (deve essere la prima chiamata st.***) -----
+st.set_page_config(
+    page_title="Duplicate Content Audit",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # ----- Funzioni core -----
 
 def fetch_content(url):
@@ -34,7 +41,7 @@ def analyze_duplicates(urls, threshold):
     # Crea lista di duplicati sopra soglia
     duplicates = []
     for i in range(len(df)):
-        for j in range(i+1, len(df)):
+        for j in range(i + 1, len(df)):
             score = sim_mat[i, j]
             if score >= threshold:
                 duplicates.append({
@@ -59,12 +66,6 @@ def to_excel_bytes(df: pd.DataFrame) -> bytes:
     return buf.getvalue()
 
 # ----- Interfaccia Streamlit -----
-
-st.set_page_config(
-    page_title="Duplicate Content Audit",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 st.title("🕵️‍♀️ Duplicate Content Audit Tool")
 st.markdown("""
