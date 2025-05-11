@@ -1,177 +1,128 @@
 import streamlit as st
-import time
-import random
-import logging
-import os
+import requests
+from bs4 import BeautifulSoup
 import pandas as pd
 from io import BytesIO
-from bs4 import BeautifulSoup
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Selenium e WebDriver-Manager
-try:
-    from selenium import webdriver
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from webdriver_manager.chrome import ChromeDriverManager
-    from webdriver_manager.core.os_manager import ChromeType
-    SELENIUM_OK = True
-except ImportError as e:
-    SELENIUM_OK = False
-    IMPORT_ERR = str(e)
+# ----- Funzioni core -----
 
-# Parser organici
-from pages.parserp.organic_results import get_organic_results
-
-# Riduci log di webdriver-manager
-os.environ['WDM_LOG_LEVEL'] = '0'
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Mappatura paesi
-PAESI = {
-    "Italia":      {"domain": "google.it",    "hl": "it"},
-    "Stati Uniti": {"domain": "google.com",   "hl": "en"},
-    "Regno Unito": {"domain": "google.co.uk", "hl": "en"},
-    "Francia":     {"domain": "google.fr",    "hl": "fr"},
-    "Germania":    {"domain": "google.de",    "hl": "de"},
-    "Spagna":      {"domain": "google.es",    "hl": "es"},
-}
-
-# Lista di User-Agent per rotazione (desktop e mobile)
-UA_LIST = [
-    # Chrome desktop
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.224 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.118 Safari/537.36",
-    # Firefox desktop
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:118.0) Gecko/20100101 Firefox/118.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 11.6; rv:115.0) Gecko/20100101 Firefox/115.0",
-    # Edge desktop
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-    # Safari mobile
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
-    # Android mobile
-    "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-]
-
-def get_random_ua():
-    """Ritorna uno User-Agent casuale dalla lista."""
-    return random.choice(UA_LIST)
-
-
-def get_driver():
-    """Installa e restituisce un driver Chrome/Chromium con opzioni stealth."""
-    options = Options()
-    # Rotazione UA
-    options.add_argument(f"user-agent={get_random_ua()}")
-    # Finestra casuale
-    width = random.choice([1024, 1280, 1366, 1440, 1600, 1920])
-    height = random.choice([768, 800, 900, 1050, 1080, 1200])
-    options.add_argument(f"--window-size={width},{height}")
-    # Headless stealth e performance
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-dev-shm-usage")
-    # Blocca immagini
-    options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
-    # Rimuovi flag automation
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option('excludeSwitches', ['enable-automation','enable-logging'])
-    options.add_experimental_option('useAutomationExtension', False)
-    options.binary_location = '/usr/bin/chromium'
-
-    driver_path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-    service = Service(driver_path)
+def fetch_content(url):
+    """Scarica e restituisce il testo visibile (<p>) di una pagina."""
     try:
-        driver = webdriver.Chrome(service=service, options=options)
-        # Rimuove webdriver property
-        driver.execute_cdp_cmd(
-            'Page.addScriptToEvaluateOnNewDocument',
-            {'source': "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"}
-        )
-        return driver
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            paragraphs = soup.find_all("p")
+            text = " ".join(p.get_text() for p in paragraphs)
+            return text.strip()
+        else:
+            return f"[ERROR {resp.status_code}]"
     except Exception as e:
-        st.error(f"Errore avvio ChromeDriver: {e}")
-        return None
+        return f"[EXCEPTION] {e}"
 
+def analyze_duplicates(urls, threshold):
+    """Dato un elenco di URL e una soglia, torna DataFrame duplicati e matrice di similarità."""
+    df = pd.DataFrame({"URL": urls})
+    df["Content"] = df["URL"].apply(fetch_content)
 
-def scrape_serp(keyword: str, paese: dict, n: int) -> list:
-    """Esegue scraping dei primi n risultati organici."""
-    driver = get_driver()
-    if not driver:
-        return []
+    vect = TfidfVectorizer(stop_words="english")
+    tfidf = vect.fit_transform(df["Content"])
+    sim_mat = cosine_similarity(tfidf)
 
-    query = keyword.replace(' ', '+')
-    url = f"https://www.{paese['domain']}/search?q={query}&hl={paese['hl']}&num={n}"
-    logger.info(f"Navigating to {url}")
-    driver.get(url)
-    # Sleep umano
-    time.sleep(random.uniform(2, 4))
+    # Crea lista di duplicati sopra soglia
+    duplicates = []
+    for i in range(len(df)):
+        for j in range(i+1, len(df)):
+            score = sim_mat[i, j]
+            if score >= threshold:
+                duplicates.append({
+                    "URL 1": df.at[i, "URL"],
+                    "URL 2": df.at[j, "URL"],
+                    "Similarity": round(score, 4)
+                })
+    dup_df = pd.DataFrame(duplicates)
+    sim_df = pd.DataFrame(sim_mat, index=df["URL"], columns=df["URL"])
+    return dup_df, sim_df
 
-    try:
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.g'))
-        )
-    except:
-        st.caption("⚠️ Timeout ricezione risultati – verifica i selettori")
+def to_excel_bytes(df: pd.DataFrame) -> bytes:
+    """Serializza un DataFrame in un file Excel in memoria."""
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Duplicates")
+        ws = writer.sheets["Duplicates"]
+        for i, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            ws.column_dimensions[chr(65 + i)].width = min(max_len, 50)
+    buf.seek(0)
+    return buf.getvalue()
 
-    html = driver.page_source
-    driver.quit()
+# ----- Interfaccia Streamlit -----
 
-    soup = BeautifulSoup(html, 'html.parser')
-    return get_organic_results(soup, n)
+st.set_page_config(
+    page_title="Duplicate Content Audit",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
+st.title("🕵️‍♀️ Duplicate Content Audit Tool")
+st.markdown("""
+Inserisci una lista di URL (uno per riga) nel form qui sotto e scegli la soglia 
+di similarità (TF-IDF + Cosine) per individuare contenuti duplicati o troppo simili.
+""")
 
- def main():
-    st.title("🛠️ Google SERP Scraper – Solo Organici")
-    st.markdown("Estrai i primi risultati organici di Google per keyword e paese.")
+# Sidebar: soglia e info
+st.sidebar.header("Impostazioni")
+threshold = st.sidebar.slider(
+    "Soglia di similarità",
+    min_value=0.0,
+    max_value=1.0,
+    value=0.8,
+    step=0.01,
+    help="Valori vicini a 1 richiedono testi quasi identici."
+)
+st.sidebar.markdown("© 2025 by il tuo nome")
 
-    if not SELENIUM_OK:
-        st.error(f"Manca Selenium/Webdriver-manager. Errore import: {IMPORT_ERR}")
-        return
+# Main form
+urls_input = st.text_area(
+    "⤵️ Incolla qui i tuoi URL (uno per riga)",
+    height=150,
+    placeholder="https://tuosito.it/pagina1\nhttps://tuosito.it/pagina2\n..."
+)
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        kw = st.text_input("🔑 Keyword", placeholder="es. scarpe nere")
-    with c2:
-        pa = st.selectbox("🌍 Paese", list(PAESI.keys()))
-    with c3:
-        cnt = st.slider("🔢 # Risultati organici", 1, 10, 5)
+if st.button("🔍 Analizza duplicati"):
+    urls = [u.strip() for u in urls_input.splitlines() if u.strip()]
+    if not urls:
+        st.error("Per favore, inserisci almeno un URL valido.")
+    else:
+        with st.spinner("Analizzo i contenuti…"):
+            dup_df, sim_df = analyze_duplicates(urls, threshold)
 
-    if st.button("🚀 Avvia Scraping"):
-        if not kw.strip():
-            st.error("Inserisci una keyword valida.")
-            return
+        if dup_df.empty:
+            st.success(f"Nessun duplicato trovato sopra la soglia {threshold}")
+        else:
+            st.warning(f"Trovate {len(dup_df)} coppie di potenziali duplicati:")
+            st.dataframe(dup_df, use_container_width=True)
 
-        with st.spinner("Sto cercando…"):
-            results = scrape_serp(kw, PAESI[pa], cnt)
+            # Download CSV
+            csv = dup_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Scarica CSV dei duplicati",
+                data=csv,
+                file_name="duplicate_content.csv",
+                mime="text/csv"
+            )
 
-        if not results:
-            st.warning("Nessun risultato trovato o errore.")
-            return
+            # Download Excel
+            xlsx = to_excel_bytes(dup_df)
+            st.download_button(
+                label="📥 Scarica Excel dei duplicati",
+                data=xlsx,
+                file_name="duplicate_content.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-        df = pd.DataFrame(results)
-        st.subheader("📄 Risultati organici")
-        st.dataframe(df, use_container_width=True)
-
-        # Export XLSX
-        buf = BytesIO()
-        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Organici')
-            ws = writer.sheets['Organici']
-            for i, col in enumerate(df.columns):
-                max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-                ws.column_dimensions[chr(65 + i)].width = min(max_len, 50)
-        buf.seek(0)
-        st.download_button(
-            "📥 Download Risultati (XLSX)", buf.getvalue(),
-            file_name=f"serp_{kw.replace(' ','_')}_{pa}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-if __name__ == "__main__":
-    main()
+        # Mostra matrice completa
+        with st.expander("📊 Mostra matrice di similarità completa"):
+            st.dataframe(sim_df, use_container_width=True)
