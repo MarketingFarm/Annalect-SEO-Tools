@@ -45,40 +45,54 @@ def main():
     st.markdown("Scegli se inserire manualmente gli URL o fornire l'URL di una sitemap XML.")
     st.divider()
 
-    # CSS bottoni e pulsante sitemap blu
+    # CSS per bottoni: Analizza duplicati rosso, Carica sitemap trasparente con bordo rosso
     st.markdown("""
     <style>
     div.stButton > button { background-color: #d9534f; color: white; border: none; }
     div.stButton > button:hover { background-color: #c9302c; color: white; }
-    button[aria-label="Carica sitemap"] { background-color: #027bff !important; color: white !important; }
-    button[aria-label="Carica sitemap"]:hover { background-color: #025fcc !important; }
+    button[aria-label="Carica sitemap"] {
+        background-color: transparent !important;
+        color: #d9534f !important;
+        border: 1px solid #d9534f !important;
+    }
+    button[aria-label="Carica sitemap"]:hover {
+        background-color: rgba(217,83,79,0.1) !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # Contenitore per gli alert (in cima)
+    # Container per alert in cima
     msg_container = st.container()
 
-    # Layout colonne (1:4 ratio)
-    left_col, right_col = st.columns([1, 4], gap="large")
+    # Layout a due colonne (sinistra 1/5, destra 4/5) con gap largo
+    left_col, right_col = st.columns([1, 5], gap="large")
 
-    # Sidebar sinistra: modalità e soglia
+    # Colonna sinistra: scelta modalità & soglia
     with left_col:
         mode = st.radio("Modalità di input", ["Manuale", "Sitemap"], index=0)
         threshold = st.slider("Soglia di similarità", 0.0, 1.0, 0.8, 0.01)
 
-    # Gestione URL in session_state
+    # Inizializza session state per gli URL
     if 'urls' not in st.session_state:
         st.session_state['urls'] = []
 
-    # Colonna destra: input e bottoni
+    # Colonna destra: input e bottoni in linea
     with right_col:
         if mode == "Manuale":
             text = st.text_area("Inserisci gli URL (uno per riga)", height=200,
                                 placeholder="https://example.com/page1\nhttps://example.com/page2")
             st.session_state['urls'] = [u.strip() for u in text.splitlines() if u.strip()]
+            # Solo bottone Analizza
+            run_click = st.button("Analizza duplicati", use_container_width=True)
+            load_click = False
         else:
             sitemap_url = st.text_input("URL della sitemap", placeholder="https://example.com/sitemap.xml")
-            load_click = st.button("Carica sitemap")
+            # Due bottoni inline
+            col1, col2 = st.columns([1,1])
+            with col1:
+                load_click = st.button("Carica sitemap")
+            with col2:
+                run_click = st.button("Analizza duplicati")
             if load_click:
                 if not sitemap_url.strip():
                     msg_container.error("Per favore inserisci un URL di sitemap valido.")
@@ -89,11 +103,10 @@ def main():
                         msg_container.success(f"Trovati {len(st.session_state['urls'])} URL nella sitemap.")
                     else:
                         msg_container.warning("Nessun URL trovato o errore nella sitemap.")
-        run_click = st.button("Analizza duplicati")
 
     urls = st.session_state['urls']
 
-    # Esecuzione analisi
+    # Esegui analisi se cliccato Analizza
     if run_click:
         if not urls:
             msg_container.error("Nessun URL da elaborare. Inserisci o carica gli URL.")
