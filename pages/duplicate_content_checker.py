@@ -1,3 +1,5 @@
+# pages/altro_tool.py
+
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
@@ -49,6 +51,9 @@ def main():
     st.markdown("""
     <style>
     div.stButton > button { background-color: #d9534f; color: white; border: none; }
+    div.stButton > button:hover { background-color: #c9302c; color: white; }
+    button[title="sitemap"] { background-color: transparent !important; color: #d9534f !important; border: 1px solid #d9534f !important; }
+    button[title="sitemap"]:hover { background-color: rgba(217,83,79,0.1) !important; }
     div.stButton > button:hover { background-color: #c9302c; color: white; }
     button[aria-label="Carica sitemap"] {
         background-color: transparent !important;
