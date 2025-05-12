@@ -47,6 +47,24 @@ def main():
     st.markdown("Scegli se inserire manualmente gli URL o fornire l'URL di una sitemap XML.")
     st.divider()
 
+    # CSS per bottoni rossi testo bianco
+    st.markdown("""
+    <style>
+    div.stButton > button {
+        background-color: #d9534f;
+        color: white;
+        border: none;
+    }
+    div.stButton > button:hover {
+        background-color: #c9302c;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Placeholder per messaggi di alert
+    msg_container = st.container()
+
     # Layout a due colonne con gap aumentato
     left_col, right_col = st.columns([1, 3], gap="large")
 
