@@ -1,5 +1,3 @@
-# pages/altro_tool.py
-
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
@@ -8,23 +6,10 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# --- INIEZIONE CSS per allineare i bottoni e applicare stili specifici ---
+# --- INIEZIONE CSS per il bottone rosso ---
 st.markdown("""
 <style>
-/* 1) Flex container per tutte le righe orizzontali di bottoni */
-div[data-testid="stHorizontalBlock"] {
-  display: flex !important;
-  gap: 8px !important;
-  align-items: flex-start !important;
-}
-/* 2) Stile per "Carica sitemap" (title=load-sitemap) */
-button[title="load-sitemap"] {
-  background-color: transparent !important;
-  border: 2px solid #e63946 !important;
-  color: #e63946 !important;
-}
-/* 3) Stile per tutti gli altri bottoni */
-button:not([title="load-sitemap"]) {
+button {
   background-color: #e63946 !important;
   color: white !important;
 }
@@ -34,6 +19,7 @@ button:not([title="load-sitemap"]) {
 # --- Funzioni di supporto ---
 
 def fetch_sitemap_urls(sitemap_url: str) -> list[str]:
+    """Scarica e parse la sitemap, estraendo tutte le <loc>."""
     try:
         resp = requests.get(sitemap_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         resp.raise_for_status()
@@ -44,6 +30,7 @@ def fetch_sitemap_urls(sitemap_url: str) -> list[str]:
         return []
 
 def fetch_content(url: str) -> str:
+    """Scarica la pagina e restituisce il testo concatenato di tutti i <p>."""
     try:
         resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
         resp.raise_for_status()
@@ -58,22 +45,22 @@ def main():
     st.title("Duplicate Content Checker – Manuale o Sitemap")
     st.divider()
 
-    # Alert container (appare prima delle colonne)
+    # Alert container posizionato in alto
     msg_container = st.container()
 
-    # Layout a due colonne: sinistra più stretta, destra più larga
+    # Layout a due colonne: sinistra 1/5, destra 4/5
     left, right = st.columns([1, 5], gap="large")
 
-    # Colonna sinistra: scelta modalità e soglia
+    # Colonna sinistra: modalità e soglia
     with left:
         mode = st.radio("Modalità di input", ["Manuale", "Sitemap"], index=0)
         threshold = st.slider("Soglia di similarità", 0.0, 1.0, 0.8, 0.01)
 
-    # Inizializza session state per URL
+    # Inizializza session_state per gli URL
     if "urls" not in st.session_state:
         st.session_state["urls"] = []
 
-    # Colonna destra: input dinamico e bottoni affiancati
+    # Colonna destra: input + unico bottone
     with right:
         if mode == "Manuale":
             text = st.text_area(
@@ -81,37 +68,35 @@ def main():
                 height=200,
                 placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
             )
-            st.session_state["urls"] = [u.strip() for u in text.splitlines() if u.strip()]
-            run = st.button("Analizza duplicati", key="run_manual")
-
-        else:  # Sitemap
+            st.session_state["urls"] = [
+                u.strip() for u in text.splitlines() if u.strip()
+            ]
+        else:
             sitemap_url = st.text_input(
                 "URL della sitemap",
                 placeholder="https://esempio.com/sitemap.xml"
             )
-            cols = st.columns([1, 1], gap="small")
-            load = cols[0].button(
-                "Carica sitemap",
-                key="load_sitemap",
-                title="load-sitemap"
-            )
-            run = cols[1].button("Analizza duplicati", key="run_sitemap")
 
-            if load:
-                if not sitemap_url.strip():
-                    msg_container.error("Per favore inserisci un URL di sitemap valido.")
-                else:
-                    with st.spinner("Scaricando e parsando sitemap..."):
-                        st.session_state["urls"] = fetch_sitemap_urls(sitemap_url)
-                    if st.session_state["urls"]:
-                        msg_container.success(f"Trovati {len(st.session_state['urls'])} URL nella sitemap.")
-                    else:
-                        msg_container.warning("Nessun URL trovato o errore nella sitemap.")
+        run = st.button("Analizza duplicati", key="run")
 
     urls = st.session_state["urls"]
 
-    # Quando si clicca "Analizza duplicati"
     if run:
+        # Se siamo in modalità sitemap, carichiamo gli URL automaticamente
+        if mode == "Sitemap":
+            if not sitemap_url or not sitemap_url.strip():
+                msg_container.error("Per favore inserisci un URL di sitemap valido.")
+                return
+            with st.spinner("Scaricando sitemap..."):
+                st.session_state["urls"] = fetch_sitemap_urls(sitemap_url)
+            urls = st.session_state["urls"]
+            if not urls:
+                msg_container.warning("Nessun URL trovato o errore nella sitemap.")
+                return
+            else:
+                msg_container.success(f"Trovati {len(urls)} URL nella sitemap.")
+
+        # A questo punto 'urls' contiene la lista da processare
         if not urls:
             msg_container.error("Nessun URL da elaborare. Inserisci o carica gli URL.")
             return
@@ -125,7 +110,7 @@ def main():
             p1.progress(i / len(urls))
         df = pd.DataFrame({"URL": urls, "Content": contents})
 
-        # 2) TF-IDF e matrice di similarità
+        # 2) Calcolo TF-IDF e matrice di similarità
         msg_container.info("Calcolo TF-IDF e matrice di similarità...")
         vect = TfidfVectorizer(stop_words="english")
         tfidf = vect.fit_transform(df["Content"])
