@@ -98,7 +98,7 @@ def main():
                                 placeholder="https://example.com/page1\nhttps://example.com/page2")
             st.session_state['urls'] = [u.strip() for u in text.splitlines() if u.strip()]
             # Solo bottone Analizza
-            run_click = st.button("Analizza duplicati", use_container_width=True)
+            run_click = st.button("Analizza duplicati")
             load_click = False
         else:
             sitemap_url = st.text_input("URL della sitemap", placeholder="https://example.com/sitemap.xml")
