@@ -1,3 +1,5 @@
+# pages/altro_tool.py
+
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
@@ -65,6 +67,11 @@ def main():
     }
     div.stButton > button[aria-label="Carica sitemap"]:hover {
         background-color: rgba(217,83,79,0.1) !important;
+    }
+    /* Inline buttons */
+    div.stButton {
+        display: inline-block !important;
+        margin-right: 8px !important;
     }
     </style>
     """, unsafe_allow_html=True)
