@@ -1,5 +1,3 @@
-# pages/altro_tool.py
-
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
@@ -50,7 +48,7 @@ def main():
     st.divider()
 
     # Layout a due colonne
-    left_col, right_col = st.columns([2, 3])
+    left_col, right_col = st.columns([1, 2])
 
     # Colonna sinistra: modalità e soglia
     with left_col:
