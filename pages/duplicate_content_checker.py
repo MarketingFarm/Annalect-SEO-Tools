@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
+import trafilatura
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -19,7 +20,9 @@ button {
 # --- Funzioni di supporto ---
 
 def fetch_sitemap_urls(sitemap_url: str) -> list[str]:
-    """Scarica e parse la sitemap, estraendo tutte le <loc>."""
+    """
+    Scarica e parse la sitemap XML, estraendo tutte le <loc>.
+    """
     try:
         resp = requests.get(sitemap_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         resp.raise_for_status()
@@ -30,12 +33,45 @@ def fetch_sitemap_urls(sitemap_url: str) -> list[str]:
         return []
 
 def fetch_content(url: str) -> str:
-    """Scarica la pagina e restituisce il testo concatenato di tutti i <p>."""
+    """
+    Scarica la pagina e restituisce solo il main text:
+    1) prova con trafilatura.extract (euristiche robuste)
+    2) fallback manuale: elimina header/footer/nav/aside/script/style,
+       rimuove cookie-bar e tiene paragrafi > 50 caratteri.
+    """
     try:
         resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
         resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        return " ".join(p.get_text() for p in soup.find_all("p")).strip()
+        html = resp.text
+
+        # 1) Tentativo con trafilatura
+        text = trafilatura.extract(
+            html,
+            output_format="text",
+            include_comments=False,
+            favor_precision=True
+        )
+        if text and len(text) > 100:
+            return text.strip()
+
+        # 2) Fallback manuale
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["header", "footer", "nav", "aside", "script", "style", "noscript", "form"]):
+            tag.decompose()
+
+        # Rimuovi cookie-banner via id/class
+        for el in soup.find_all(attrs={"class": lambda c: c and "cookie" in c.lower()}):
+            el.decompose()
+        for el in soup.find_all(attrs={"id": lambda i: i and "cookie" in i.lower()}):
+            el.decompose()
+
+        paras = [
+            p.get_text(" ", strip=True)
+            for p in soup.find_all("p")
+            if len(p.get_text(strip=True)) > 50
+        ]
+        return "\n\n".join(paras).strip() or "[NO CONTENT]"
+
     except Exception as e:
         return f"[ERROR] {e}"
 
@@ -45,10 +81,10 @@ def main():
     st.title("Duplicate Content Checker – Manuale o Sitemap")
     st.divider()
 
-    # Alert container posizionato in alto
-    msg_container = st.container()
+    # Alert container (in testa)
+    msg = st.container()
 
-    # Layout a due colonne: sinistra 1/5, destra 4/5
+    # Layout 2 colonne: sinistra più stretta, destra più larga
     left, right = st.columns([1, 5], gap="large")
 
     # Colonna sinistra: modalità e soglia
@@ -56,11 +92,11 @@ def main():
         mode = st.radio("Modalità di input", ["Manuale", "Sitemap"], index=0)
         threshold = st.slider("Soglia di similarità", 0.0, 1.0, 0.8, 0.01)
 
-    # Inizializza session_state per gli URL
+    # Inizializza session state per URLs
     if "urls" not in st.session_state:
         st.session_state["urls"] = []
 
-    # Colonna destra: input + unico bottone
+    # Colonna destra: input e pulsante
     with right:
         if mode == "Manuale":
             text = st.text_area(
@@ -68,41 +104,36 @@ def main():
                 height=200,
                 placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
             )
-            st.session_state["urls"] = [
-                u.strip() for u in text.splitlines() if u.strip()
-            ]
+            st.session_state["urls"] = [u.strip() for u in text.splitlines() if u.strip()]
         else:
             sitemap_url = st.text_input(
                 "URL della sitemap",
                 placeholder="https://esempio.com/sitemap.xml"
             )
-
-        run = st.button("Analizza duplicati", key="run")
+        run = st.button("Analizza duplicati")
 
     urls = st.session_state["urls"]
 
     if run:
-        # Se siamo in modalità sitemap, carichiamo gli URL automaticamente
+        # Se modalita Sitemap, carica automaticamente
         if mode == "Sitemap":
             if not sitemap_url or not sitemap_url.strip():
-                msg_container.error("Per favore inserisci un URL di sitemap valido.")
+                msg.error("Per favore inserisci un URL di sitemap valido.")
                 return
             with st.spinner("Scaricando sitemap..."):
                 st.session_state["urls"] = fetch_sitemap_urls(sitemap_url)
             urls = st.session_state["urls"]
             if not urls:
-                msg_container.warning("Nessun URL trovato o errore nella sitemap.")
+                msg.warning("Nessun URL trovato o errore nella sitemap.")
                 return
-            else:
-                msg_container.success(f"Trovati {len(urls)} URL nella sitemap.")
+            msg.success(f"Trovati {len(urls)} URL nella sitemap.")
 
-        # A questo punto 'urls' contiene la lista da processare
         if not urls:
-            msg_container.error("Nessun URL da elaborare. Inserisci o carica gli URL.")
+            msg.error("Nessun URL da elaborare. Inserisci o carica gli URL.")
             return
 
         # 1) Download contenuti
-        msg_container.info("Scaricamento contenuti in corso...")
+        msg.info("Scaricamento contenuti in corso...")
         p1 = st.progress(0)
         contents = []
         for i, u in enumerate(urls, start=1):
@@ -110,15 +141,15 @@ def main():
             p1.progress(i / len(urls))
         df = pd.DataFrame({"URL": urls, "Content": contents})
 
-        # 2) Calcolo TF-IDF e matrice di similarità
-        msg_container.info("Calcolo TF-IDF e matrice di similarità...")
+        # 2) TF-IDF e matrice di similarità
+        msg.info("Calcolo TF-IDF e matrice di similarità...")
         vect = TfidfVectorizer(stop_words="english")
         tfidf = vect.fit_transform(df["Content"])
         sim_mat = cosine_similarity(tfidf)
         sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
 
         # 3) Individuazione duplicati
-        msg_container.info("Individuazione duplicati...")
+        msg.info("Individuazione duplicati...")
         total_pairs = len(urls) * (len(urls) - 1) // 2
         p2 = st.progress(0)
         duplicates = []
