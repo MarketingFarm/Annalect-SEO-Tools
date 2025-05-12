@@ -7,12 +7,33 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import time
-import random
+
+# --- INIEZIONE CSS per allineare i bottoni e applicare stili specifici ---
+st.markdown("""
+<style>
+/* 1) Flex container per tutte le righe orizzontali di bottoni */
+div[data-testid="stHorizontalBlock"] {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: flex-start !important;
+}
+/* 2) Stile per "Carica sitemap" (title=load-sitemap) */
+button[title="load-sitemap"] {
+  background-color: transparent !important;
+  border: 2px solid #e63946 !important;
+  color: #e63946 !important;
+}
+/* 3) Stile per tutti gli altri bottoni */
+button:not([title="load-sitemap"]) {
+  background-color: #e63946 !important;
+  color: white !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # --- Funzioni di supporto ---
 
-def fetch_sitemap_urls(sitemap_url: str) -> list:
+def fetch_sitemap_urls(sitemap_url: str) -> list[str]:
     try:
         resp = requests.get(sitemap_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         resp.raise_for_status()
@@ -37,52 +58,59 @@ def main():
     st.title("Duplicate Content Checker – Manuale o Sitemap")
     st.divider()
 
-    # Alert container posizionato in alto
+    # Alert container (appare prima delle colonne)
     msg_container = st.container()
 
-    # Due colonne: sinistra 1/5, destra 4/5
-    left, right = st.columns([1,5], gap="large")
+    # Layout a due colonne: sinistra più stretta, destra più larga
+    left, right = st.columns([1, 5], gap="large")
 
-    # Colonna sinistra: modalità e soglia
+    # Colonna sinistra: scelta modalità e soglia
     with left:
         mode = st.radio("Modalità di input", ["Manuale", "Sitemap"], index=0)
         threshold = st.slider("Soglia di similarità", 0.0, 1.0, 0.8, 0.01)
 
-    # Session state per URL
-    if 'urls' not in st.session_state:
-        st.session_state['urls'] = []
+    # Inizializza session state per URL
+    if "urls" not in st.session_state:
+        st.session_state["urls"] = []
 
-    # Colonna destra: input + bottoni affiancati
+    # Colonna destra: input dinamico e bottoni affiancati
     with right:
         if mode == "Manuale":
-            text = st.text_area("Inserisci gli URL (uno per riga)",
-                                height=200,
-                                placeholder="https://esempio.com/p1\nhttps://esempio.com/p2")
-            st.session_state['urls'] = [u.strip() for u in text.splitlines() if u.strip()]
-
-            # Pulsante unico
+            text = st.text_area(
+                "Inserisci gli URL (uno per riga)",
+                height=200,
+                placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
+            )
+            st.session_state["urls"] = [u.strip() for u in text.splitlines() if u.strip()]
             run = st.button("Analizza duplicati", key="run_manual")
 
-        else:
-            sitemap_url = st.text_input("URL della sitemap", placeholder="https://esempio.com/sitemap.xml")
-            cols = st.columns([1,1], gap="small")
-            load = cols[0].button("Carica sitemap", key="load_sitemap")
-            run  = cols[1].button("Analizza duplicati", key="run_sitemap")
+        else:  # Sitemap
+            sitemap_url = st.text_input(
+                "URL della sitemap",
+                placeholder="https://esempio.com/sitemap.xml"
+            )
+            cols = st.columns([1, 1], gap="small")
+            load = cols[0].button(
+                "Carica sitemap",
+                key="load_sitemap",
+                title="load-sitemap"
+            )
+            run = cols[1].button("Analizza duplicati", key="run_sitemap")
 
             if load:
                 if not sitemap_url.strip():
                     msg_container.error("Per favore inserisci un URL di sitemap valido.")
                 else:
                     with st.spinner("Scaricando e parsando sitemap..."):
-                        st.session_state['urls'] = fetch_sitemap_urls(sitemap_url)
-                    if st.session_state['urls']:
+                        st.session_state["urls"] = fetch_sitemap_urls(sitemap_url)
+                    if st.session_state["urls"]:
                         msg_container.success(f"Trovati {len(st.session_state['urls'])} URL nella sitemap.")
                     else:
                         msg_container.warning("Nessun URL trovato o errore nella sitemap.")
 
-    urls = st.session_state['urls']
+    urls = st.session_state["urls"]
 
-    # Azione sul click di Analizza
+    # Quando si clicca "Analizza duplicati"
     if run:
         if not urls:
             msg_container.error("Nessun URL da elaborare. Inserisci o carica gli URL.")
@@ -97,10 +125,10 @@ def main():
             p1.progress(i / len(urls))
         df = pd.DataFrame({"URL": urls, "Content": contents})
 
-        # 2) TF-IDF + similarità
+        # 2) TF-IDF e matrice di similarità
         msg_container.info("Calcolo TF-IDF e matrice di similarità...")
-        vect = TfidfVectorizer(stop_words='english')
-        tfidf = vect.fit_transform(df['Content'])
+        vect = TfidfVectorizer(stop_words="english")
+        tfidf = vect.fit_transform(df["Content"])
         sim_mat = cosine_similarity(tfidf)
         sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
 
@@ -111,7 +139,7 @@ def main():
         duplicates = []
         count = 0
         for i in range(len(urls)):
-            for j in range(i+1, len(urls)):
+            for j in range(i + 1, len(urls)):
                 count += 1
                 score = sim_mat[i, j]
                 if score >= threshold:
@@ -137,9 +165,9 @@ def main():
 
         st.download_button(
             "Scarica matrice (CSV)",
-            sim_df.to_csv().encode('utf-8'),
-            file_name='similarity_matrix.csv',
-            mime='text/csv'
+            sim_df.to_csv().encode("utf-8"),
+            file_name="similarity_matrix.csv",
+            mime="text/csv"
         )
 
 if __name__ == "__main__":
