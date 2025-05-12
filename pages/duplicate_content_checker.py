@@ -1,3 +1,5 @@
+# pages/altro_tool.py
+
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
@@ -18,7 +20,6 @@ def fetch_sitemap_urls(sitemap_url: str) -> list:
         resp = requests.get(sitemap_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         resp.raise_for_status()
         root = ET.fromstring(resp.text)
-        # Gestione namespace: trova tutti i tag <loc>
         urls = [elem.text for elem in root.findall('.//{*}loc') if elem.text]
         return urls
     except Exception as e:
@@ -48,51 +49,60 @@ def main():
     st.markdown("Scegli se inserire manualmente gli URL o fornire l'URL di una sitemap XML.")
     st.divider()
 
-    mode = st.radio(
-        label="🚀 Modalità di input",
-        options=["Manuale", "Sitemap"],
-        index=0
-    )
+    # Layout a due colonne
+    left_col, right_col = st.columns([2, 3])
 
+    # Colonna sinistra: modalità e soglia
+    with left_col:
+        mode = st.radio(
+            label="🚀 Modalità di input",
+            options=["Manuale", "Sitemap"],
+            index=0
+        )
+        threshold = st.slider(
+            label="⚖️ Soglia di similarità",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.8,
+            step=0.01
+        )
+
+    # Colonna destra: input dinamico e pulsante
     urls = []
-    if mode == "Manuale":
-        input_text = st.text_area(
-            label="🔗 Inserisci gli URL (uno per riga)",
-            height=150,
-            placeholder="https://example.com/page1\nhttps://example.com/page2"
-        )
-        urls = [u.strip() for u in input_text.splitlines() if u.strip()]
-    else:
-        sitemap_url = st.text_input(
-            label="🌐 Inserisci l'URL della sitemap",
-            placeholder="https://example.com/sitemap.xml"
-        )
-        if st.button("📥 Carica sitemap"):
-            if not sitemap_url.strip():
-                st.error("Per favore inserisci un URL di sitemap valido.")
-            else:
-                with st.spinner("📡 Scaricando e parsando sitemap..."):
-                    urls = fetch_sitemap_urls(sitemap_url)
-                if urls:
-                    st.success(f"Trovati {len(urls)} URL nella sitemap.")
+    with right_col:
+        if mode == "Manuale":
+            input_text = st.text_area(
+                label="🔗 Inserisci gli URL (uno per riga)",
+                height=200,
+                placeholder="https://example.com/page1\nhttps://example.com/page2"
+            )
+            urls = [u.strip() for u in input_text.splitlines() if u.strip()]
+        else:
+            sitemap_url = st.text_input(
+                label="🌐 URL della sitemap",
+                placeholder="https://example.com/sitemap.xml"
+            )
+            if st.button("📥 Carica sitemap"):
+                if not sitemap_url.strip():
+                    st.error("Per favore inserisci un URL di sitemap valido.")
                 else:
-                    st.warning("Nessun URL trovato o errore nella sitemap.")
+                    with st.spinner("📡 Scaricando e parsando sitemap..."):
+                        urls = fetch_sitemap_urls(sitemap_url)
+                    if urls:
+                        st.success(f"Trovati {len(urls)} URL nella sitemap.")
+                    else:
+                        st.warning("Nessun URL trovato o errore nella sitemap.")
+        st.button("🔎 Analizza duplicati", key="run", on_click=lambda: None)
 
-    # Soglia di similarità
-    threshold = st.slider(
-        label="⚖️ Soglia di similarità",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.8,
-        step=0.01
-    )
-
-    if st.button("🔎 Analizza duplicati"):
+    # Bottone e logica di analisi
+    if st.session_state.get("run") is not None:
+        # Pulisce lo stato per consentire nuovi click
+        st.session_state.pop("run")
         if not urls:
             st.error("NESSUN URL da elaborare. Assicurati di aver caricato o inserito gli URL.")
             return
 
-        # Fetch contenuti con progress bar
+        # Fase 1: scaricamento contenuti
         st.info("🔍 Scaricamento contenuti...")
         progress_fetch = st.progress(0)
         contents = []
@@ -101,14 +111,14 @@ def main():
             progress_fetch.progress(idx / len(urls))
         df = pd.DataFrame({"URL": urls, "Content": contents})
 
-        # Calcola TF-IDF e matrice di similarità
+        # Fase 2: TF-IDF
         st.info("⚙️ Calcolo TF-IDF e similarità...")
         vect = TfidfVectorizer(stop_words='english')
         tfidf = vect.fit_transform(df['Content'])
         sim_mat = cosine_similarity(tfidf)
         sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
 
-        # Estrazione duplicati con progress bar
+        # Fase 3: individuazione duplicati
         st.info("🔎 Individuazione duplicati...")
         duplicates = []
         total_pairs = len(urls) * (len(urls) - 1) / 2
@@ -127,7 +137,7 @@ def main():
                 progress_dup.progress(count / total_pairs)
         dup_df = pd.DataFrame(duplicates)
 
-        # Mostra risultati
+        # Visualizzazione risultati
         st.subheader("📋 Risultati duplicati")
         if dup_df.empty:
             st.success(f"✅ Nessun duplicato sopra {threshold}.")
