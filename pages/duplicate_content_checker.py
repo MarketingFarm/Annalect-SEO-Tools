@@ -62,28 +62,7 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Placeholder per messaggi di alert
-    msg_container = st.container()
-
-    # Layout a due colonne con gap aumentato
-    left_col, right_col = st.columns([1, 3], gap="large")
-
-    # Colonna sinistra: modalità e soglia
-    with left_col:
-        mode = st.radio(
-            label="Modalità di input",
-            options=["Manuale", "Sitemap"],
-            index=0
-        )
-        threshold = st.slider(
-            label="Soglia di similarità",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.8,
-            step=0.01
-        )
-
-    # Colonna destra: input dinamico e pulsante
+    
     urls = []
     with right_col:
         if mode == "Manuale":
@@ -100,8 +79,15 @@ def main():
             )
             if st.button("Carica sitemap"):
                 if not sitemap_url.strip():
-                    st.error("Per favore inserisci un URL di sitemap valido.")
+                    msg_container.error("Per favore inserisci un URL di sitemap valido.")
                 else:
+                    with st.spinner("Scaricando e parsando sitemap..."):
+                        urls = fetch_sitemap_urls(sitemap_url)
+                    if urls:
+                        msg_container.success(f"Trovati {len(urls)} URL nella sitemap.")
+                    else:
+                        msg_container.warning("Nessun URL trovato o errore nella sitemap.")
+        else:
                     with st.spinner("Scaricando e parsando sitemap..."):
                         urls = fetch_sitemap_urls(sitemap_url)
                     if urls:
@@ -114,7 +100,7 @@ def main():
     if st.session_state.get("run") is not None:
         st.session_state.pop("run")
         if not urls:
-            st.error("Nessun URL da elaborare. Assicurati di aver caricato o inserito gli URL.")
+            msg_container.error("Nessun URL da elaborare. Assicurati di aver caricato o inserito gli URL.")
             return
 
         # Fase 1: scaricamento contenuti
