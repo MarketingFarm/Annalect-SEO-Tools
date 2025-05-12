@@ -1,5 +1,3 @@
-# pages/altro_tool.py
-
 import streamlit as st
 import requests
 import xml.etree.ElementTree as ET
@@ -50,17 +48,22 @@ def main():
     # CSS per bottoni: Analizza duplicati rosso, Carica sitemap trasparente con bordo rosso
     st.markdown("""
     <style>
-    div.stButton > button { background-color: #d9534f; color: white; border: none; }
-    div.stButton > button:hover { background-color: #c9302c; color: white; }
-    button[title="sitemap"] { background-color: transparent !important; color: #d9534f !important; border: 1px solid #d9534f !important; }
-    button[title="sitemap"]:hover { background-color: rgba(217,83,79,0.1) !important; }
-    div.stButton > button:hover { background-color: #c9302c; color: white; }
-    button[aria-label="Carica sitemap"] {
+    /* Bottone Analizza duplicati */
+    div.stButton > button {
+        background-color: #d9534f !important;
+        color: white !important;
+        border: none !important;
+    }
+    div.stButton > button:hover {
+        background-color: #c9302c !important;
+    }
+    /* Bottone Carica sitemap */
+    div.stButton > button[aria-label="Carica sitemap"] {
         background-color: transparent !important;
         color: #d9534f !important;
         border: 1px solid #d9534f !important;
     }
-    button[aria-label="Carica sitemap"]:hover {
+    div.stButton > button[aria-label="Carica sitemap"]:hover {
         background-color: rgba(217,83,79,0.1) !important;
     }
     </style>
@@ -93,7 +96,7 @@ def main():
         else:
             sitemap_url = st.text_input("URL della sitemap", placeholder="https://example.com/sitemap.xml")
             # Due bottoni inline
-            col1, col2 = st.columns([1,1])
+            col1, col2 = st.columns([1, 1], gap="small")
             with col1:
                 load_click = st.button("Carica sitemap")
             with col2:
