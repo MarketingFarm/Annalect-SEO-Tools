@@ -43,22 +43,22 @@ def fetch_content(url: str) -> str:
 # --- Interfaccia Streamlit ---
 
 def main():
-    st.title("📝 Duplicate Content Checker – Manuale o da Sitemap")
+    st.title("Duplicate Content Checker – Manuale o da Sitemap")
     st.markdown("Scegli se inserire manualmente gli URL o fornire l'URL di una sitemap XML.")
     st.divider()
 
-    # Layout a due colonne
-    left_col, right_col = st.columns([1, 2])
+    # Layout a due colonne con gap aumentato
+    left_col, right_col = st.columns([1, 3], gap="large")
 
     # Colonna sinistra: modalità e soglia
     with left_col:
         mode = st.radio(
-            label="🚀 Modalità di input",
+            label="Modalità di input",
             options=["Manuale", "Sitemap"],
             index=0
         )
         threshold = st.slider(
-            label="⚖️ Soglia di similarità",
+            label="Soglia di similarità",
             min_value=0.0,
             max_value=1.0,
             value=0.8,
@@ -70,38 +70,37 @@ def main():
     with right_col:
         if mode == "Manuale":
             input_text = st.text_area(
-                label="🔗 Inserisci gli URL (uno per riga)",
+                label="Inserisci gli URL (uno per riga)",
                 height=200,
                 placeholder="https://example.com/page1\nhttps://example.com/page2"
             )
             urls = [u.strip() for u in input_text.splitlines() if u.strip()]
         else:
             sitemap_url = st.text_input(
-                label="🌐 URL della sitemap",
+                label="URL della sitemap",
                 placeholder="https://example.com/sitemap.xml"
             )
-            if st.button("📥 Carica sitemap"):
+            if st.button("Carica sitemap"):
                 if not sitemap_url.strip():
                     st.error("Per favore inserisci un URL di sitemap valido.")
                 else:
-                    with st.spinner("📡 Scaricando e parsando sitemap..."):
+                    with st.spinner("Scaricando e parsando sitemap..."):
                         urls = fetch_sitemap_urls(sitemap_url)
                     if urls:
                         st.success(f"Trovati {len(urls)} URL nella sitemap.")
                     else:
                         st.warning("Nessun URL trovato o errore nella sitemap.")
-        st.button("🔎 Analizza duplicati", key="run", on_click=lambda: None)
+        st.button("Analizza duplicati", key="run", use_container_width=True)
 
     # Bottone e logica di analisi
     if st.session_state.get("run") is not None:
-        # Pulisce lo stato per consentire nuovi click
         st.session_state.pop("run")
         if not urls:
-            st.error("NESSUN URL da elaborare. Assicurati di aver caricato o inserito gli URL.")
+            st.error("Nessun URL da elaborare. Assicurati di aver caricato o inserito gli URL.")
             return
 
         # Fase 1: scaricamento contenuti
-        st.info("🔍 Scaricamento contenuti...")
+        st.info("Scaricamento contenuti in corso...")
         progress_fetch = st.progress(0)
         contents = []
         for idx, url in enumerate(urls, start=1):
@@ -110,14 +109,14 @@ def main():
         df = pd.DataFrame({"URL": urls, "Content": contents})
 
         # Fase 2: TF-IDF
-        st.info("⚙️ Calcolo TF-IDF e similarità...")
+        st.info("Calcolo TF-IDF e matrice di similarità...")
         vect = TfidfVectorizer(stop_words='english')
         tfidf = vect.fit_transform(df['Content'])
         sim_mat = cosine_similarity(tfidf)
         sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
 
         # Fase 3: individuazione duplicati
-        st.info("🔎 Individuazione duplicati...")
+        st.info("Individuazione duplicati in corso...")
         duplicates = []
         total_pairs = len(urls) * (len(urls) - 1) / 2
         progress_dup = st.progress(0)
@@ -136,19 +135,19 @@ def main():
         dup_df = pd.DataFrame(duplicates)
 
         # Visualizzazione risultati
-        st.subheader("📋 Risultati duplicati")
+        st.subheader("Risultati duplicati")
         if dup_df.empty:
-            st.success(f"✅ Nessun duplicato sopra {threshold}.")
+            st.success(f"Nessun duplicato sopra {threshold}.")
         else:
-            st.warning(f"⚠️ {len(dup_df)} coppie duplicate trovate (≥ {threshold}).")
+            st.warning(f"{len(dup_df)} coppie duplicate trovate (≥ {threshold}).")
             st.dataframe(dup_df, use_container_width=True)
 
-        st.subheader("📊 Matrice di similarità completa")
+        st.subheader("Matrice di similarità completa")
         st.dataframe(sim_df, use_container_width=True)
 
         # Download CSV
         st.download_button(
-            label="📥 Scarica matrice (CSV)",
+            label="Scarica matrice (CSV)",
             data=sim_df.to_csv().encode('utf-8'),
             file_name='similarity_matrix.csv',
             mime='text/csv'
