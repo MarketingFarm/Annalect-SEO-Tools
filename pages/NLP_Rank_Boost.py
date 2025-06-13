@@ -73,7 +73,7 @@ Analizza i seguenti testi competitor:
 # (Compila con entità mancanti nei testi)
 
 Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
-
+Nella prima riga inserisci sempre l'entità principale.
 Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 """
     with st.spinner("Analisi in corso con Gemini..."):
