@@ -134,11 +134,11 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # Parsing in DataFrame
+    # Parsing
     core_df    = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Mostro le tabelle con checkbox per selezione riga per riga
+    # Mostra con checkbox per ogni riga
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     for idx, row in core_df.iterrows():
         cols = st.columns([8, 1])
@@ -157,11 +157,10 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     for idx, row in missing_df.iterrows():
         cols = st.columns([8, 1])
         with cols[0]:
-            st.markdown(
-                f"- **{row['Entità da Aggiungere']}** | "
-                f"{row[\"Motivazione dell'Inclusione\"]} | "
-                f"{row['Azione SEO Strategica']}"
-            )
+            ent = row['Entità da Aggiungere']
+            motiv = row["Motivazione dell'Inclusione"]
+            azione = row['Azione SEO Strategica']
+            st.markdown(f"- **{ent}** | {motiv} | {azione}")
         with cols[1]:
             selected = row['Entità da Aggiungere'] in st.session_state.selected_missing
             if st.checkbox("", key=f"missing_select_{idx}", value=selected):
@@ -192,8 +191,12 @@ elif st.session_state.step == 3:
 
     if st.session_state.keyword_table is None:
         full_text = "\n---\n".join(st.session_state.competitor_texts)
-        table1 = df_to_md(core_df[core_df['Entità'].isin(st.session_state.selected_core)])
-        table2 = df_to_md(missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)])
+        # Ricostruisci tabelle da selezioni
+        sel_core_df  = core_df[core_df['Entità'].isin(st.session_state.selected_core)]
+        sel_miss_df  = missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)]
+        table1_md = df_to_md(sel_core_df)
+        table2_md = df_to_md(sel_miss_df)
+
         prompt3 = f"""
 ## GENERAZIONE KEYWORD STRATEGY ##
 
@@ -204,10 +207,10 @@ Usa queste informazioni:
 {full_text}
 
 **Tabella 1: Entità Fondamentali**
-{table1}
+{table1_md}
 
 **Tabella 2: Entità Mancanti**
-{table2}
+{table2_md}
 
 **RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in analisi semantica competitiva e ricerca delle parole chiave. La tua missione è quella di ricercare le migliori keywords sulla base dei contenuti dei competitors.
 
