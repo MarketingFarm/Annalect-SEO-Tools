@@ -38,7 +38,7 @@ def df_to_md(df: pd.DataFrame) -> str:
     rows   = ["| " + " | ".join(map(str, row)) + " |" for row in df.values.tolist()]
     return "\n".join([header, sep] + rows)
 
-# --- Inizializza session_state per multi-step wizard ---
+# --- Inizializza session_state ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'competitor_texts' not in st.session_state:
@@ -90,7 +90,7 @@ if st.session_state.step == 1:
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
 
-    # Genera o rigenera l'analisi se necessario
+    # Genera l'analisi se necessario
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -107,21 +107,14 @@ elif st.session_state.step == 2:
 3. Crea **due tabelle Markdown separate e distinte**, come descritto di seguito:
 
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
-*In questa tabella, elenca le entità più importanti che sono **presenti in almeno uno dei testi dei competitor**. Questo è il "minimo sindacale" semantico per essere competitivi.*
-
 | Entità | Rilevanza Strategica | Azione per il Mio Testo |
 | :--- | :--- | :--- |
 
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
-*In questa tabella, elenca le entità rilevanti che **nessuno (o quasi nessuno) dei competitor tratta in modo adeguato**. Queste sono le tue opportunità per superarli.*
-
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
 Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
-Nella prima riga inserisci sempre l'entità principale.
-Inserisci nelle tabelle solamente le informazioni **veramente utili** al fine di ottenere un testo semanticamente migliore rispetto a quello dei miei competitors, che rispetti l'intento di ricerca dell'argomento principale e che mi porti a superarli nella SERP.
-Nota Bene: I testi sono inseriti in ordine casuale. Anche l'ordine delle frasi è inserito in ordine casuale. Questo per non falsificare i risultati e per non portarti a pensare che le informazioni che vengono inserite prima siano più importanti.
 Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 """
         with st.spinner("Eseguo analisi entità..."):
@@ -135,42 +128,30 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
         ]
 
     # Parsing
-    core_df    = parse_md_table(st.session_state.analysis_tables[0])
+    core_df = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Mostra con checkbox per ogni riga
+    # Aggiungi colonna di selezione
+    core_df['Seleziona'] = core_df['Entità'].isin(st.session_state.selected_core)
+    missing_df['Seleziona'] = missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)
+
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
-    for idx, row in core_df.iterrows():
-        cols = st.columns([8, 1])
-        with cols[0]:
-            st.markdown(f"- **{row['Entità']}** | {row['Rilevanza Strategica']} | {row['Azione per il Mio Testo']}")
-        with cols[1]:
-            selected = row['Entità'] in st.session_state.selected_core
-            if st.checkbox("", key=f"core_select_{idx}", value=selected):
-                if row['Entità'] not in st.session_state.selected_core:
-                    st.session_state.selected_core.append(row['Entità'])
-            else:
-                if row['Entità'] in st.session_state.selected_core:
-                    st.session_state.selected_core.remove(row['Entità'])
+    edited_core = st.experimental_data_editor(
+        core_df,
+        num_rows="fixed",
+        use_container_width=True
+    )
+    st.session_state.selected_core = edited_core.loc[edited_core['Seleziona'], 'Entità'].tolist()
 
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
-    for idx, row in missing_df.iterrows():
-        cols = st.columns([8, 1])
-        with cols[0]:
-            ent = row['Entità da Aggiungere']
-            motiv = row["Motivazione dell'Inclusione"]
-            azione = row['Azione SEO Strategica']
-            st.markdown(f"- **{ent}** | {motiv} | {azione}")
-        with cols[1]:
-            selected = row['Entità da Aggiungere'] in st.session_state.selected_missing
-            if st.checkbox("", key=f"missing_select_{idx}", value=selected):
-                if row['Entità da Aggiungere'] not in st.session_state.selected_missing:
-                    st.session_state.selected_missing.append(row['Entità da Aggiungere'])
-            else:
-                if row['Entità da Aggiungere'] in st.session_state.selected_missing:
-                    st.session_state.selected_missing.remove(row['Entità da Aggiungere'])
+    edited_missing = st.experimental_data_editor(
+        missing_df,
+        num_rows="fixed",
+        use_container_width=True
+    )
+    st.session_state.selected_missing = edited_missing.loc[edited_missing['Seleziona'], 'Entità da Aggiungere'].tolist()
 
-    # Pulsanti di navigazione + Rifai analisi
+    # Pulsanti
     c1, c2, c3 = st.columns([1, 1, 1])
     with c1:
         if st.button("◀️ Indietro"):
@@ -178,8 +159,8 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     with c2:
         if st.button("🔄 Analizza di nuovo"):
             st.session_state.analysis_tables = []
-            st.session_state.keyword_table    = None
-            st.session_state.selected_core    = []
+            st.session_state.keyword_table = None
+            st.session_state.selected_core = []
             st.session_state.selected_missing = []
     with c3:
         if st.button("Vai a Step 3 ▶️"):
@@ -190,10 +171,13 @@ elif st.session_state.step == 3:
     st.write("### Step 3: Generazione della Keyword Strategy")
 
     if st.session_state.keyword_table is None:
-        full_text = "\n---\n".join(st.session_state.competitor_texts)
-        # Ricostruisci tabelle da selezioni
-        sel_core_df  = core_df[core_df['Entità'].isin(st.session_state.selected_core)]
-        sel_miss_df  = missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)]
+        # Ricrea i DataFrame per step 3
+        core_df = parse_md_table(st.session_state.analysis_tables[0])
+        missing_df = parse_md_table(st.session_state.analysis_tables[1])
+
+        sel_core_df = core_df[core_df['Entità'].isin(st.session_state.selected_core)]
+        sel_miss_df = missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)]
+
         table1_md = df_to_md(sel_core_df)
         table2_md = df_to_md(sel_miss_df)
 
@@ -204,7 +188,7 @@ Usa queste informazioni:
 
 **Testi competitor:**
 ---
-{full_text}
+{'\n---\n'.join(st.session_state.competitor_texts)}
 
 **Tabella 1: Entità Fondamentali**
 {table1_md}
@@ -236,10 +220,8 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
-    # Visualizza il risultato finale
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
-    # Pulsanti di navigazione finale
     d1, d2 = st.columns([1, 1])
     with d1:
         if st.button("◀️ Indietro"):
