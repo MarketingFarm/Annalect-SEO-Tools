@@ -27,7 +27,7 @@ st.title("Analisi Competitiva & Keyword Strategy con Gemini")
 st.markdown(f"**Step {st.session_state.get('step',1)}/2**")
 st.divider()
 
-# Inizializza session state step
+# Initialize session state
 if 'step' not in st.session_state:
     st.session_state.step = 1
 
@@ -62,12 +62,11 @@ def step2():
         return
 
     # Accordion con dati step1
-    with st.expander("Mostra/Nascondi: Dati e tabelle Step 1"):
+    with st.expander("Mostra/Nascondi: Dati Step 1"):
         st.subheader("Testi Competitor Inseriti")
         for idx, txt in enumerate(st.session_state.competitor_texts, start=1):
             st.markdown(f"**Competitor {idx}:** {txt[:100]}{'...' if len(txt)>100 else ''}")
-        # Mostra eventuali tabelle di analisi
-        if 'analysis_tables' in st.session_state and len(st.session_state.analysis_tables)>=2:
+        if 'analysis_tables' in st.session_state and len(st.session_state.analysis_tables) >= 2:
             st.subheader("Entità Fondamentali")
             st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
             st.subheader("Entità Mancanti")
@@ -75,7 +74,7 @@ def step2():
 
     st.markdown("---")
 
-    # Genera tabelle di analisi se non esistono
+    # Genera analisi se non esistono
     if 'analysis_tables' not in st.session_state:
         full_text = "
 ---
@@ -83,13 +82,37 @@ def step2():
         prompt1 = f"""
 ## PROMPT DI ANALISI COMPETITIVA E CONTENT GAP ##
 
-**RUOLO:** Agisci come un analista SEO d'élite.
-**CONTESTO:** Supera i competitor per la keyword target.
-**COMPITO:** Analizza i testi:
-{full_text}
-1) Argomento Principale Comune e Search Intent Primario
-2) Tabelle: Entità Fondamentali e Entità Mancanti
-Arricchisci la colonna "Entità" con esempi. Mantieni solo le due tabelle."
+**RUOLO:**
+Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva. La tua missione è "ingegneria inversa" del successo dei contenuti che si posizionano ai vertici di Google.
+
+**CONTESTO:**
+Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darmi una mappa precisa delle entità che devo assolutamente trattare e delle opportunità (entità mancanti) che posso sfruttare per creare un contenuto oggettivamente più completo e autorevole.
+
+**COMPITO:**
+Analizza i testi dei competitor forniti di seguito. Svolgi i seguenti passaggi:
+
+1. **Sintesi Strategica Iniziale:**
+   - Identifica e dichiara qual è l'**Argomento Principale Comune** o l'**Entità Centrale** condivisa da tutti i testi.
+   - Basandoti su questo, definisci il **Search Intent Primario** a cui i competitor stanno rispondendo.
+
+2. **Generazione delle Tabelle di Analisi:**
+Crea **due tabelle Markdown separate e distinte**, come descritto di seguito.
+
+---
+
+### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
+| Entità | Rilevanza Strategica | Azione per il Mio Testo |
+| :--- | :--- | :--- |
+
+---
+
+### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
+| Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
+| :--- | :--- | :--- |
+
+Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
+Nella prima riga inserisci sempre l'entità principale.
+Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 """
         with st.spinner("Analisi competitor in corso..."):
             resp1 = client.models.generate_content(
@@ -104,13 +127,12 @@ Arricchisci la colonna "Entità" con esempi. Mantieni solo le due tabelle."
 
     # Visualizza tabelle di analisi
     tables = st.session_state.get('analysis_tables', [])
-    if tables:
-        if len(tables) >=1:
-            st.subheader("Entità Fondamentali (Common Ground)")
-            st.markdown(tables[0], unsafe_allow_html=True)
-        if len(tables) >=2:
-            st.subheader("Entità Mancanti (Content Gap)")
-            st.markdown(tables[1], unsafe_allow_html=True)
+    if len(tables) >= 1:
+        st.subheader("Entità Fondamentali (Common Ground)")
+        st.markdown(tables[0], unsafe_allow_html=True)
+    if len(tables) >= 2:
+        st.subheader("Entità Mancanti (Content Gap)")
+        st.markdown(tables[1], unsafe_allow_html=True)
     st.markdown("---")
 
     # Bottone genera keyword strategy
@@ -131,7 +153,7 @@ Con righe: Keyword Principale, Secondarie/Correlate, LSI, Fondamentali Mancanti.
             )
         md2 = resp2.text
         lines = [l for l in md2.splitlines() if l.startswith("|")]
-        if len(lines) >=3:
+        if len(lines) >= 3:
             header = [h.strip() for h in lines[0].strip("|").split("|")]
             data = [row.strip("|").split("|") for row in lines[2:]]
             df_kw = pd.DataFrame([[cell.strip() for cell in r] for r in data], columns=header)
@@ -144,7 +166,7 @@ Con righe: Keyword Principale, Secondarie/Correlate, LSI, Fondamentali Mancanti.
     if st.button("Torna a Step 1 🔙"):
         st.session_state.step = 1
 
-# Main
+# Main navigation
 if st.session_state.step == 1:
     step1()
 else:
