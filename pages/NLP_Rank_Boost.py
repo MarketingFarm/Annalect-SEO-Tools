@@ -33,8 +33,9 @@ if 'keyword_table' not in st.session_state:
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-def to_step(n):
-    st.session_state.step = n
+# Funzione helper per cambiare step
+def go_to(step):
+    st.session_state.step = step
 
 # === STEP 1: Input testi competitor ===
 if st.session_state.step == 1:
@@ -58,14 +59,16 @@ if st.session_state.step == 1:
             st.error("Per favore, incolla almeno un testo.")
         else:
             st.session_state.competitor_texts = non_empty
-            to_step(2)
-            st.stop()
+            # reset analysis e keyword precedenti
+            st.session_state.analysis_tables = []
+            st.session_state.keyword_table = None
+            go_to(2)
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
 
-    # (Rifai l'analisi se tables vuote)
+    # se non ho ancora le tabelle, o se ho premuto "Analizza di nuovo", genero l'analisi
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -94,40 +97,38 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 contents=[prompt2]
             )
         md2 = resp2.text
-        tables2 = [blk for blk in md2.split("\n\n") if blk.strip().startswith("|")]
-        st.session_state.analysis_tables = tables2
+        st.session_state.analysis_tables = [
+            blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
+        ]
 
-    # Mostro le tabelle
+    # Visualizzo le tabelle
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
-    # Pulsanti di navigazione e rifacimento analisi
-    nav_cols = st.columns([1, 1, 1])
-    with nav_cols[0]:
+    # Pulsanti di navigazione + Rifai analisi
+    c1, c2, c3 = st.columns([1,1,1])
+    with c1:
         if st.button("◀️ Indietro"):
-            to_step(1)
-            st.stop()
-    with nav_cols[1]:
+            go_to(1)
+    with c2:
         if st.button("🔄 Analizza di nuovo"):
+            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
-            to_step(2)
-            st.stop()
-    with nav_cols[2]:
+            st.session_state.keyword_table = None
+    with c3:
         if st.button("Vai a Step 3 ▶️"):
-            to_step(3)
-            st.stop()
+            go_to(3)
 
 # === STEP 3: Generazione della Keyword Strategy ===
 elif st.session_state.step == 3:
     st.write("### Step 3: Generazione della Keyword Strategy")
 
     if st.session_state.keyword_table is None:
-        full_text_block = "\n---\n".join(st.session_state.competitor_texts)
-        table1_md = st.session_state.analysis_tables[0]
-        table2_md = st.session_state.analysis_tables[1]
-
+        full_text = "\n---\n".join(st.session_state.competitor_texts)
+        table1 = st.session_state.analysis_tables[0]
+        table2 = st.session_state.analysis_tables[1]
         prompt3 = f"""
 ## GENERAZIONE KEYWORD STRATEGY ##
 
@@ -135,13 +136,13 @@ Usa queste informazioni:
 
 **Testi competitor:**
 ---
-{full_text_block}
+{full_text}
 
 **Tabella 1: Entità Fondamentali**
-{table1_md}
+{table1}
 
 **Tabella 2: Entità Mancanti**
-{table2_md}
+{table2}
 
 Partendo da questa analisi approfondita, la tua missione è estrapolare e organizzare in una tabella intuitiva le keyword più efficaci per il mio contenuto, al fine di massimizzare la rilevanza e il posizionamento. La tabella dovrà specificare:
 
@@ -166,15 +167,13 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
     # Visualizzo la tabella
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
-    # Pulsanti di navigazione
-    nav_cols = st.columns([1, 1])
-    with nav_cols[0]:
+    # Pulsanti di navigazione finale
+    d1, d2 = st.columns([1,1])
+    with d1:
         if st.button("◀️ Indietro"):
-            to_step(2)
-            st.stop()
-    with nav_cols[1]:
+            go_to(2)
+    with d2:
         if st.button("🔄 Ricomincia"):
-            for key in ['step', 'competitor_texts', 'analysis_tables', 'keyword_table']:
-                st.session_state.pop(key, None)
-            to_step(1)
-            st.stop()
+            for k in ['step','competitor_texts','analysis_tables','keyword_table']:
+                st.session_state.pop(k, None)
+            go_to(1)
