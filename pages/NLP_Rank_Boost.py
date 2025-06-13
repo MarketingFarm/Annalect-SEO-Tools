@@ -16,6 +16,7 @@ button {
 table td {
   white-space: normal !important;
 }
+</style>
 """, unsafe_allow_html=True)
 
 # --- Config Gemini ---
@@ -23,6 +24,7 @@ api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
 st.title("Analisi Competitiva & Keyword Strategy con Gemini")
+st.markdown("**Step {}/2**".format(st.session_state.get('step',1)))
 st.divider()
 
 # Initialize session state
@@ -58,13 +60,20 @@ def step2():
             st.session_state.step = 1
         return
 
-    # Mostro testi inseriti
-    st.subheader("Testi Competitor")
-    for idx, txt in enumerate(st.session_state.competitor_texts, start=1):
-        st.markdown(f"**Competitor {idx}:** {txt[:100]}{'...' if len(txt)>100 else ''}")
+    # Accordion con testi competitor e analisi
+    with st.expander("Mostra / Nascondi: Dati del Step 1"):
+        st.subheader("Testi Competitor Inseriti")
+        for idx, txt in enumerate(st.session_state.competitor_texts, start=1):
+            st.markdown(f"**Competitor {idx}:** {txt[:100]}{'...' if len(txt)>100 else ''}")
+        if 'analysis_tables' in st.session_state:
+            st.subheader("Entità Fondamentali")
+            st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
+            st.subheader("Entità Mancanti")
+            st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
+
     st.markdown("---")
 
-    # Genera analisi se non già presente
+    # Generate analysis tables once
     if 'analysis_tables' not in st.session_state:
         full_text = "\n---\n".join(st.session_state.competitor_texts)
         prompt1 = f"""
@@ -81,20 +90,18 @@ Mantieni in Markdown wrap text.
                 contents=[prompt1]
             )
         md = resp1.text
-        # Estraggo le prime due tabelle markdown
         tables = [blk for blk in md.split("\n\n") if blk.strip().startswith("|")][:2]
         st.session_state.analysis_tables = tables
 
-    # Mostro analisi
-    st.subheader("Entità Fondamentali")
+    # Mostro analisi principali
+    st.subheader("Entità Fondamentali (Common Ground)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
-    st.subheader("Entità Mancanti")
+    st.subheader("Entità Mancanti (Content Gap)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
     st.markdown("---")
 
     # Generazione keyword strategy
     if st.button("Genera Keyword Strategy 🚀"):
-        # Preparo prompt includendo le tabelle markdown per contesto
         prompt2 = f"""
 Partendo dall'analisi delle entità:
 {st.session_state.analysis_tables[0]}
@@ -112,12 +119,10 @@ Mantieni solo la tabella in Markdown.
                 contents=[prompt2]
             )
         md2 = resp2.text
-        # Parsing della tabella Markdown in DataFrame
         lines = [l for l in md2.splitlines() if l.startswith("|")]
         header = [h.strip() for h in lines[0].strip("|").split("|")]
-        data = [line.strip("|").split("|") for line in lines[2:]]
-        df_kw = pd.DataFrame([[cell.strip() for cell in row] for row in data], columns=header)
-        # Mostro la tabella
+        data = [row.strip("|").split("|") for row in lines[2:]]
+        df_kw = pd.DataFrame([[cell.strip() for cell in r] for r in data], columns=header)
         st.subheader("Keyword Strategy")
         st.dataframe(df_kw, use_container_width=True)
 
