@@ -120,7 +120,10 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 contents=[prompt1]
             )
         md = resp1.text
-        tables = [blk for blk in md.split("\n\n") if blk.strip().startswith("|")][:2]
+        # Extract tables via regex
+blocks = re.findall(r"(?:\|.*
+)+", md)
+tables = [blk for blk in blocks[:2]]
         st.session_state.analysis_tables = tables
 
     # Visualizza tabelle di analisi
