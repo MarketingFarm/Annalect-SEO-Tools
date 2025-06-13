@@ -88,17 +88,29 @@ Mantieni vivo il formato delle tabelle in Markdown e non aggiungere altro testo 
         )
     md = response.text
 
-    # Estrai blocchi di tabelle Markdown
-    blocks = [blk for blk in md.split("\n\n") if blk.strip().startswith("|")]
-    if not blocks:
+    # Parsing tabelle Markdown in DataFrame
+    tables = [tbl for tbl in md.split("\n\n") if tbl.strip().startswith("|")]
+    if not tables:
         st.warning("Non sono state generate tabelle valide.")
         st.stop()
 
-    # Visualizza tabelle
-    st.subheader("1. Entità Fondamentali")
-    st.markdown(blocks[0], unsafe_allow_html=True)
-    if len(blocks) > 1:
-        st.subheader("2. Entità Mancanti")
-        st.markdown(blocks[1], unsafe_allow_html=True)
+    def md_to_df(tbl_markdown: str) -> pd.DataFrame:
+        lines = [line for line in tbl_markdown.splitlines() if line.startswith("|")]
+        header = [h.strip() for h in lines[0].strip("|").split("|")]
+        data = []
+        for row in lines[2:]:
+            cells = [c.strip() for c in row.strip("|").split("|")]
+            data.append(cells)
+        return pd.DataFrame(data, columns=header)
+
+    # Visualizzazione con st.dataframe per formattazione migliorata
+    st.subheader("Entità Fondamentali (Common Ground Analysis)")
+    df1 = md_to_df(tables[0])
+    st.dataframe(df1, use_container_width=True)
+
+    if len(tables) > 1:
+        st.subheader("Entità Mancanti (Content Gap Opportunity)")
+        df2 = md_to_df(tables[1])
+        st.dataframe(df2, use_container_width=True)
     else:
         st.info("Non è stata trovata una seconda tabella per le entità mancanti.")
