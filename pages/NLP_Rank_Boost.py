@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from google import genai
+import json
 
 # --- INIEZIONE CSS per il bottone rosso e wrap testo nelle tabelle ---
 st.markdown("""
@@ -23,21 +24,30 @@ client = genai.Client(api_key=api_key)
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Initialize session state for step
+# Initialize session state
 if 'step' not in st.session_state:
     st.session_state.step = 1
-# step1 UI
+
+# Step 1: Input competitor texts
+
 def step1():
-    st.header("Step 1: Analisi Competitiva & Content Gap")
+    st.header("Step 1: Inserimento Testi Competitor")
     num_texts = st.selectbox(
-        "Numero di testi competitor da analizzare (su 5 max)",
-        list(range(1,6)), index=0, key='num_texts')
+        "Numero di testi competitor da analizzare (max 5)",
+        [1,2,3,4,5],
+        index=0,
+        key='num_texts'
+    )
     cols = st.columns(st.session_state.num_texts)
     texts = []
-    for i, col in enumerate(cols, 1):
+    for i, col in enumerate(cols, start=1):
         with col:
-            t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
-            texts.append(t.strip())
+            t = st.text_area(
+                label=f"Testo competitor {i}",
+                height=200,
+                key=f"text_{i}"
+            ).strip()
+            texts.append(t)
     if st.button("Prosegui al Step 2 🚀"):
         competitor_texts = [t for t in texts if t]
         if not competitor_texts:
@@ -47,69 +57,91 @@ def step1():
             st.session_state.step = 2
             st.experimental_rerun()
 
-# step2 UI
+# Step 2: Display analysis and keyword strategy
+
 def step2():
-    st.header("Step 2: Generazione Keyword Strategy")
+    st.header("Step 2: Analisi e Keyword Strategy")
     if 'competitor_texts' not in st.session_state:
-        st.error("Dati mancanti. Ritorna allo step precedente.")
+        st.error("Step 1 non completato. Torna indietro.")
         return
-    # Show previous analysis tables
-    if 'analysis_tables' in st.session_state:
+
+    # Generate analysis tables once
+    if 'analysis_tables' not in st.session_state:
+        full_text = "\n---\n".join(st.session_state.competitor_texts)
+        prompt1 = f"""
+## PROMPT DI ANALISI COMPETITIVA E CONTENT GAP ##
+
+**RUOLO:** Agisci come un analista SEO d'élite.
+
+**CONTESTO:** Supera i competitor per la keyword target.
+
+**TESTI COMPETITOR:**
+{full_text}
+
+**COMPITO:**
+1. Identifica l'Argomento Principale Comune e il Search Intent Primario.
+2. Genera due tabelle Markdown:
+
+### TABELLA 1: ENTITÀ FONDAMENTALI
+| Entità | Rilevanza Strategica | Azione per il Mio Testo |
+| :--- | :--- | :--- |
+
+### TABELLA 2: ENTITÀ MANCANTI
+| Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
+| :--- | :--- | :--- |
+
+Arricchisci la colonna "Entità" con esempi specifici. Mantieni solo le due tabelle.
+"""
+        with st.spinner("Analisi competitor in corso..."):
+            resp1 = client.models.generate_content(
+                model="gemini-2.5-flash-preview-05-20",
+                contents=[prompt1]
+            )
+        md = resp1.text
+        tables = [blk for blk in md.split("\n\n") if blk.strip().startswith("|")]
+        st.session_state.analysis_tables = tables
+
+    # Display analysis tables
+    tables = st.session_state.analysis_tables
+    if len(tables) >= 1:
         st.subheader("Entità Fondamentali (Common Ground Analysis)")
-        st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
+        st.markdown(tables[0], unsafe_allow_html=True)
+    if len(tables) >= 2:
         st.subheader("Entità Mancanti (Content Gap Opportunity)")
-        st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
-    else:
-        st.info("Analisi non eseguita. Ritorna allo step 1.")
+        st.markdown(tables[1], unsafe_allow_html=True)
+
     st.markdown("---")
-    st.write("Ora genera la strategia keyword basata sull'analisi precedente.")
     if st.button("Genera Keyword Strategy 🚀"):
         prompt2 = f"""
-Partendo dall'analisi approfondita dei testi competitor eseguita, la tua missione è estrapolare e organizzare in una tabella intuitiva le keyword più efficaci per il mio contenuto, al fine di massimizzare la rilevanza e il posizionamento. La tabella dovrà specificare:
+Partendo dall'analisi approfondita dei testi competitor, estrai e organizza in JSON le keyword più efficaci:
 
-- La keyword principale su cui focalizzarsi.
-- Le keyword secondarie/correlate per espandere la copertura semantica.
-- Le LSI keywords per approfondire la comprensione di Google sull'argomento.
+- Categoria: Keyword Principale (Focus Primario)
+- Categoria: Keyword Secondarie/Correlate (Espansione Semantica)
+- Categoria: LSI Keywords (Comprensione Approfondita)
+- Categoria: Keyword Fondamentali Mancanti (Opportunità Content Gap)
 
-Non limitarti all'esistente: se vi siano keyword fondamentali assenti nei testi analizzati ma indispensabili per creare un contenuto superiore, integrale nella tabella evidenziandone il valore aggiunto.
-
-Restituisci il risultato in JSON con le chiavi:
-```
-"Keyword Strategy": [
-  {{
-    "Categoria": "Keyword Principale (Focus Primario)",
-    "Keywords": [...],
-    "Valore Aggiunto": "..."
-  }},
-  {{
-    "Categoria": "Keyword Secondarie/Correlate",
-    "Keywords": [...],
-    "Valore Aggiunto": "..."
-  }},
-  {{
-    "Categoria": "LSI Keywords (Comprensione Approfondita)",
-    "Keywords": [...],
-    "Valore Aggiunto": "..."
-  }},
-  {{
-    "Categoria": "Keyword Fondamentali Mancanti (Opportunità di Content Gap)",
-    "Keywords": [...],
-    "Valore Aggiunto": "..."
-  }}
-]
-```
+Restituisci un oggetto JSON:
+{{
+  "Keyword Strategy": [
+    {{"Categoria": "Keyword Principale (Focus Primario)", "Keywords": [...], "Valore Aggiunto": "..."}},
+    {{"Categoria": "Keyword Secondarie/Correlate", "Keywords": [...], "Valore Aggiunto": "..."}},
+    {{"Categoria": "LSI Keywords (Comprensione Approfondita)", "Keywords": [...], "Valore Aggiunto": "..."}},
+    {{"Categoria": "Keyword Fondamentali Mancanti (Opportunità Content Gap)", "Keywords": [...], "Valore Aggiunto": "..."}}
+  ]
+}}
 """
-        with st.spinner("Generazione in corso..."):
+        with st.spinner("Generazione keyword strategy in corso..."):
             resp2 = client.models.generate_content(
                 model="gemini-2.5-flash-preview-05-20",
                 contents=[prompt2]
             )
         try:
-            strategy = resp2.json()
+            strategy = json.loads(resp2.text)
         except Exception:
             strategy = resp2.text
         st.subheader("Keyword Strategy JSON")
         st.json(strategy)
+
     if st.button("Torna allo Step 1 🔙"):
         st.session_state.step = 1
         st.experimental_rerun()
@@ -118,49 +150,4 @@ Restituisci il risultato in JSON con le chiavi:
 if st.session_state.step == 1:
     step1()
 else:
-    # Before step2 generate and cache analysis tables if not exists
-    if 'analysis_tables' not in st.session_state and 'competitor_texts' in st.session_state:
-        full_text = "
----
-".join(st.session_state.competitor_texts)(st.session_state.competitor_texts)
-        # reuse original prompt to get analysis tables
-        prompt = f"""
-## PROMPT DI ANALISI COMPETITIVA E CONTENT GAP ##
-
-**RUOLO:**
-Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva.
-
-**CONTESTO:**
-Obiettivo: superare i competitor posizionati per la keyword target. Fornisci le entità da includere e le opportunità di content gap.
-
-**COMPITO:**
-Analizza i seguenti testi competitor:
-{full_text}
-
-1. Identifica l'**Argomento Principale Comune** e il **Search Intent Primario**.
-2. Crea **due tabelle Markdown**:
-
----
-### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
-| Entità | Rilevanza Strategica | Azione per il Mio Testo |
-| :--- | :--- | :--- |
-
----
-### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
-| Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
-| :--- | :--- | :--- |
-
-Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
-Mantieni solo le due tabelle, con markdown valido e wrap del testo.
-"""
-        resp = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            contents=[prompt]
-        )
-        md = resp.text
-        # Estrai blocchi di tabelle Markdown
-        tables = [blk for blk in md.split("
-
-") if blk.strip().startswith("|")]
-        st.session_state.analysis_tables = tables
     step2()
