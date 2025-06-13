@@ -158,8 +158,9 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             contents=[prompt]
         )
         md = resp.text
+        # Estrai blocchi di tabelle Markdown
         tables = [blk for blk in md.split("
 
 ") if blk.strip().startswith("|")]
         st.session_state.analysis_tables = tables
-    step2()
+    step2()()
