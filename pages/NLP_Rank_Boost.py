@@ -17,27 +17,28 @@ button {
 # Imposta la tua API key come secret GEMINI_API_KEY in Streamlit Cloud
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
-# Assicurati di avere installato l’SDK aggiornato: pip install -U google-genai
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Selezione dinamica dei competitor
+# Selezione dinamica dei competitor (max 5)
 num_texts = st.selectbox(
-    "Numero di testi competitor da analizzare",
-    [1, 2, 3, 4, 5],
+    "Numero di testi competitor da analizzare (su 5 max)",
+    list(range(1,6)),
     index=0
 )
 
+# Disposizione orizzontale dei text_area usando columns
+cols = st.columns(num_texts)
 texts = []
-for i in range(num_texts):
-    texts.append(
-        st.text_area(
-            label=f"Testo competitor {i+1}",
+for idx, col in enumerate(cols):
+    with col:
+        text = st.text_area(
+            label=f"Testo {idx+1}",
             placeholder="Incolla qui il testo del competitor...",
-            height=150
+            height=200
         ).strip()
-    )
+        texts.append(text)
 
 if st.button("Analizza Contenuti 🚀"):
     competitor_texts = [t for t in texts if t]
@@ -82,7 +83,7 @@ Mantieni vivo il formato delle tabelle in Markdown e non aggiungere altro testo 
 
     with st.spinner("Analisi in corso con Gemini..."):
         response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
+            model="gemini-2.5-flash",
             contents=[prompt]
         )
     md = response.text
