@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from openai import OpenAI
+import openai
+import os
 
 # --- INIEZIONE CSS per il bottone rosso ---
 st.markdown("""
@@ -14,7 +15,7 @@ button {
 
 # --- Config OpenAI ---
 # Assicurati di impostare la tua API key come variabile d'ambiente OPENAI_API_KEY
-client = OpenAI()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- Modalità input testi ---
 st.title("Estrazione Entità SEO con AI")
@@ -63,7 +64,7 @@ Restituisci le entità in tabella con tre colonne:
 Per ogni entità, nella colonna “Rilevanza semantica” indica un valore numerico tra 0.00 e 1.00 (due decimali) che rappresenti l’importanza di quell’entità rispetto al topic complessivo. Estrai tutte le entità con una rilevanza semantica uguale o maggiore di 0.50.
 """
         with st.spinner("Analisi in corso..."):
-            resp = client.chat.completions.create(
+            resp = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "Sei un assistente esperto di SEO, NLU e analisi semantica."},
