@@ -72,19 +72,27 @@ elif st.session_state.step == 2:
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
+**RUOLO:** Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva. La tua missione è "ingegneria inversa" del successo dei contenuti che si posizionano ai vertici di Google.
 
-Analizza i seguenti testi competitor:
+**CONTESTO:** Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi 3 competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darmi una mappa precisa delle entità che devo assolutamente trattare e delle opportunità (entità mancanti) che posso sfruttare per creare un contenuto oggettivamente più completo e autorevole.
+
+**COMPITO:** Analizza i seguenti testi competitor:
 ---
 {'\n---\n'.join(st.session_state.competitor_texts)}
 
-1. Identifica l'**Argomento Principale Comune** e il **Search Intent Primario**.
-2. Crea **due tabelle Markdown**:
+1. Identifica e dichiara qual è l'**Argomento Principale Comune** o l'**Entità Centrale** condivisa da tutti i testi.
+2. Basandoti su questo, definisci il **Search Intent Primario** a cui i competitor stanno rispondendo (es: "Confronto informativo tra prodotti", "Guida all'acquisto per principianti", "Spiegazione approfondita di un concetto").
+3. Crea **due tabelle Markdown separate e distinte**, come descritto di seguito:
 
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
+*In questa tabella, elenca le entità più importanti che sono **presenti in almeno uno dei testi dei competitor**. Questo è il "minimo sindacale" semantico per essere competitivi.*
+
 | Entità | Rilevanza Strategica | Azione per il Mio Testo |
 | :--- | :--- | :--- |
 
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
+*In questa tabella, elenca le entità rilevanti che **nessuno (o quasi nessuno) dei competitor tratta in modo adeguato**. Queste sono le tue opportunità per superarli.*
+
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
