@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import pandas as pd
 from google import genai
 
 # --- INIEZIONE CSS per il bottone rosso e wrap testo nelle tabelle ---
@@ -20,6 +21,25 @@ table td {
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
+# --- Funzioni di supporto per parsing e ricostruzione Markdown/Table ---
+def parse_md_table(md: str) -> pd.DataFrame:
+    lines = md.splitlines()
+    header = lines[0]
+    cols = [h.strip() for h in header.strip("|").split("|")]
+    data = []
+    for line in lines[2:]:
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        data.append(cells)
+    return pd.DataFrame(data, columns=cols)
+
+def df_to_md(df: pd.DataFrame) -> str:
+    header = "| " + " | ".join(df.columns) + " |"
+    sep    = "| " + " | ".join(["---"] * len(df.columns)) + " |"
+    rows   = ["| " + " | ".join(map(str, row)) + " |" for row in df.values.tolist()]
+    return "\n".join([header, sep] + rows)
+
 # --- Inizializza session_state per multi-step wizard ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
@@ -29,12 +49,16 @@ if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
+# Nuove chiavi per le selezioni
+if 'selected_core' not in st.session_state:
+    st.session_state.selected_core = []
+if 'selected_missing' not in st.session_state:
+    st.session_state.selected_missing = []
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Funzione helper per cambiare step
-def go_to(step):
+def go_to(step: int):
     st.session_state.step = step
 
 # === STEP 1: Input testi competitor ===
@@ -59,16 +83,17 @@ if st.session_state.step == 1:
             st.error("Per favore, incolla almeno un testo.")
         else:
             st.session_state.competitor_texts = non_empty
-            # reset analysis e keyword precedenti
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
+            st.session_state.selected_core = []
+            st.session_state.selected_missing = []
             go_to(2)
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
 
-    # se non ho ancora le tabelle, o se ho premuto "Analizza di nuovo", genero l'analisi
+    # Genera o rigenera l'analisi se necessario
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -112,11 +137,29 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # Visualizzo le tabelle
-    st.subheader("Entità Fondamentali (Common Ground Analysis)")
-    st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
-    st.subheader("Entità Mancanti (Content Gap Opportunity)")
-    st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
+    # Parsing in DataFrame
+    core_df    = parse_md_table(st.session_state.analysis_tables[0])
+    missing_df = parse_md_table(st.session_state.analysis_tables[1])
+
+    # Mostra anteprime e opzioni di selezione
+    st.subheader("Anteprima Entità Fondamentali")
+    st.dataframe(core_df, use_container_width=True)
+    st.subheader("Anteprima Entità Mancanti")
+    st.dataframe(missing_df, use_container_width=True)
+
+    st.write("Seleziona le righe da includere nello Step 3:")
+    selected_core    = st.multiselect(
+        "Entità Fondamentali", core_df['Entità'].tolist(),
+        default=st.session_state.selected_core or core_df['Entità'].tolist()
+    )
+    selected_missing = st.multiselect(
+        "Entità Mancanti", missing_df['Entità da Aggiungere'].tolist(),
+        default=st.session_state.selected_missing or missing_df['Entità da Aggiungere'].tolist()
+    )
+
+    # Aggiorna session_state con le selezioni
+    st.session_state.selected_core    = selected_core
+    st.session_state.selected_missing = selected_missing
 
     # Pulsanti di navigazione + Rifai analisi
     c1, c2, c3 = st.columns([1,1,1])
@@ -125,9 +168,10 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             go_to(1)
     with c2:
         if st.button("🔄 Analizza di nuovo"):
-            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
-            st.session_state.keyword_table = None
+            st.session_state.keyword_table    = None
+            st.session_state.selected_core    = []
+            st.session_state.selected_missing = []
     with c3:
         if st.button("Vai a Step 3 ▶️"):
             go_to(3)
@@ -137,9 +181,16 @@ elif st.session_state.step == 3:
     st.write("### Step 3: Generazione della Keyword Strategy")
 
     if st.session_state.keyword_table is None:
-        full_text = "\n---\n".join(st.session_state.competitor_texts)
-        table1 = st.session_state.analysis_tables[0]
-        table2 = st.session_state.analysis_tables[1]
+        # Ricostruisci le tabelle Markdown da sole righe selezionate
+        core_df    = parse_md_table(st.session_state.analysis_tables[0])
+        missing_df = parse_md_table(st.session_state.analysis_tables[1])
+
+        sel_core_df    = core_df[core_df['Entità'].isin(st.session_state.selected_core)]
+        sel_miss_df    = missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)]
+
+        table1_md = df_to_md(sel_core_df)
+        table2_md = df_to_md(sel_miss_df)
+
         prompt3 = f"""
 ## GENERAZIONE KEYWORD STRATEGY ##
 
@@ -147,13 +198,13 @@ Usa queste informazioni:
 
 **Testi competitor:**
 ---
-{full_text}
+{'\n---\n'.join(st.session_state.competitor_texts)}
 
 **Tabella 1: Entità Fondamentali**
-{table1}
+{table1_md}
 
 **Tabella 2: Entità Mancanti**
-{table2}
+{table2_md}
 
 **RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in analisi semantica competitiva e ricerca delle parole chiave. La tua missione è quella di ricercare le migliori keywords sulla base dei contenuti dei competitors.
 
@@ -179,7 +230,7 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
-    # Visualizzo la tabella
+    # Visualizza il risultato finale
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
     # Pulsanti di navigazione finale
@@ -189,6 +240,6 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             go_to(2)
     with d2:
         if st.button("🔄 Ricomincia"):
-            for k in ['step','competitor_texts','analysis_tables','keyword_table']:
+            for k in ['step','competitor_texts','analysis_tables','keyword_table','selected_core','selected_missing']:
                 st.session_state.pop(k, None)
             go_to(1)
