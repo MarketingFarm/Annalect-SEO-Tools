@@ -33,7 +33,6 @@ if 'keyword_table' not in st.session_state:
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Funzione di navigazione tra gli step
 def to_step(n):
     st.session_state.step = n
 
@@ -60,11 +59,12 @@ if st.session_state.step == 1:
         else:
             st.session_state.competitor_texts = non_empty
             to_step(2)
-            st.experimental_rerun()
+            st.stop()
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
+    # se non ho ancora le tabelle, chiamo Gemini
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -96,20 +96,22 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
         tables2 = [blk for blk in md2.split("\n\n") if blk.strip().startswith("|")]
         st.session_state.analysis_tables = tables2
 
+    # Mostro le due tabelle
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
+    # Pulsanti di navigazione
     nav_cols = st.columns([1, 1, 1])
     with nav_cols[0]:
         if st.button("◀️ Indietro"):
             to_step(1)
-            st.experimental_rerun()
+            st.stop()
     with nav_cols[2]:
         if st.button("Vai a Step 3 ▶️"):
             to_step(3)
-            st.experimental_rerun()
+            st.stop()
 
 # === STEP 3: Generazione della Keyword Strategy ===
 elif st.session_state.step == 3:
@@ -124,10 +126,10 @@ Partendo dall'analisi approfondita dei testi competitor eseguita, la tua mission
 - Non limitarti all'esistente: se ritieni che vi siano keyword fondamentali assenti nei testi analizzati ma indispensabili per creare un contenuto superiore, integrale nella tabella evidenziandone il valore aggiunto.
 
 La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore Aggiunto**. Deve inoltre avere 4 righe con:
-- "Keyword Principale (Focus Primario)" che racchiude tutte le keywords principali,
-- "Keyword Secondarie/Correlate (Espansione Semantica)" che racchiude tutte le secondarie correlate,
-- "LSI Keywords (Comprensione Approfondita)" che raccoglie tutte le lsi,
-- "Keyword Fondamentali Mancanti (Opportunità di Content Gap)" che raccoglie tutte le keyword fondamentali mancanti.
+- "Keyword Principale (Focus Primario)"
+- "Keyword Secondarie/Correlate (Espansione Semantica)"
+- "LSI Keywords (Comprensione Approfondita)"
+- "Keyword Fondamentali Mancanti (Opportunità di Content Gap)"
 """
         with st.spinner("Eseguo estrazione keyword..."):
             resp3 = client.models.generate_content(
@@ -136,15 +138,17 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
+    # Visualizzo la tabella
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
+    # Pulsanti di navigazione
     nav_cols = st.columns([1, 1])
     with nav_cols[0]:
         if st.button("◀️ Indietro"):
             to_step(2)
-            st.experimental_rerun()
+            st.stop()
     with nav_cols[1]:
         if st.button("🔄 Ricomincia"):
             for key in ['step', 'competitor_texts', 'analysis_tables', 'keyword_table']:
                 st.session_state.pop(key, None)
-            st.experimental_rerun()
+            st.stop()
