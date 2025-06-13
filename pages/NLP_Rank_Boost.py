@@ -90,7 +90,6 @@ if st.session_state.step == 1:
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
 
-    # Genera o rigenera l'analisi se necessario
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -107,10 +106,14 @@ elif st.session_state.step == 2:
 3. Crea **due tabelle Markdown separate e distinte**, come descritto di seguito:
 
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
+*In questa tabella, elenca le entità più importanti che sono **presenti in almeno uno dei testi dei competitor**. Questo è il "minimo sindacale" semantico per essere competitivi.*
+
 | Entità | Rilevanza Strategica | Azione per il Mio Testo |
 | :--- | :--- | :--- |
 
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
+*In questa tabella, elenca le entità rilevanti che **nessuno (o quasi nessuno) dei competitor tratta in modo adeguato**. Queste sono le tue opportunità per superarli.*
+
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
@@ -127,23 +130,21 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # Parsing in DataFrame
+    # Parsing
     core_df    = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Prepara colonna checkbox
-    core_df['Seleziona']    = core_df['Entità'].isin(st.session_state.selected_core)
-    missing_df['Seleziona'] = missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)
+    # Aggiungi colonna boolean per checkbox
+    core_df['Seleziona']    = core_df['Entità'].isin(st.session_state.selected_core).astype(bool)
+    missing_df['Seleziona'] = missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing).astype(bool)
 
-    # Mostra DataEditor con CheckboxColumn
+    # DataEditor con CheckboxColumn
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     edited_core = st.data_editor(
         core_df,
+        disabled=['Entità', 'Rilevanza Strategica', 'Azione per il Mio Testo'],
         column_config={
-            'Entità': st.column_config.TextColumn('Entità', disabled=True),
-            'Rilevanza Strategica': st.column_config.TextColumn('Rilevanza Strategica', disabled=True),
-            'Azione per il Mio Testo': st.column_config.TextColumn('Azione per il Mio Testo', disabled=True),
-            'Seleziona': st.column_config.CheckboxColumn('Seleziona')
+            'Seleziona': st.column_config.CheckboxColumn('Seleziona', help='Flagga per includere')
         },
         hide_index=True,
         use_container_width=True
@@ -153,11 +154,9 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     edited_missing = st.data_editor(
         missing_df,
+        disabled=['Entità da Aggiungere', "Motivazione dell'Inclusione", 'Azione SEO Strategica'],
         column_config={
-            'Entità da Aggiungere': st.column_config.TextColumn('Entità da Aggiungere', disabled=True),
-            'Motivazione dell\'Inclusione': st.column_config.TextColumn('Motivazione dell\'Inclusione', disabled=True),
-            'Azione SEO Strategica': st.column_config.TextColumn('Azione SEO Strategica', disabled=True),
-            'Seleziona': st.column_config.CheckboxColumn('Seleziona')
+            'Seleziona': st.column_config.CheckboxColumn('Seleziona', help='Flagga per includere')
         },
         hide_index=True,
         use_container_width=True
@@ -232,7 +231,6 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
-    # Visualizza il risultato finale
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
     d1, d2 = st.columns([1, 1])
