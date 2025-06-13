@@ -2,6 +2,7 @@ import streamlit as st
 import os
 from google import genai
 import json
+import re
 
 # --- INIEZIONE CSS per il bottone rosso e wrap testo nelle tabelle ---
 st.markdown("""
@@ -128,10 +129,16 @@ Restituisci un oggetto JSON con chiave "Keyword Strategy" e array di 4 elementi.
                 model="gemini-2.5-flash-preview-05-20",
                 contents=[prompt2]
             )
-        try:
-            strategy = json.loads(resp2.text)
-        except Exception:
-            strategy = resp2.text
+        raw = resp2.text
+        # Estrai un possibile JSON dall'output
+        match = re.search(r"\{[\s\S]*\}", raw)
+        if match:
+            try:
+                strategy = json.loads(match.group())
+            except Exception:
+                strategy = match.group()
+        else:
+            strategy = raw
         st.subheader("Keyword Strategy JSON")
         st.json(strategy)
 
