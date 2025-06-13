@@ -64,6 +64,8 @@ if st.session_state.step == 1:
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
+
+    # (Rifai l'analisi se tables vuote)
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -95,15 +97,22 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
         tables2 = [blk for blk in md2.split("\n\n") if blk.strip().startswith("|")]
         st.session_state.analysis_tables = tables2
 
+    # Mostro le tabelle
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
+    # Pulsanti di navigazione e rifacimento analisi
     nav_cols = st.columns([1, 1, 1])
     with nav_cols[0]:
         if st.button("◀️ Indietro"):
             to_step(1)
+            st.stop()
+    with nav_cols[1]:
+        if st.button("🔄 Analizza di nuovo"):
+            st.session_state.analysis_tables = []
+            to_step(2)
             st.stop()
     with nav_cols[2]:
         if st.button("Vai a Step 3 ▶️"):
@@ -113,6 +122,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 # === STEP 3: Generazione della Keyword Strategy ===
 elif st.session_state.step == 3:
     st.write("### Step 3: Generazione della Keyword Strategy")
+
     if st.session_state.keyword_table is None:
         full_text_block = "\n---\n".join(st.session_state.competitor_texts)
         table1_md = st.session_state.analysis_tables[0]
@@ -146,7 +156,6 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
 - "LSI Keywords (Comprensione Approfondita)"
 - "Keyword Fondamentali Mancanti (Opportunità di Content Gap)"
 """
-
         with st.spinner("Eseguo estrazione keyword..."):
             resp3 = client.models.generate_content(
                 model="gemini-2.5-flash-preview-05-20",
@@ -154,8 +163,10 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
+    # Visualizzo la tabella
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
+    # Pulsanti di navigazione
     nav_cols = st.columns([1, 1])
     with nav_cols[0]:
         if st.button("◀️ Indietro"):
