@@ -163,4 +163,4 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 
 ") if blk.strip().startswith("|")]
         st.session_state.analysis_tables = tables
-    step2()()
+    step2()
