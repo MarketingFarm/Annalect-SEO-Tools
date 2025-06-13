@@ -38,7 +38,7 @@ def step1():
         index=0,
         key='num_texts'
     )
-    cols = st.columns(st.session_state.num_texts)
+    cols = st.columns(num_texts)
     texts = []
     for i, col in enumerate(cols, start=1):
         with col:
@@ -46,8 +46,8 @@ def step1():
                 label=f"Testo competitor {i}",
                 height=200,
                 key=f"text_{i}"
-            ).strip()
-            texts.append(t)
+            )
+            texts.append(t.strip())
     if st.button("Prosegui al Step 2 🚀"):
         competitor_texts = [t for t in texts if t]
         if not competitor_texts:
@@ -55,14 +55,15 @@ def step1():
         else:
             st.session_state.competitor_texts = competitor_texts
             st.session_state.step = 2
-            st.experimental_rerun()
 
 # Step 2: Display analysis and keyword strategy
 
 def step2():
     st.header("Step 2: Analisi e Keyword Strategy")
     if 'competitor_texts' not in st.session_state:
-        st.error("Step 1 non completato. Torna indietro.")
+        st.error("Step 1 non completato. Ritorna indietro.")
+        if st.button("Torna allo Step 1 🔙"):
+            st.session_state.step = 1
         return
 
     # Generate analysis tables once
@@ -71,7 +72,7 @@ def step2():
         prompt1 = f"""
 ## PROMPT DI ANALISI COMPETITIVA E CONTENT GAP ##
 
-**RUOLO:** Agisci come un analista SEO d'élite.
+**RUOLO:** Agisci come analista SEO d'élite.
 
 **CONTESTO:** Supera i competitor per la keyword target.
 
@@ -120,15 +121,7 @@ Partendo dall'analisi approfondita dei testi competitor, estrai e organizza in J
 - Categoria: LSI Keywords (Comprensione Approfondita)
 - Categoria: Keyword Fondamentali Mancanti (Opportunità Content Gap)
 
-Restituisci un oggetto JSON:
-{{
-  "Keyword Strategy": [
-    {{"Categoria": "Keyword Principale (Focus Primario)", "Keywords": [...], "Valore Aggiunto": "..."}},
-    {{"Categoria": "Keyword Secondarie/Correlate", "Keywords": [...], "Valore Aggiunto": "..."}},
-    {{"Categoria": "LSI Keywords (Comprensione Approfondita)", "Keywords": [...], "Valore Aggiunto": "..."}},
-    {{"Categoria": "Keyword Fondamentali Mancanti (Opportunità Content Gap)", "Keywords": [...], "Valore Aggiunto": "..."}}
-  ]
-}}
+Restituisci un oggetto JSON con chiave "Keyword Strategy" e array di 4 elementi.
 """
         with st.spinner("Generazione keyword strategy in corso..."):
             resp2 = client.models.generate_content(
@@ -144,7 +137,6 @@ Restituisci un oggetto JSON:
 
     if st.button("Torna allo Step 1 🔙"):
         st.session_state.step = 1
-        st.experimental_rerun()
 
 # Main navigation
 if st.session_state.step == 1:
