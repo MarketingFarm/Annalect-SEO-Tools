@@ -130,38 +130,46 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 contents=[prompt2]
             )
         md2 = resp2.text
-        st.session_state.analysis_tables = [blk for blk in md2.split("\n\n") if blk.strip().startswith("|")]
+        st.session_state.analysis_tables = [
+            blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
+        ]
 
     # Parsing in DataFrame
     core_df    = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Mostro le tabelle
+    # Mostro le tabelle con checkbox per selezione riga per riga
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
-    st.dataframe(core_df, use_container_width=True)
-    st.write("Seleziona le righe da includere nello Step 3:")
-    selected_core = []
     for idx, row in core_df.iterrows():
         cols = st.columns([8, 1])
         with cols[0]:
             st.markdown(f"- **{row['Entità']}** | {row['Rilevanza Strategica']} | {row['Azione per il Mio Testo']}")
         with cols[1]:
-            if st.checkbox("", key=f"core_select_{idx}", value=(row['Entità'] in st.session_state.selected_core)):
-                selected_core.append(row['Entità'])
-    st.session_state.selected_core = selected_core
+            selected = row['Entità'] in st.session_state.selected_core
+            if st.checkbox("", key=f"core_select_{idx}", value=selected):
+                if row['Entità'] not in st.session_state.selected_core:
+                    st.session_state.selected_core.append(row['Entità'])
+            else:
+                if row['Entità'] in st.session_state.selected_core:
+                    st.session_state.selected_core.remove(row['Entità'])
 
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
-    st.dataframe(missing_df, use_container_width=True)
-    st.write("Seleziona le righe da includere nello Step 3:")
-    selected_missing = []
     for idx, row in missing_df.iterrows():
         cols = st.columns([8, 1])
         with cols[0]:
-            st.markdown(f"- **{row['Entità da Aggiungere']}** | {row['Motivazione dell'Inclusione']} | {row['Azione SEO Strategica']}")
+            st.markdown(
+                f"- **{row['Entità da Aggiungere']}** | "
+                f"{row[\"Motivazione dell'Inclusione\"]} | "
+                f"{row['Azione SEO Strategica']}"
+            )
         with cols[1]:
-            if st.checkbox("", key=f"missing_select_{idx}", value=(row['Entità da Aggiungere'] in st.session_state.selected_missing)):
-                selected_missing.append(row['Entità da Aggiungere'])
-    st.session_state.selected_missing = selected_missing
+            selected = row['Entità da Aggiungere'] in st.session_state.selected_missing
+            if st.checkbox("", key=f"missing_select_{idx}", value=selected):
+                if row['Entità da Aggiungere'] not in st.session_state.selected_missing:
+                    st.session_state.selected_missing.append(row['Entità da Aggiungere'])
+            else:
+                if row['Entità da Aggiungere'] in st.session_state.selected_missing:
+                    st.session_state.selected_missing.remove(row['Entità da Aggiungere'])
 
     # Pulsanti di navigazione + Rifai analisi
     c1, c2, c3 = st.columns([1, 1, 1])
