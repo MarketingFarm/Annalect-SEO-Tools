@@ -1,11 +1,6 @@
 import streamlit as st
-import requests
-import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
-import trafilatura
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from openai import OpenAI
 
 # --- INIEZIONE CSS per il bottone rosso ---
 st.markdown("""
@@ -17,174 +12,86 @@ button {
 </style>
 """, unsafe_allow_html=True)
 
-# --- Funzioni di supporto ---
+# --- Config OpenAI ---
+# Assicurati di impostare la tua API key come variabile d'ambiente OPENAI_API_KEY
+client = OpenAI()
 
-def fetch_sitemap_urls(sitemap_url: str) -> list[str]:
-    """
-    Scarica e parse la sitemap XML, estraendo tutte le <loc>.
-    """
-    try:
-        resp = requests.get(sitemap_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-        resp.raise_for_status()
-        root = ET.fromstring(resp.text)
-        return [elem.text for elem in root.findall('.//{*}loc') if elem.text]
-    except Exception as e:
-        st.error(f"Errore fetching sitemap: {e}")
-        return []
+# --- Modalità input testi ---
+st.title("Estrazione Entità SEO con AI")
+st.divider()
 
-def fetch_content(url: str) -> str:
-    """
-    Scarica la pagina e restituisce solo il main text:
-    1) prova con trafilatura.extract (euristiche robuste)
-    2) fallback manuale: elimina header/footer/nav/aside/script/style,
-       rimuove cookie-bar e tiene paragrafi > 50 caratteri.
-    """
-    try:
-        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        resp.raise_for_status()
-        html = resp.text
+# Selezione numero di testi da analizzare
+num_texts = st.selectbox("Numero di testi da analizzare", [1, 2, 3, 4, 5], index=0)
 
-        # 1) Tentativo con trafilatura
-        text = trafilatura.extract(
-            html,
-            output_format="text",
-            include_comments=False,
-            favor_precision=True
-        )
-        if text and len(text) > 100:
-            return text.strip()
+# Crea campi di testo dinamici
+text_inputs = []
+for i in range(num_texts):
+    text = st.text_area(
+        label=f"Testo {i+1}",
+        placeholder="Incolla qui il testo da analizzare...",
+        height=150
+    )
+    text_inputs.append(text)
 
-        # 2) Fallback manuale
-        soup = BeautifulSoup(html, "html.parser")
-        for tag in soup(["header", "footer", "nav", "aside", "script", "style", "noscript", "form"]):
-            tag.decompose()
+# Pulsante di analisi
+if st.button("Analizza Entità 🚀"):
+    # Verifica input
+    texts = [t.strip() for t in text_inputs if t.strip()]
+    if not texts:
+        st.error("Per favore, incolla almeno un testo da analizzare.")
+    else:
+        full_text = "\n---\n".join(texts)
+        prompt = f"""
+Analizza il seguente testo ed estrai solo le entità e i concetti chiave *veramente rilevanti* per l’ottimizzazione SEO, ovvero quelli che possono avere un impatto concreto sul posizionamento nei risultati di ricerca di Google. Prima di estrarre le entità analizza il/i testo/i e capisci qual’è l’intento di ricerca / topic ed estrai solo le entità correlate a quell’intento di ricerca / topic.
 
-        # Rimuovi cookie-banner via id/class
-        for el in soup.find_all(attrs={"class": lambda c: c and "cookie" in c.lower()}):
-            el.decompose()
-        for el in soup.find_all(attrs={"id": lambda i: i and "cookie" in i.lower()}):
-            el.decompose()
+✅ Includi esclusivamente:
+- Keyword con intento informazionale o commerciale
+- Categorie di prodotto/servizio con volume di ricerca
+- Brand conosciuti o potenzialmente ricercabili
+- Temi o concetti ricorrenti che definiscono l’intento di ricerca
 
-        paras = [
-            p.get_text(" ", strip=True)
-            for p in soup.find_all("p")
-            if len(p.get_text(strip=True)) > 50
-        ]
-        return "\n\n".join(paras).strip() or "[NO CONTENT]"
+❌ Escludi:
+- Sinonimi non strategici della stessa keyword
+- Dettagli tecnici secondari (tessuti, colori, caratteristiche decorative, ecc.)
+- Termini generici, emozionali o descrittivi non ricercabili
 
-    except Exception as e:
-        return f"[ERROR] {e}"
-
-# --- Streamlit App ---
-
-def main():
-    st.title("Duplicate Content Checker – Manuale o Sitemap")
-    st.divider()
-
-    # Alert container (in testa)
-    msg = st.container()
-
-    # Layout 2 colonne: sinistra più stretta, destra più larga
-    left, right = st.columns([1, 5], gap="large")
-
-    # Colonna sinistra: modalità e soglia
-    with left:
-        mode = st.radio("Modalità di input", ["Manuale", "Sitemap"], index=0)
-        threshold = st.slider("Soglia di similarità", 0.0, 1.0, 0.8, 0.01)
-
-    # Inizializza session state per URLs
-    if "urls" not in st.session_state:
-        st.session_state["urls"] = []
-
-    # Colonna destra: input e pulsante
-    with right:
-        if mode == "Manuale":
-            text = st.text_area(
-                "Inserisci gli URL (uno per riga)",
-                height=200,
-                placeholder="https://esempio.com/p1\nhttps://esempio.com/p2"
+Restituisci le entità in tabella con tre colonne:
+| Entità | Tipologia | Rilevanza semantica |
+|--------|-----------|---------------------|
+{full_text}
+---
+Per ogni entità, nella colonna “Rilevanza semantica” indica un valore numerico tra 0.00 e 1.00 (due decimali) che rappresenti l’importanza di quell’entità rispetto al topic complessivo. Estrai tutte le entità con una rilevanza semantica uguale o maggiore di 0.50.
+"""
+        with st.spinner("Analisi in corso..."):
+            resp = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "Sei un assistente esperto di SEO, NLU e analisi semantica."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.0,
+                max_tokens=4000,
             )
-            st.session_state["urls"] = [u.strip() for u in text.splitlines() if u.strip()]
+        md = resp.choices[0].message.content
+        # Parsing Markdown table in DataFrame
+        lines = [l for l in md.splitlines() if l.startswith("|") and l.endswith("|")]
+        if len(lines) <= 2:
+            st.warning("Nessuna entità trovata con rilevanza ≥ 0.50.")
         else:
-            sitemap_url = st.text_input(
-                "URL della sitemap",
-                placeholder="https://esempio.com/sitemap.xml"
+            data_lines = lines[2:]
+            rows = []
+            for row in data_lines:
+                cells = [c.strip() for c in row.strip("|").split("|")]
+                while len(cells) < 3:
+                    cells.append("0.00")
+                rows.append(cells[:3])
+            df = pd.DataFrame(rows, columns=["Entità", "Tipologia", "Rilevanza semantica"])
+            df["Rilevanza semantica"] = pd.to_numeric(df["Rilevanza semantica"], errors="coerce").fillna(0.0)
+            st.subheader("Entità Estratte")
+            st.dataframe(df, use_container_width=True)
+            st.download_button(
+                "Scarica entità (CSV)",
+                df.to_csv(index=False).encode("utf-8"),
+                file_name="seo_entities.csv",
+                mime="text/csv"
             )
-        run = st.button("Analizza duplicati")
-
-    urls = st.session_state["urls"]
-
-    if run:
-        # Se modalita Sitemap, carica automaticamente
-        if mode == "Sitemap":
-            if not sitemap_url or not sitemap_url.strip():
-                msg.error("Per favore inserisci un URL di sitemap valido.")
-                return
-            with st.spinner("Scaricando sitemap..."):
-                st.session_state["urls"] = fetch_sitemap_urls(sitemap_url)
-            urls = st.session_state["urls"]
-            if not urls:
-                msg.warning("Nessun URL trovato o errore nella sitemap.")
-                return
-            msg.success(f"Trovati {len(urls)} URL nella sitemap.")
-
-        if not urls:
-            msg.error("Nessun URL da elaborare. Inserisci o carica gli URL.")
-            return
-
-        # 1) Download contenuti
-        msg.info("Scaricamento contenuti in corso...")
-        p1 = st.progress(0)
-        contents = []
-        for i, u in enumerate(urls, start=1):
-            contents.append(fetch_content(u))
-            p1.progress(i / len(urls))
-        df = pd.DataFrame({"URL": urls, "Content": contents})
-
-        # 2) TF-IDF e matrice di similarità
-        msg.info("Calcolo TF-IDF e matrice di similarità...")
-        vect = TfidfVectorizer(stop_words="english")
-        tfidf = vect.fit_transform(df["Content"])
-        sim_mat = cosine_similarity(tfidf)
-        sim_df = pd.DataFrame(sim_mat, index=urls, columns=urls)
-
-        # 3) Individuazione duplicati
-        msg.info("Individuazione duplicati...")
-        total_pairs = len(urls) * (len(urls) - 1) // 2
-        p2 = st.progress(0)
-        duplicates = []
-        count = 0
-        for i in range(len(urls)):
-            for j in range(i + 1, len(urls)):
-                count += 1
-                score = sim_mat[i, j]
-                if score >= threshold:
-                    duplicates.append({
-                        "URL 1": urls[i],
-                        "URL 2": urls[j],
-                        "Similarity": round(score, 4)
-                    })
-                p2.progress(count / total_pairs)
-
-        dup_df = pd.DataFrame(duplicates)
-
-        # Risultati
-        st.subheader("Risultati duplicati")
-        if dup_df.empty:
-            st.success(f"Nessun duplicato sopra soglia {threshold}.")
-        else:
-            st.warning(f"{len(dup_df)} coppie duplicate trovate (≥ {threshold}).")
-            st.dataframe(dup_df, use_container_width=True)
-
-        st.subheader("Matrice di similarità completa")
-        st.dataframe(sim_df, use_container_width=True)
-
-        st.download_button(
-            "Scarica matrice (CSV)",
-            sim_df.to_csv().encode("utf-8"),
-            file_name="similarity_matrix.csv",
-            mime="text/csv"
-        )
-
-if __name__ == "__main__":
-    main()
