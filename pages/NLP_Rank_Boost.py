@@ -131,19 +131,19 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     core_df    = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Aggiungi colonna di selezione
+    # Prepara colonna checkbox
     core_df['Seleziona']    = core_df['Entità'].isin(st.session_state.selected_core)
     missing_df['Seleziona'] = missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)
 
-    # Editor inline con checkbox
+    # Mostra DataEditor con CheckboxColumn
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     edited_core = st.data_editor(
         core_df,
         column_config={
-            'Seleziona': st.column_config.CheckboxColumn(
-                'Seleziona',
-                help='Flagga per includere'
-            )
+            'Entità': st.column_config.TextColumn('Entità', disabled=True),
+            'Rilevanza Strategica': st.column_config.TextColumn('Rilevanza Strategica', disabled=True),
+            'Azione per il Mio Testo': st.column_config.TextColumn('Azione per il Mio Testo', disabled=True),
+            'Seleziona': st.column_config.CheckboxColumn('Seleziona')
         },
         hide_index=True,
         use_container_width=True
@@ -154,10 +154,10 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     edited_missing = st.data_editor(
         missing_df,
         column_config={
-            'Seleziona': st.column_config.CheckboxColumn(
-                'Seleziona',
-                help='Flagga per includere'
-            )
+            'Entità da Aggiungere': st.column_config.TextColumn('Entità da Aggiungere', disabled=True),
+            'Motivazione dell\'Inclusione': st.column_config.TextColumn('Motivazione dell\'Inclusione', disabled=True),
+            'Azione SEO Strategica': st.column_config.TextColumn('Azione SEO Strategica', disabled=True),
+            'Seleziona': st.column_config.CheckboxColumn('Seleziona')
         },
         hide_index=True,
         use_container_width=True
