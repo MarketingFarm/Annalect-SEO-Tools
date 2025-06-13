@@ -90,6 +90,7 @@ if st.session_state.step == 1:
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
 
+    # Genera o rigenera l'analisi se necessario
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -106,14 +107,10 @@ elif st.session_state.step == 2:
 3. Crea **due tabelle Markdown separate e distinte**, come descritto di seguito:
 
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
-*In questa tabella, elenca le entità più importanti che sono **presenti in almeno uno dei testi dei competitor**. Questo è il "minimo sindacale" semantico per essere competitivi.*
-
 | Entità | Rilevanza Strategica | Azione per il Mio Testo |
 | :--- | :--- | :--- |
 
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
-*In questa tabella, elenca le entità rilevanti che **nessuno (o quasi nessuno) dei competitor tratta in modo adeguato**. Queste sono le tue opportunità per superarli.*
-
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
@@ -130,15 +127,17 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # Parsing
+    # Parsing in DataFrame
     core_df    = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Aggiungi colonna boolean per checkbox
-    core_df['Seleziona']    = core_df['Entità'].isin(st.session_state.selected_core).astype(bool)
-    missing_df['Seleziona'] = missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing).astype(bool)
+    # Aggiungi colonna boolean per checkbox e poi riordina mettendo 'Seleziona' per prima
+    core_df['Seleziona']    = core_df['Entità'].isin(st.session_state.selected_core)
+    core_df = core_df[['Seleziona', 'Entità', 'Rilevanza Strategica', 'Azione per il Mio Testo']]
 
-    # DataEditor con CheckboxColumn
+    missing_df['Seleziona'] = missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)
+    missing_df = missing_df[['Seleziona', 'Entità da Aggiungere', "Motivazione dell'Inclusione", 'Azione SEO Strategica']]
+
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     edited_core = st.data_editor(
         core_df,
