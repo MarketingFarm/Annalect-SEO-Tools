@@ -98,6 +98,7 @@ elif st.session_state.step == 2:
 
 Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
 Inserisci nelle tabelle solamente le informazioni **veramente utili** al fine di ottenere un testo semanticamente migliore rispetto a quello dei miei competitors, che rispetti l'intento di ricerca dell'argomento principale e che mi porti a superarli nella SERP.
+Nota Bene: I testi sono inseriti in ordine casuale. Anche l'ordine delle frasi è inserito in ordine casuale. Questo per non falsificare i risultati e per non portarti a pensare che le informazioni che vengono inserite prima siano più importanti.
 Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 """
         with st.spinner("Eseguo analisi entità..."):
