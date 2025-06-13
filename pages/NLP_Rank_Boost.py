@@ -23,13 +23,11 @@ client = genai.Client(api_key=api_key)
 
 # --- Funzioni di supporto per parsing e ricostruzione Markdown/Table ---
 def parse_md_table(md: str) -> pd.DataFrame:
-    lines = md.splitlines()
+    lines = [l for l in md.splitlines() if l.strip().startswith("|")]
     header = lines[0]
     cols = [h.strip() for h in header.strip("|").split("|")]
     data = []
     for line in lines[2:]:
-        if not line.strip().startswith("|"):
-            continue
         cells = [c.strip() for c in line.strip("|").split("|")]
         data.append(cells)
     return pd.DataFrame(data, columns=cols)
@@ -49,7 +47,6 @@ if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
-# Nuove chiavi per le selezioni
 if 'selected_core' not in st.session_state:
     st.session_state.selected_core = []
 if 'selected_missing' not in st.session_state:
@@ -133,36 +130,41 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 contents=[prompt2]
             )
         md2 = resp2.text
-        st.session_state.analysis_tables = [
-            blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
-        ]
+        st.session_state.analysis_tables = [blk for blk in md2.split("\n\n") if blk.strip().startswith("|")]
 
     # Parsing in DataFrame
     core_df    = parse_md_table(st.session_state.analysis_tables[0])
     missing_df = parse_md_table(st.session_state.analysis_tables[1])
 
-    # Mostra anteprime e opzioni di selezione
-    st.subheader("Anteprima Entità Fondamentali")
+    # Mostro le tabelle
+    st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.dataframe(core_df, use_container_width=True)
-    st.subheader("Anteprima Entità Mancanti")
-    st.dataframe(missing_df, use_container_width=True)
-
     st.write("Seleziona le righe da includere nello Step 3:")
-    selected_core    = st.multiselect(
-        "Entità Fondamentali", core_df['Entità'].tolist(),
-        default=st.session_state.selected_core or core_df['Entità'].tolist()
-    )
-    selected_missing = st.multiselect(
-        "Entità Mancanti", missing_df['Entità da Aggiungere'].tolist(),
-        default=st.session_state.selected_missing or missing_df['Entità da Aggiungere'].tolist()
-    )
+    selected_core = []
+    for idx, row in core_df.iterrows():
+        cols = st.columns([8, 1])
+        with cols[0]:
+            st.markdown(f"- **{row['Entità']}** | {row['Rilevanza Strategica']} | {row['Azione per il Mio Testo']}")
+        with cols[1]:
+            if st.checkbox("", key=f"core_select_{idx}", value=(row['Entità'] in st.session_state.selected_core)):
+                selected_core.append(row['Entità'])
+    st.session_state.selected_core = selected_core
 
-    # Aggiorna session_state con le selezioni
-    st.session_state.selected_core    = selected_core
+    st.subheader("Entità Mancanti (Content Gap Opportunity)")
+    st.dataframe(missing_df, use_container_width=True)
+    st.write("Seleziona le righe da includere nello Step 3:")
+    selected_missing = []
+    for idx, row in missing_df.iterrows():
+        cols = st.columns([8, 1])
+        with cols[0]:
+            st.markdown(f"- **{row['Entità da Aggiungere']}** | {row['Motivazione dell'Inclusione']} | {row['Azione SEO Strategica']}")
+        with cols[1]:
+            if st.checkbox("", key=f"missing_select_{idx}", value=(row['Entità da Aggiungere'] in st.session_state.selected_missing)):
+                selected_missing.append(row['Entità da Aggiungere'])
     st.session_state.selected_missing = selected_missing
 
     # Pulsanti di navigazione + Rifai analisi
-    c1, c2, c3 = st.columns([1,1,1])
+    c1, c2, c3 = st.columns([1, 1, 1])
     with c1:
         if st.button("◀️ Indietro"):
             go_to(1)
@@ -181,16 +183,9 @@ elif st.session_state.step == 3:
     st.write("### Step 3: Generazione della Keyword Strategy")
 
     if st.session_state.keyword_table is None:
-        # Ricostruisci le tabelle Markdown da sole righe selezionate
-        core_df    = parse_md_table(st.session_state.analysis_tables[0])
-        missing_df = parse_md_table(st.session_state.analysis_tables[1])
-
-        sel_core_df    = core_df[core_df['Entità'].isin(st.session_state.selected_core)]
-        sel_miss_df    = missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)]
-
-        table1_md = df_to_md(sel_core_df)
-        table2_md = df_to_md(sel_miss_df)
-
+        full_text = "\n---\n".join(st.session_state.competitor_texts)
+        table1 = df_to_md(core_df[core_df['Entità'].isin(st.session_state.selected_core)])
+        table2 = df_to_md(missing_df[missing_df['Entità da Aggiungere'].isin(st.session_state.selected_missing)])
         prompt3 = f"""
 ## GENERAZIONE KEYWORD STRATEGY ##
 
@@ -198,13 +193,13 @@ Usa queste informazioni:
 
 **Testi competitor:**
 ---
-{'\n---\n'.join(st.session_state.competitor_texts)}
+{full_text}
 
 **Tabella 1: Entità Fondamentali**
-{table1_md}
+{table1}
 
 **Tabella 2: Entità Mancanti**
-{table2_md}
+{table2}
 
 **RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in analisi semantica competitiva e ricerca delle parole chiave. La tua missione è quella di ricercare le migliori keywords sulla base dei contenuti dei competitors.
 
@@ -234,7 +229,7 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
     # Pulsanti di navigazione finale
-    d1, d2 = st.columns([1,1])
+    d1, d2 = st.columns([1, 1])
     with d1:
         if st.button("◀️ Indietro"):
             go_to(2)
