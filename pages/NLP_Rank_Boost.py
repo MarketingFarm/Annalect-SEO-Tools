@@ -83,7 +83,7 @@ Mantieni vivo il formato delle tabelle in Markdown e non aggiungere altro testo 
 
     with st.spinner("Analisi in corso con Gemini..."):
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-preview-05-20",
             contents=[prompt]
         )
     md = response.text
