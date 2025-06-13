@@ -14,17 +14,21 @@ button {
 """, unsafe_allow_html=True)
 
 # --- Config OpenAI ---
-# Assicurati di impostare la tua API key come variabile d'ambiente OPENAI_API_KEY
+# Imposta la tua API key come secret OPENAI_API_KEY in Streamlit Cloud
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# --- Modalità input testi ---
+# --- App Streamlit ---
 st.title("Estrazione Entità SEO con AI")
 st.divider()
 
 # Selezione numero di testi da analizzare
-num_texts = st.selectbox("Numero di testi da analizzare", [1, 2, 3, 4, 5], index=0)
+num_texts = st.selectbox(
+    "Numero di testi da analizzare",
+    [1, 2, 3, 4, 5],
+    index=0
+)
 
-# Crea campi di testo dinamici
+# Campi di testo dinamici
 text_inputs = []
 for i in range(num_texts):
     text = st.text_area(
@@ -36,7 +40,6 @@ for i in range(num_texts):
 
 # Pulsante di analisi
 if st.button("Analizza Entità 🚀"):
-    # Verifica input
     texts = [t.strip() for t in text_inputs if t.strip()]
     if not texts:
         st.error("Per favore, incolla almeno un testo da analizzare.")
@@ -64,7 +67,7 @@ Restituisci le entità in tabella con tre colonne:
 Per ogni entità, nella colonna “Rilevanza semantica” indica un valore numerico tra 0.00 e 1.00 (due decimali) che rappresenti l’importanza di quell’entità rispetto al topic complessivo. Estrai tutte le entità con una rilevanza semantica uguale o maggiore di 0.50.
 """
         with st.spinner("Analisi in corso..."):
-            resp = openai.ChatCompletion.create(
+            resp = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "Sei un assistente esperto di SEO, NLU e analisi semantica."},
@@ -73,21 +76,24 @@ Per ogni entità, nella colonna “Rilevanza semantica” indica un valore numer
                 temperature=0.0,
                 max_tokens=4000,
             )
+
         md = resp.choices[0].message.content
-        # Parsing Markdown table in DataFrame
+        # Parsing Markdown table
         lines = [l for l in md.splitlines() if l.startswith("|") and l.endswith("|")]
         if len(lines) <= 2:
             st.warning("Nessuna entità trovata con rilevanza ≥ 0.50.")
         else:
-            data_lines = lines[2:]
+            data_lines = lines[2:]  # salta header e separatore
             rows = []
             for row in data_lines:
                 cells = [c.strip() for c in row.strip("|").split("|")]
+                # Assicura 3 colonne
                 while len(cells) < 3:
                     cells.append("0.00")
                 rows.append(cells[:3])
             df = pd.DataFrame(rows, columns=["Entità", "Tipologia", "Rilevanza semantica"])
             df["Rilevanza semantica"] = pd.to_numeric(df["Rilevanza semantica"], errors="coerce").fillna(0.0)
+
             st.subheader("Entità Estratte")
             st.dataframe(df, use_container_width=True)
             st.download_button(
