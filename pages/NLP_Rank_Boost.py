@@ -64,7 +64,6 @@ if st.session_state.step == 1:
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
     st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
-    # se non ho ancora le tabelle, chiamo Gemini
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -96,13 +95,11 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
         tables2 = [blk for blk in md2.split("\n\n") if blk.strip().startswith("|")]
         st.session_state.analysis_tables = tables2
 
-    # Mostro le due tabelle
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
-    # Pulsanti di navigazione
     nav_cols = st.columns([1, 1, 1])
     with nav_cols[0]:
         if st.button("◀️ Indietro"):
@@ -117,20 +114,39 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 elif st.session_state.step == 3:
     st.write("### Step 3: Generazione della Keyword Strategy")
     if st.session_state.keyword_table is None:
+        full_text_block = "\n---\n".join(st.session_state.competitor_texts)
+        table1_md = st.session_state.analysis_tables[0]
+        table2_md = st.session_state.analysis_tables[1]
+
         prompt3 = f"""
-Partendo dall'analisi approfondita dei testi competitor eseguita, la tua missione è estrapolare e organizzare in una tabella intuitiva le keyword più efficaci per il mio contenuto, al fine di massimizzare la rilevanza e il posizionamento. La tabella dovrà specificare:
+## GENERAZIONE KEYWORD STRATEGY ##
+
+Usa queste informazioni:
+
+**Testi competitor:**
+---
+{full_text_block}
+
+**Tabella 1: Entità Fondamentali**
+{table1_md}
+
+**Tabella 2: Entità Mancanti**
+{table2_md}
+
+Partendo da questa analisi approfondita, la tua missione è estrapolare e organizzare in una tabella intuitiva le keyword più efficaci per il mio contenuto, al fine di massimizzare la rilevanza e il posizionamento. La tabella dovrà specificare:
 
 - La keyword principale su cui focalizzarsi.
 - Le keyword secondarie/correlate per espandere la copertura semantica.
 - Le LSI keywords per approfondire la comprensione di Google sull'argomento.
-- Non limitarti all'esistente: se ritieni che vi siano keyword fondamentali assenti nei testi analizzati ma indispensabili per creare un contenuto superiore, integrale nella tabella evidenziandone il valore aggiunto.
+- Le keyword fondamentali mancanti (opportunità di content gap individuate nel passo precedente).
 
-La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore Aggiunto**. Deve inoltre avere 4 righe con:
+La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore Aggiunto**. Deve inoltre includere 4 righe con:
 - "Keyword Principale (Focus Primario)"
 - "Keyword Secondarie/Correlate (Espansione Semantica)"
 - "LSI Keywords (Comprensione Approfondita)"
 - "Keyword Fondamentali Mancanti (Opportunità di Content Gap)"
 """
+
         with st.spinner("Eseguo estrazione keyword..."):
             resp3 = client.models.generate_content(
                 model="gemini-2.5-flash-preview-05-20",
@@ -138,10 +154,8 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
-    # Visualizzo la tabella
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
-    # Pulsanti di navigazione
     nav_cols = st.columns([1, 1])
     with nav_cols[0]:
         if st.button("◀️ Indietro"):
@@ -151,4 +165,5 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
         if st.button("🔄 Ricomincia"):
             for key in ['step', 'competitor_texts', 'analysis_tables', 'keyword_table']:
                 st.session_state.pop(key, None)
+            to_step(1)
             st.stop()
