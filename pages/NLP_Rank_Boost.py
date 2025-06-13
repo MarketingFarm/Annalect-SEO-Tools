@@ -1,44 +1,41 @@
 import streamlit as st
-import pandas as pd
 import os
 from google import genai
 
-# --- INIEZIONE CSS per il bottone rosso ---
+# --- INIEZIONE CSS per il bottone rosso e wrap testo nelle tabelle ---
 st.markdown("""
 <style>
 button {
   background-color: #e63946 !important;
   color: white !important;
 }
+/* wrap table cells */
+table td {
+  white-space: normal !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # --- Config Gemini ---
-# Imposta la tua API key come secret GEMINI_API_KEY in Streamlit Cloud
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Selezione dinamica dei competitor (max 5)
+# Selezione numero di testi competitor (max 5)
 num_texts = st.selectbox(
     "Numero di testi competitor da analizzare (su 5 max)",
-    list(range(1,6)),
-    index=0
+    list(range(1,6)), index=0
 )
 
-# Disposizione orizzontale dei text_area usando columns
+# Disposizione orizzontale dei text_area
 cols = st.columns(num_texts)
 texts = []
-for idx, col in enumerate(cols):
+for i, col in enumerate(cols, 1):
     with col:
-        text = st.text_area(
-            label=f"Testo {idx+1}",
-            placeholder="Incolla qui il testo del competitor...",
-            height=200
-        ).strip()
-        texts.append(text)
+        t = st.text_area(f"Testo competitor {i}", height=200)
+        texts.append(t.strip())
 
 if st.button("Analizza Contenuti 🚀"):
     competitor_texts = [t for t in texts if t]
@@ -51,66 +48,51 @@ if st.button("Analizza Contenuti 🚀"):
 ## PROMPT DI ANALISI COMPETITIVA E CONTENT GAP ##
 
 **RUOLO:**
-Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva. La tua missione è "ingegneria inversa" del successo dei contenuti che si posizionano ai vertici di Google.
+Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva.
 
 **CONTESTO:**
-Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darmi una mappa precisa delle entità che devo assolutamente trattare e delle opportunità (entità mancanti) che posso sfruttare per creare un contenuto oggettivamente più completo e autorevole.
+Obiettivo: superare i competitor posizionati per la keyword target. Fornisci le entità da includere e le opportunità di content gap.
 
 **COMPITO:**
-Analizza i testi dei competitor forniti di seguito. Svolgi i seguenti passaggi:
+Analizza i seguenti testi competitor:
+{full_text}
 
-1. **Sintesi Strategica Iniziale:**
-   - Identifica e dichiara qual è l'**Argomento Principale Comune** o l'**Entità Centrale** condivisa da tutti i testi.
-   - Basandoti su questo, definisci il **Search Intent Primario** a cui i competitor stanno rispondendo.
+1. Identifica l'**Argomento Principale Comune** e il **Search Intent Primario**.
+2. Crea **due tabelle Markdown**:
 
-2. **Generazione delle Tabelle di Analisi:**
-   Crea **due tabelle Markdown separate e distinte**:
 ---
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
-| Entità | Presenza nei Competitor | Rilevanza Strategica | Azione per il Mio Testo |
-| :--- | :--- | :--- | :--- |
-# (Compila con dati)
+| Entità | Rilevanza Strategica | Azione per il Mio Testo |
+| :--- | :--- | :--- |
+# (Compila con le entità viste nei testi)
+
 ---
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
-| Entità da Aggiungere (Opportunità) | Motivazione dell'Inclusione | Azione SEO Strategica |
+| Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
-# (Compila con dati)
----
-Analizza questi testi:
-{full_text}
-Mantieni vivo il formato delle tabelle in Markdown e non aggiungere altro testo fuori da esse.
-"""
+# (Compila con entità mancanti nei testi)
 
+Mantieni solo le due tabelle, con markdown valido e wrap del testo.
+"""
     with st.spinner("Analisi in corso con Gemini..."):
-        response = client.models.generate_content(
+        resp = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt]
         )
-    md = response.text
+    md = resp.text
 
-    # Parsing tabelle Markdown in DataFrame
-    tables = [tbl for tbl in md.split("\n\n") if tbl.strip().startswith("|")]
+    # Estrai blocchi Markdown di tabelle
+    tables = [blk for blk in md.split("\n\n") if blk.strip().startswith("|")]
     if not tables:
         st.warning("Non sono state generate tabelle valide.")
         st.stop()
 
-    def md_to_df(tbl_markdown: str) -> pd.DataFrame:
-        lines = [line for line in tbl_markdown.splitlines() if line.startswith("|")]
-        header = [h.strip() for h in lines[0].strip("|").split("|")]
-        data = []
-        for row in lines[2:]:
-            cells = [c.strip() for c in row.strip("|").split("|")]
-            data.append(cells)
-        return pd.DataFrame(data, columns=header)
-
-    # Visualizzazione con st.dataframe per formattazione migliorata
+    # Mostra tabelle con st.markdown per preservare grassetto e wrap
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
-    df1 = md_to_df(tables[0])
-    st.dataframe(df1, use_container_width=True)
+    st.markdown(tables[0], unsafe_allow_html=True)
 
     if len(tables) > 1:
         st.subheader("Entità Mancanti (Content Gap Opportunity)")
-        df2 = md_to_df(tables[1])
-        st.dataframe(df2, use_container_width=True)
+        st.markdown(tables[1], unsafe_allow_html=True)
     else:
-        st.info("Non è stata trovata una seconda tabella per le entità mancanti.")
+        st.info("Seconda tabella non trovata.")
