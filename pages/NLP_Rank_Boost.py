@@ -24,14 +24,14 @@ api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
 st.title("Analisi Competitiva & Keyword Strategy con Gemini")
-st.markdown(f"**Step {st.session_state.get('step',1)}/2**")
+st.markdown(f"**Step {st.session_state.get('step', 1)}/2**")
 st.divider()
 
-# Initialize session state
+# Inizializza session state step
 if 'step' not in st.session_state:
     st.session_state.step = 1
 
-# Step 1: inserimento testi
+# Step 1: inserimento testi competitor
 
 def step1():
     st.header("Step 1: Inserimento Testi Competitor")
@@ -54,31 +54,31 @@ def step1():
 
 def step2():
     st.header("Step 2: Analisi e Generazione Keyword Strategy")
-    # Check competitor_texts
     if 'competitor_texts' not in st.session_state:
-        st.error("Prima completa lo Step 1.")
+        st.error("Completa prima lo Step 1.")
         if st.button("Torna a Step 1 🔙"):
             st.session_state.step = 1
         return
 
     # Accordion con dati step1
-    with st.expander("Mostra/Nascondi: Dati Step 1"):
+    with st.expander("Mostra/Nascondi: Dati Step 1", expanded=False):
         st.subheader("Testi Competitor Inseriti")
         for idx, txt in enumerate(st.session_state.competitor_texts, start=1):
             st.markdown(f"**Competitor {idx}:** {txt[:100]}{'...' if len(txt)>100 else ''}")
-        if 'analysis_tables' in st.session_state and len(st.session_state.analysis_tables) >= 2:
-            st.subheader("Entità Fondamentali")
-            st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
-            st.subheader("Entità Mancanti")
-            st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
+        if 'analysis_tables' in st.session_state:
+            tables = st.session_state.analysis_tables
+            if len(tables) >= 1:
+                st.subheader("Entità Fondamentali")
+                st.markdown(tables[0], unsafe_allow_html=True)
+            if len(tables) >= 2:
+                st.subheader("Entità Mancanti")
+                st.markdown(tables[1], unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # Genera analisi se non esistono
+    # Genera tabelle di analisi se non esistono
     if 'analysis_tables' not in st.session_state:
-        full_text = "
----
-".join(st.session_state.competitor_texts)
+        full_text = "\n---\n".join(st.session_state.competitor_texts)
         prompt1 = f"""
 ## PROMPT DI ANALISI COMPETITIVA E CONTENT GAP ##
 
@@ -120,9 +120,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 contents=[prompt1]
             )
         md = resp1.text
-        tables = [blk for blk in md.split("
-
-") if blk.strip().startswith("|")][:2]
+        tables = [blk for blk in md.split("\n\n") if blk.strip().startswith("|")][:2]
         st.session_state.analysis_tables = tables
 
     # Visualizza tabelle di analisi
@@ -133,6 +131,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     if len(tables) >= 2:
         st.subheader("Entità Mancanti (Content Gap)")
         st.markdown(tables[1], unsafe_allow_html=True)
+
     st.markdown("---")
 
     # Bottone genera keyword strategy
@@ -156,7 +155,7 @@ Con righe: Keyword Principale, Secondarie/Correlate, LSI, Fondamentali Mancanti.
         if len(lines) >= 3:
             header = [h.strip() for h in lines[0].strip("|").split("|")]
             data = [row.strip("|").split("|") for row in lines[2:]]
-            df_kw = pd.DataFrame([[cell.strip() for cell in r] for r in data], columns=header)
+            df_kw = pd.DataFrame([[cell.strip() for cell in row] for row in data], columns=header)
             st.subheader("Keyword Strategy")
             st.dataframe(df_kw, use_container_width=True)
         else:
