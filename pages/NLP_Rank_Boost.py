@@ -30,7 +30,7 @@ if 'competitor_texts' not in st.session_state:
 if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
-    st.session_state.keyword_table = None
+    st.session_state.keyword_table = ""
 if 'search_intent' not in st.session_state:
     st.session_state.search_intent = None
 if 'meta_md' not in st.session_state:
@@ -225,7 +225,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             st.session_state.search_intent = None
     with c3:
         if st.button("Vai a Step 3 ▶️"):
-            go_to(4)
+            go_to(3)
 
 # === STEP 3: Generazione della Keyword Strategy ===
 elif st.session_state.step == 3:
