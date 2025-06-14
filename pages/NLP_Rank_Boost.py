@@ -334,11 +334,25 @@ Crea poi una **tabella Markdown** come descritto di seguito:
             )
         st.session_state.meta_md = r4.text
 
-    # Mostra la tabella generata
-    st.markdown(st.session_state.meta_md, unsafe_allow_html=True)
+    # estraiamo solo le righe che fanno parte della tabella Markdown
+    full = st.session_state.meta_md.splitlines()
+    table_lines = []
+    in_table = False
+    for ln in full:
+        if ln.startswith("|"):
+            in_table = True
+            table_lines.append(ln)
+        elif in_table:
+            # appena finisce il blocco di righe che iniziano con '|' usciamo
+            break
 
-    # converto la tabella in DataFrame e offro download Excel
-    df_meta = parse_md_table(st.session_state.meta_md)
+    table_md = "\n".join(table_lines)
+
+    # mostriamo solo la tabella vera e propria
+    st.markdown(table_md, unsafe_allow_html=True)
+
+    # e la passiamo al parser, senza errori di colonne in eccesso
+    df_meta = parse_md_table(table_md)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df_meta.to_excel(writer, index=False, sheet_name="Varianti")
