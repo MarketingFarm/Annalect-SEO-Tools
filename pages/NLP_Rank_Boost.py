@@ -73,7 +73,7 @@ if st.session_state.step == 1:
             "Contesto",
             contesti,
             index=contesti.index(st.session_state.contesto) 
-                    if st.session_state.contesto in contesti else 0,
+                  if st.session_state.contesto in contesti else 0,
             key="contesto"
         )
     with col3:
@@ -98,24 +98,22 @@ if st.session_state.step == 1:
             t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
             texts.append(t.strip())
 
-    # disabilita il bottone se contesto o tipologia non selezionati
-    disable_launch = (st.session_state.contesto == "" or 
-                      st.session_state.tipologia == "")
-
-    if st.button("🚀 Avvia l'Analisi NLU", disabled=disable_launch):
-        # una volta che il dropdown è valido, controlla i testi
-        non_empty = [t for t in texts if t]
-        if not non_empty:
-            st.error("Per favore, incolla almeno un testo.")
+    if st.button("🚀 Avvia l'Analisi NLU"):
+        # controlli obbligatorietà dropdown
+        if st.session_state.contesto == "":
+            st.error("Per favore, seleziona il Contesto prima di proseguire.")
+        elif st.session_state.tipologia == "":
+            st.error("Per favore, seleziona la Tipologia di contenuto prima di proseguire.")
         else:
-            st.session_state.competitor_texts = non_empty
-            # reset analysis e keyword precedenti
-            st.session_state.analysis_tables = []
-            st.session_state.keyword_table = None
-            go_to(2)
-
-    if disable_launch:
-        st.error("Seleziona sia Contesto che Tipologia di contenuto per procedere.")
+            non_empty = [t for t in texts if t]
+            if not non_empty:
+                st.error("Per favore, incolla almeno un testo.")
+            else:
+                st.session_state.competitor_texts = non_empty
+                # reset analysis e keyword precedenti
+                st.session_state.analysis_tables = []
+                st.session_state.keyword_table = None
+                go_to(2)
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
@@ -181,6 +179,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             go_to(1)
     with c2:
         if st.button("🔄 Analizza di nuovo"):
+            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
     with c3:
