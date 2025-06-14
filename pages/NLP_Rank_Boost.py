@@ -297,7 +297,7 @@ elif st.session_state.step == 4:
     if st.session_state.meta_md is None:
         # Estraggo la keyword principale dalla Strategia Keyword
         df_kwstrat = parse_md_table(st.session_state.keyword_table)
-        mask_main = df_kwstrat['Categoria Keyword'].str.contains('Keyword Principale', case=False, na=False)
+        mask_main = df_kwstrat['Categoria Keyword'].str.contains('Focus Primario', case=False, na=False)
         if mask_main.any():
             main_entity = df_kwstrat.loc[mask_main, 'Keywords'].iloc[0]
         else:
