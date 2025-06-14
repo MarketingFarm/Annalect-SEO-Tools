@@ -63,17 +63,14 @@ def parse_md_table(md: str) -> pd.DataFrame:
     if rows contain more pipes than headers, and padding if fewer.
     """
     lines = [l for l in md.splitlines() if l.startswith("|") and not l.startswith("| :")]
-    # header
     header = [h.strip() for h in lines[0].strip("|").split("|")]
     rows = []
     for line in lines[2:]:
         cells = [c.strip() for c in line.strip("|").split("|")]
         if len(cells) > len(header):
-            # merge extra into last column
             merged = cells[:len(header)-1] + [" | ".join(cells[len(header)-1:])]
             cells = merged
         elif len(cells) < len(header):
-            # pad missing
             cells += [""] * (len(header) - len(cells))
         rows.append(cells)
     return pd.DataFrame(rows, columns=header)
@@ -129,7 +126,7 @@ if st.session_state.step == 1:
             else:
                 st.session_state.competitor_texts = non_empty
                 st.session_state.analysis_tables = []
-                st.session_state.keyword_table = None
+                st.session_state.keyword_table = ""
                 st.session_state.search_intent = None
                 st.session_state.meta_md = None
                 go_to(2)
@@ -221,7 +218,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
     with c2:
         if st.button("🔄 Analizza di nuovo"):
             st.session_state.analysis_tables = []
-            st.session_state.keyword_table = None
+            st.session_state.keyword_table = ""
             st.session_state.search_intent = None
     with c3:
         if st.button("Vai a Step 3 ▶️"):
@@ -234,7 +231,7 @@ elif st.session_state.step == 3:
         unsafe_allow_html=True
     )
 
-    if st.session_state.keyword_table is None:
+    if st.session_state.keyword_table == "":
         full_text = "\n---\n".join(st.session_state.competitor_texts)
         table1 = st.session_state.analysis_tables[0]
         table2 = st.session_state.analysis_tables[1]
@@ -298,15 +295,20 @@ elif st.session_state.step == 4:
     )
 
     if st.session_state.meta_md is None:
-        # estraggo keyword principale dalla prima tabella entità
-        df_ent = parse_md_table(st.session_state.analysis_tables[0])
-        main_entity = df_ent.iloc[0, 0]
+        # Estraggo la keyword principale dalla Strategia Keyword
+        df_kwstrat = parse_md_table(st.session_state.keyword_table)
+        mask_main = df_kwstrat['Categoria Keyword'].str.contains('Keyword Principale', case=False, na=False)
+        if mask_main.any():
+            main_entity = df_kwstrat.loc[mask_main, 'Keywords'].iloc[0]
+        else:
+            main_entity = df_kwstrat.iloc[0]['Keywords']
 
-        # estraggo keyword secondarie/correlate dalla tabella delle keyword
-        df_kw = parse_md_table(st.session_state.keyword_table)
-        # assumiamo che la riga con "Keyword Secondarie" sia indicizzata
-        sec_row = df_kw[df_kw.iloc[:,0].str.contains("Keyword Secondarie", na=False)]
-        secondary_kw = sec_row.iloc[0,1] if not sec_row.empty else ""
+        # Estraggo le keyword secondarie dalla stessa tabella
+        mask_sec = df_kwstrat['Categoria Keyword'].str.contains('Keyword Secondarie', case=False, na=False)
+        if mask_sec.any():
+            secondary_kw = df_kwstrat.loc[mask_sec, 'Keywords'].iloc[0]
+        else:
+            secondary_kw = ""
 
         prompt4 = f"""
 RUOLO: Agisci come uno specialista SEO d'élite, esperto in scrittura di testi ottimizzati e semantica competitiva.
@@ -335,23 +337,21 @@ Crea poi una **tabella Markdown** come descritto di seguito:
         st.session_state.meta_md = r4.text
 
     # estraiamo solo le righe che fanno parte della tabella Markdown
-    full = st.session_state.meta_md.splitlines()
+    lines = st.session_state.meta_md.splitlines()
     table_lines = []
     in_table = False
-    for ln in full:
+    for ln in lines:
         if ln.startswith("|"):
             in_table = True
             table_lines.append(ln)
         elif in_table:
-            # appena finisce il blocco di righe che iniziano con '|' usciamo
             break
-
     table_md = "\n".join(table_lines)
 
-    # mostriamo solo la tabella vera e propria
+    # mostriamo la tabella vera e propria
     st.markdown(table_md, unsafe_allow_html=True)
 
-    # e la passiamo al parser, senza errori di colonne in eccesso
+    # converto la tabella in DataFrame e offro download Excel
     df_meta = parse_md_table(table_md)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
