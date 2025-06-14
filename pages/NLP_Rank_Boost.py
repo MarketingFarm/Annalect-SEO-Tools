@@ -31,7 +31,7 @@ if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
 if 'search_intent' not in st.session_state:
     st.session_state.search_intent = None
-# rie-inizializza contesto e tipologia
+# Initialize contesto and tipologia so keys exist
 if 'contesto' not in st.session_state:
     st.session_state.contesto = ""
 if 'tipologia' not in st.session_state:
@@ -40,11 +40,9 @@ if 'tipologia' not in st.session_state:
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Funzione helper per cambiare step
 def go_to(step):
     st.session_state.step = step
 
-# stile CSS per i titoli degli step
 step_title_style = (
     "background: rgba(255, 43, 43, 0.09);"
     "color: rgb(125, 53, 59);"
@@ -61,6 +59,7 @@ if st.session_state.step == 1:
         f"<div style='{step_title_style}'>Step 1: Inserisci i testi dei competitor (max 5)</div>",
         unsafe_allow_html=True
     )
+
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
         num_texts = st.selectbox(
@@ -69,10 +68,10 @@ if st.session_state.step == 1:
             key="num_texts_step1"
         )
     with col2:
-        contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
-        st.session_state.contesto = st.selectbox(
+        # the selectbox itself writes into st.session_state['contesto']
+        contesto = st.selectbox(
             "Contesto",
-            contesti,
+            ["", "E-commerce", "Blog / Contenuto Informativo"],
             key="contesto"
         )
     with col3:
@@ -80,13 +79,11 @@ if st.session_state.step == 1:
             "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
-        if st.session_state.contesto in mapping:
-            tip_options = [""] + mapping[st.session_state.contesto]
-        else:
-            tip_options = [""]
-        st.session_state.tipologia = st.selectbox(
+        options = [""] + mapping.get(st.session_state.contesto, []) if st.session_state.contesto in mapping else [""]
+        # this writes into st.session_state['tipologia']
+        tipologia = st.selectbox(
             "Tipologia di contenuto",
-            tip_options,
+            options,
             key="tipologia",
             disabled=(st.session_state.contesto not in mapping)
         )
@@ -95,8 +92,7 @@ if st.session_state.step == 1:
     texts = []
     for i, col in enumerate(cols, start=1):
         with col:
-            t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
-            texts.append(t.strip())
+            texts.append(st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}").strip())
 
     if st.button("🚀 Avvia l'Analisi NLU"):
         if not st.session_state.contesto:
@@ -121,10 +117,10 @@ elif st.session_state.step == 2:
         unsafe_allow_html=True
     )
 
-    # Prompt per estrarre il Search Intent (una sola volta)
+    # 1) Extract Search Intent once
     if st.session_state.search_intent is None:
         prompt_intent = f"""
-Identifica il search intent dei seguenti testi competitor. Dammi una sola risposta concisa, che sia la media dei punteggi dei vari testi. 
+Identifica il search intent dei seguenti testi competitor. Dammi una sola risposta concisa, che sia la media dei punteggi dei vari testi.
 Per il Search Intent non darmi informazioni aggiuntive, voglio sapere solamente qual è l'intento di ricerca (Informazionale, Navigazionale, Commerciale o Transazionale).
 
 Testi:
@@ -138,7 +134,7 @@ Testi:
             )
         st.session_state.search_intent = resp_intent.text.strip()
 
-    # Prompt originario per le entità
+    # 2) Original entities prompt
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -168,8 +164,6 @@ Testi:
 
 Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
 Nella prima riga inserisci sempre l'entità principale.
-Inserisci nelle tabelle solamente le informazioni **veramente utili** al fine di ottenere un testo semanticamente migliore rispetto a quello dei miei competitors, che rispetti l'intento di ricerca dell'argomento principale e che mi porti a superarli nella SERP.
-Nota Bene: I testi sono inseriti in ordine casuale. Anche l'ordine delle frasi è inserito in ordine casuale. Questo per non falsificare i risultati e per non portarti a pensare che le informazioni che vengono inserite prima siano più importanti.
 Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 """
         with st.spinner("Eseguo analisi entità..."):
@@ -182,7 +176,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # Tabella riassuntiva intent + placeholder sentiment/leggibilità
+    # 3) Show summary table
     st.subheader("Sintesi Search Intent, Sentiment e Leggibilità")
     st.markdown(
         "| Search Intent | Sentiment (media dei testi forniti) | Score di leggibilità (media dei testi forniti) |\n"
@@ -191,13 +185,12 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
         unsafe_allow_html=True
     )
 
-    # Tabelle entità
+    # 4) Show entity tables
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
-    # Navigazione
     c1, c2, c3 = st.columns([1,1,1])
     with c1:
         if st.button("◀️ Indietro"):
