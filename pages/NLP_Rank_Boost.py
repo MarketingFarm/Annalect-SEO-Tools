@@ -20,7 +20,7 @@ table td {
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# --- Inizializza session_state per multi-step wizard ---
+# --- Inizializza session_state per multi-step wizard e nuove variabili ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'competitor_texts' not in st.session_state:
@@ -29,6 +29,10 @@ if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
+if 'contesto' not in st.session_state:
+    st.session_state.contesto = ""
+if 'tipologia' not in st.session_state:
+    st.session_state.tipologia = ""
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
@@ -40,12 +44,39 @@ def go_to(step):
 # === STEP 1: Input testi competitor ===
 if st.session_state.step == 1:
     st.write("### Step 1: Inserisci i testi dei competitor (max 5)")
-    num_texts = st.selectbox(
-        "Numero di testi competitor da analizzare",
-        list(range(1, 6)),
-        index=0,
-        key="num_texts_step1"
-    )
+    # tre dropdown sulla stessa riga
+    col1, col2, col3 = st.columns([1,1,1])
+    with col1:
+        num_texts = st.selectbox(
+            "Numero di testi competitor da analizzare",
+            list(range(1, 6)),
+            index=0,
+            key="num_texts_step1"
+        )
+    with col2:
+        contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
+        contesto = st.selectbox(
+            "Contesto",
+            contesti,
+            index=contesti.index(st.session_state.contesto) 
+                    if st.session_state.contesto in contesti else 0,
+            key="contesto"
+        )
+    with col3:
+        mapping = {
+            "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
+            "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
+        }
+        tip_options = mapping.get(st.session_state.contesto, [""])
+        tipologia = st.selectbox(
+            "Tipologia di contenuto",
+            tip_options,
+            index=0,
+            key="tipologia",
+            disabled=(st.session_state.contesto not in mapping)
+        )
+
+    # generazione dei text_area per i testi
     cols = st.columns(num_texts)
     texts = []
     for i, col in enumerate(cols, start=1):
@@ -145,6 +176,9 @@ elif st.session_state.step == 3:
 
 Usa queste informazioni:
 
+**Contesto:** {st.session_state.contesto}  
+**Tipologia di contenuto:** {st.session_state.tipologia}  
+
 **Testi competitor:**
 ---
 {full_text}
@@ -189,6 +223,6 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             go_to(2)
     with d2:
         if st.button("🔄 Ricomincia"):
-            for k in ['step','competitor_texts','analysis_tables','keyword_table']:
+            for k in ['step','competitor_texts','analysis_tables','keyword_table','contesto','tipologia']:
                 st.session_state.pop(k, None)
             go_to(1)
