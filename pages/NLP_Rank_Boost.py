@@ -41,9 +41,22 @@ st.divider()
 def go_to(step):
     st.session_state.step = step
 
+# stile CSS per i titoli degli step
+step_title_style = (
+    "background: rgba(255, 43, 43, 0.09);"
+    "color: rgb(125, 53, 59);"
+    "padding: 16px;"
+    "border-radius: 8px;"
+    "font-size: 20px;"
+    "margin-bottom: 20px;"
+)
+
 # === STEP 1: Input testi competitor ===
 if st.session_state.step == 1:
-    st.write("### Step 1: Inserisci i testi dei competitor (max 5)")
+    st.markdown(
+        f"<div style='{step_title_style}'>Step 1: Inserisci i testi dei competitor (max 5)</div>",
+        unsafe_allow_html=True
+    )
     # tre dropdown sulla stessa riga
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
@@ -97,7 +110,10 @@ if st.session_state.step == 1:
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
-    st.write("### Step 2: Analisi Entità Fondamentali e Content Gap")
+    st.markdown(
+        f"<div style='{step_title_style}'>Step 2: Analisi Entità Fondamentali e Content Gap</div>",
+        unsafe_allow_html=True
+    )
 
     # se non ho ancora le tabelle, o se ho premuto "Analizza di nuovo", genero l'analisi
     if not st.session_state.analysis_tables:
@@ -165,7 +181,10 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 
 # === STEP 3: Generazione della Keyword Strategy ===
 elif st.session_state.step == 3:
-    st.write("### Step 3: Generazione della Keyword Strategy")
+    st.markdown(
+        f"<div style='{step_title_style}'>Step 3: Generazione della Keyword Strategy</div>",
+        unsafe_allow_html=True
+    )
 
     if st.session_state.keyword_table is None:
         full_text = "\n---\n".join(st.session_state.competitor_texts)
