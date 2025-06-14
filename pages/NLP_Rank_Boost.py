@@ -20,7 +20,7 @@ table td {
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# --- Inizializza session_state per multi-step wizard e nuove variabili ---
+# --- Inizializza session_state per multi-step wizard ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'competitor_texts' not in st.session_state:
@@ -29,10 +29,6 @@ if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
-if 'contesto' not in st.session_state:
-    st.session_state.contesto = ""
-if 'tipologia' not in st.session_state:
-    st.session_state.tipologia = ""
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
@@ -64,16 +60,13 @@ if st.session_state.step == 1:
         num_texts = st.selectbox(
             "Numero di testi competitor da analizzare",
             list(range(1, 6)),
-            index=0,
             key="num_texts_step1"
         )
     with col2:
         contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
-        st.session_state.contesto = st.selectbox(
+        contesto = st.selectbox(
             "Contesto",
             contesti,
-            index=contesti.index(st.session_state.contesto) 
-                  if st.session_state.contesto in contesti else 0,
             key="contesto"
         )
     with col3:
@@ -81,13 +74,12 @@ if st.session_state.step == 1:
             "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
-        tip_options = mapping.get(st.session_state.contesto, [""])
-        st.session_state.tipologia = st.selectbox(
+        tip_options = mapping.get(contesto, [""])
+        tipologia = st.selectbox(
             "Tipologia di contenuto",
             tip_options,
-            index=0,
             key="tipologia",
-            disabled=(st.session_state.contesto not in mapping)
+            disabled=(contesto not in mapping)
         )
 
     # generazione dei text_area per i testi
@@ -95,14 +87,13 @@ if st.session_state.step == 1:
     texts = []
     for i, col in enumerate(cols, start=1):
         with col:
-            t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
-            texts.append(t.strip())
+            texts.append(st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}").strip())
 
     if st.button("🚀 Avvia l'Analisi NLU"):
         # controlli obbligatorietà dropdown
-        if st.session_state.contesto == "":
+        if not contesto:
             st.error("Per favore, seleziona il Contesto prima di proseguire.")
-        elif st.session_state.tipologia == "":
+        elif not tipologia:
             st.error("Per favore, seleziona la Tipologia di contenuto prima di proseguire.")
         else:
             non_empty = [t for t in texts if t]
@@ -179,7 +170,6 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             go_to(1)
     with c2:
         if st.button("🔄 Analizza di nuovo"):
-            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
     with c3:
@@ -217,7 +207,7 @@ Usa queste informazioni:
 
 **RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in analisi semantica competitiva e ricerca delle parole chiave. La tua missione è quella di ricercare le migliori keywords sulla base dei contenuti dei competitors.
 
-**CONTESTO:** Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi 3 competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darmi una mappa precisa delle keywords che devo assolutamente inserire nel mio testo. Se ci sono inserisci anche altre keywords che reputi importanti ma che non sono presenti nei testi dei competitors. L’obbiettivo è quello di sfruttare queste keywords per creare un contenuto oggettivamente più completo e autorevole.
+**CONTESTO:** Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi 3 competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darti una mappa precisa delle keywords che devo assolutamente inserire nel mio testo. Se ci sono inserisci anche altre keywords che reputi importanti ma che non sono presenti nei testi dei competitors. L’obbiettivo è quello di sfruttare queste keywords per creare un contenuto oggettivamente più completo e autorevole.
 
 **COMPITO:** Partendo da questa analisi approfondita sui testi dei competitors, la tua missione è estrapolare e organizzare in una tabella intuitiva le keyword più efficaci per il mio contenuto, al fine di massimizzare la rilevanza e il posizionamento. La tabella dovrà specificare:
 
