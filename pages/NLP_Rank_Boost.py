@@ -31,6 +31,11 @@ if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
 if 'search_intent' not in st.session_state:
     st.session_state.search_intent = None
+# rie-inizializza contesto e tipologia
+if 'contesto' not in st.session_state:
+    st.session_state.contesto = ""
+if 'tipologia' not in st.session_state:
+    st.session_state.tipologia = ""
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
@@ -65,18 +70,25 @@ if st.session_state.step == 1:
         )
     with col2:
         contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
-        contesto = st.selectbox("Contesto", contesti, key="contesto")
+        st.session_state.contesto = st.selectbox(
+            "Contesto",
+            contesti,
+            key="contesto"
+        )
     with col3:
         mapping = {
             "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
-        tip_options = [""] + mapping.get(contesto, []) if contesto in mapping else [""]
-        tipologia = st.selectbox(
+        if st.session_state.contesto in mapping:
+            tip_options = [""] + mapping[st.session_state.contesto]
+        else:
+            tip_options = [""]
+        st.session_state.tipologia = st.selectbox(
             "Tipologia di contenuto",
             tip_options,
             key="tipologia",
-            disabled=(contesto not in mapping)
+            disabled=(st.session_state.contesto not in mapping)
         )
 
     cols = st.columns(num_texts)
@@ -87,9 +99,9 @@ if st.session_state.step == 1:
             texts.append(t.strip())
 
     if st.button("🚀 Avvia l'Analisi NLU"):
-        if not contesto:
+        if not st.session_state.contesto:
             st.error("Per favore, seleziona il Contesto prima di proseguire.")
-        elif not tipologia:
+        elif not st.session_state.tipologia:
             st.error("Per favore, seleziona la Tipologia di contenuto prima di proseguire.")
         else:
             non_empty = [t for t in texts if t]
@@ -109,7 +121,7 @@ elif st.session_state.step == 2:
         unsafe_allow_html=True
     )
 
-    # 1) Prompt per estrarre il Search Intent (una sola volta)
+    # Prompt per estrarre il Search Intent (una sola volta)
     if st.session_state.search_intent is None:
         prompt_intent = f"""
 Identifica il search intent dei seguenti testi competitor. Dammi una sola risposta concisa, che sia la media dei punteggi dei vari testi. 
@@ -124,10 +136,9 @@ Testi:
                 model="gemini-2.5-flash-preview-05-20",
                 contents=[prompt_intent]
             )
-        # memorizza la risposta testuale, pulita da spazi
         st.session_state.search_intent = resp_intent.text.strip()
 
-    # 2) Prompt originario per le entità (come prima)
+    # Prompt originario per le entità
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -171,7 +182,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # 3) Visualizza la tabella riassuntiva intent+sentiment+leggibilità
+    # Tabella riassuntiva intent + placeholder sentiment/leggibilità
     st.subheader("Sintesi Search Intent, Sentiment e Leggibilità")
     st.markdown(
         "| Search Intent | Sentiment (media dei testi forniti) | Score di leggibilità (media dei testi forniti) |\n"
@@ -180,13 +191,13 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
         unsafe_allow_html=True
     )
 
-    # 4) Visualizza le tabelle delle entità
+    # Tabelle entità
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
-    # Pulsanti di navigazione + Rifai analisi
+    # Navigazione
     c1, c2, c3 = st.columns([1,1,1])
     with c1:
         if st.button("◀️ Indietro"):
@@ -261,6 +272,6 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             go_to(2)
     with d2:
         if st.button("🔄 Ricomincia"):
-            for k in ['step','competitor_texts','analysis_tables','keyword_table','search_intent']:
+            for k in ['step','competitor_texts','analysis_tables','keyword_table','search_intent','contesto','tipologia']:
                 st.session_state.pop(k, None)
             go_to(1)
