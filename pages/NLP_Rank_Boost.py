@@ -47,7 +47,7 @@ step_title_style = (
     "color: rgb(125, 53, 59);"
     "padding: 16px;"
     "border-radius: 8px;"
-    "font-size: 20px;"
+    "font-size: 19px;"
     "margin-bottom: 30px;"
     "font-weight: 600;"
 )
@@ -98,7 +98,7 @@ if st.session_state.step == 1:
             t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
             texts.append(t.strip())
 
-    if st.button("🚀 Avvia Analisi"):
+    if st.button("🚀 Avvia l'Analisi NLU"):
         non_empty = [t for t in texts if t]
         if not non_empty:
             st.error("Per favore, incolla almeno un testo.")
