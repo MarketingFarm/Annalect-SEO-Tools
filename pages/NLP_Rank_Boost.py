@@ -69,7 +69,7 @@ if st.session_state.step == 1:
         )
     with col2:
         contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
-        contesto = st.selectbox(
+        st.session_state.contesto = st.selectbox(
             "Contesto",
             contesti,
             index=contesti.index(st.session_state.contesto) 
@@ -82,7 +82,7 @@ if st.session_state.step == 1:
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
         tip_options = mapping.get(st.session_state.contesto, [""])
-        tipologia = st.selectbox(
+        st.session_state.tipologia = st.selectbox(
             "Tipologia di contenuto",
             tip_options,
             index=0,
@@ -98,7 +98,12 @@ if st.session_state.step == 1:
             t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
             texts.append(t.strip())
 
-    if st.button("🚀 Avvia l'Analisi NLU"):
+    # disabilita il bottone se contesto o tipologia non selezionati
+    disable_launch = (st.session_state.contesto == "" or 
+                      st.session_state.tipologia == "")
+
+    if st.button("🚀 Avvia l'Analisi NLU", disabled=disable_launch):
+        # una volta che il dropdown è valido, controlla i testi
         non_empty = [t for t in texts if t]
         if not non_empty:
             st.error("Per favore, incolla almeno un testo.")
@@ -108,6 +113,9 @@ if st.session_state.step == 1:
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
             go_to(2)
+
+    if disable_launch:
+        st.error("Seleziona sia Contesto che Tipologia di contenuto per procedere.")
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap ===
 elif st.session_state.step == 2:
@@ -173,7 +181,6 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             go_to(1)
     with c2:
         if st.button("🔄 Analizza di nuovo"):
-            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
     with c3:
