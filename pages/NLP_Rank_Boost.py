@@ -20,7 +20,7 @@ table td {
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# --- Inizializza session_state per multi-step wizard ---
+# --- Inizializza session_state per multi-step wizard e nuove variabili ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'competitor_texts' not in st.session_state:
@@ -29,6 +29,7 @@ if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
+# contesto e tipologia vengono gestiti automaticamente da st.selectbox keys
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
@@ -74,7 +75,11 @@ if st.session_state.step == 1:
             "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
-        tip_options = mapping.get(contesto, [""])
+        # inseriamo un'opzione vuota come prima voce
+        if contesto in mapping:
+            tip_options = [""] + mapping[contesto]
+        else:
+            tip_options = [""]
         tipologia = st.selectbox(
             "Tipologia di contenuto",
             tip_options,
@@ -87,7 +92,8 @@ if st.session_state.step == 1:
     texts = []
     for i, col in enumerate(cols, start=1):
         with col:
-            texts.append(st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}").strip())
+            t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
+            texts.append(t.strip())
 
     if st.button("🚀 Avvia l'Analisi NLU"):
         # controlli obbligatorietà dropdown
@@ -170,6 +176,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             go_to(1)
     with c2:
         if st.button("🔄 Analizza di nuovo"):
+            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
     with c3:
