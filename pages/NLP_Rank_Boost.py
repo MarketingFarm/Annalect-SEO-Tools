@@ -58,13 +58,26 @@ step_title_style = (
 )
 
 def parse_md_table(md: str) -> pd.DataFrame:
+    """
+    Parse a Markdown table into a DataFrame, merging extra cells into the last column
+    if rows contain more pipes than headers, and padding if fewer.
+    """
     lines = [l for l in md.splitlines() if l.startswith("|") and not l.startswith("| :")]
+    # header
     header = [h.strip() for h in lines[0].strip("|").split("|")]
     rows = []
-    for row in lines[2:]:
-        cells = [c.strip() for c in row.strip("|").split("|")]
+    for line in lines[2:]:
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) > len(header):
+            # merge extra into last column
+            merged = cells[:len(header)-1] + [" | ".join(cells[len(header)-1:])]
+            cells = merged
+        elif len(cells) < len(header):
+            # pad missing
+            cells += [""] * (len(header) - len(cells))
         rows.append(cells)
     return pd.DataFrame(rows, columns=header)
+
 
 # === STEP 1: Input testi competitor ===
 if st.session_state.step == 1:
@@ -182,9 +195,8 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 model="gemini-2.5-flash-preview-05-20",
                 contents=[prompt2]
             )
-        md2 = resp2.text
         st.session_state.analysis_tables = [
-            blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
+            blk for blk in resp2.text.split("\n\n") if blk.strip().startswith("|")
         ]
 
     # 3) Show summary table
@@ -213,7 +225,7 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
             st.session_state.search_intent = None
     with c3:
         if st.button("Vai a Step 3 ▶️"):
-            go_to(3)
+            go_to(4)
 
 # === STEP 3: Generazione della Keyword Strategy ===
 elif st.session_state.step == 3:
@@ -287,22 +299,21 @@ elif st.session_state.step == 4:
 
     if st.session_state.meta_md is None:
         # estraggo keyword principale dalla prima tabella entità
-        lines = st.session_state.analysis_tables[0].splitlines()
-        main_entity = lines[2].split("|")[1].strip()
+        df_ent = parse_md_table(st.session_state.analysis_tables[0])
+        main_entity = df_ent.iloc[0, 0]
 
         # estraggo keyword secondarie/correlate dalla tabella delle keyword
-        ks = []
-        for row in st.session_state.keyword_table.splitlines():
-            if row.startswith("|") and "Keyword Secondarie" in row:
-                ks = row.strip("|").split("|")[2].strip()
-                break
+        df_kw = parse_md_table(st.session_state.keyword_table)
+        # assumiamo che la riga con "Keyword Secondarie" sia indicizzata
+        sec_row = df_kw[df_kw.iloc[:,0].str.contains("Keyword Secondarie", na=False)]
+        secondary_kw = sec_row.iloc[0,1] if not sec_row.empty else ""
 
         prompt4 = f"""
 **RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in scrittura dei testi ottimizzati per la SEO e in semantica competitiva. La tua missione è scrivere meta title meta description ottimizzate perfettamente per la SEO del 2025.
 
 **CONTESTO:** Voglio posizionare il mio sito sopra ai principali competitor in SERP per keyword: {main_entity}.
 
-**COMPITO:** Scrivi una meta title e una meta description semanticamente perfette per rispondere in maniera impeccabile all’intento di ricerca {st.session_state.search_intent} della keyword {main_entity}. Ricorda che queste meta title e queste meta description saranno inserite in un {st.session_state.contesto} all’interno di una {st.session_state.tipologia}. Se vuoi e se lo reputi corretto puoi inserire o utilizzare una o più di queste keywords secondarie/correlate: {ks}. Ricorda che i testi devono essere scritti in modo estremamente naturale e le keywords non devono essere inserite in maniera forzata nel testo. Nella meta description inserisci sempre una CTA. La keyword principale sia nel meta title che nella meta description devono essere all’inizio o quasi. Scrivi 5 varianti diverse di meta title e 5 varianti diverse di meta description.
+**COMPITO:** Scrivi una meta title e una meta description semanticamente perfette per rispondere in maniera impeccabile all’intento di ricerca {st.session_state.search_intent} della keyword {main_entity}. Ricorda che queste meta title e queste meta description saranno inserite in un {st.session_state.contesto} all’interno di una {st.session_state.tipologia}. Se vuoi e se lo reputi corretto puoi inserire o utilizzare una o più di queste keywords secondarie/correlate: {secondary_kw}. Ricorda che i testi devono essere scritti in modo estremamente naturale e le keywords non devono essere inserite in maniera forzata nel testo. Nella meta description inserisci sempre una CTA. La keyword principale sia nel meta title che nella meta description devono essere all’inizio o quasi. Scrivi 5 varianti diverse di meta title e 5 varianti diverse di meta description. La lunghezza ottimale dei meta title è compresa tra 50 e 60 caratteri, mentre quella delle meta description è compresa tra 120 e 158 caratteri.
 
 Crea poi una **tabella Markdown** come descritto di seguito:
 | N. Variante | Tipologia | Testo | Lunghezza |
@@ -315,6 +326,7 @@ Crea poi una **tabella Markdown** come descritto di seguito:
             )
         st.session_state.meta_md = r4.text
 
+    # Mostra la tabella generata
     st.markdown(st.session_state.meta_md, unsafe_allow_html=True)
 
     # converto la tabella in DataFrame e offro download Excel
@@ -322,7 +334,6 @@ Crea poi una **tabella Markdown** come descritto di seguito:
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
         df_meta.to_excel(writer, index=False, sheet_name="Varianti")
-        writer.save()
     buf.seek(0)
     st.download_button(
         "Scarica .xlsx",
