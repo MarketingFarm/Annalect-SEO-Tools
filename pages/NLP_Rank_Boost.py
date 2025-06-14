@@ -309,11 +309,19 @@ elif st.session_state.step == 4:
         secondary_kw = sec_row.iloc[0,1] if not sec_row.empty else ""
 
         prompt4 = f"""
-**RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in scrittura dei testi ottimizzati per la SEO e in semantica competitiva. La tua missione è scrivere meta title meta description ottimizzate perfettamente per la SEO del 2025.
+RUOLO: Agisci come uno specialista SEO d'élite, esperto in scrittura di testi ottimizzati e semantica competitiva.
 
-**CONTESTO:** Voglio posizionare il mio sito sopra ai principali competitor in SERP per keyword: {main_entity}.
+CONTESTO: L'obiettivo è superare i principali competitor in SERP per la keyword principale: {main_entity}. Il contenuto sarà inserito in una {st.session_state.tipologia} con un {st.session_state.contesto}.
 
-**COMPITO:** Scrivi una meta title e una meta description semanticamente perfette per rispondere in maniera impeccabile all’intento di ricerca {st.session_state.search_intent} della keyword {main_entity}. Ricorda che queste meta title e queste meta description saranno inserite in un {st.session_state.contesto} all’interno di una {st.session_state.tipologia}. Se vuoi e se lo reputi corretto puoi inserire o utilizzare una o più di queste keywords secondarie/correlate: {secondary_kw}. Ricorda che i testi devono essere scritti in modo estremamente naturale e le keywords non devono essere inserite in maniera forzata nel testo. Nella meta description inserisci sempre una CTA. La keyword principale sia nel meta title che nella meta description devono essere all’inizio o quasi. Scrivi 5 varianti diverse di meta title e 5 varianti diverse di meta description. La lunghezza ottimale dei meta title è compresa tra 50 e 60 caratteri, mentre quella delle meta description è compresa tra 120 e 158 caratteri.
+COMPITO: Genera 5 varianti di meta title e 5 varianti di meta description semanticamente perfette per rispondere all'intento di ricerca {st.session_state.search_intent}.
+
+Requisiti:
+
+Lingua: Italiano perfetto, fluido e scorrevole.
+Terminologia: Adatta al topic di {main_entity}.
+Keyword: Utilizzo naturale, con la keyword principale all'inizio o quasi (sia nel title che nella description).
+Meta Title: Lunghezza tra 50 e 60 caratteri.
+Meta Description: Lunghezza tra 120 e 158 caratteri, includendo sempre una CTA (Call to Action).
 
 Crea poi una **tabella Markdown** come descritto di seguito:
 | N. Variante | Tipologia | Testo | Lunghezza |
