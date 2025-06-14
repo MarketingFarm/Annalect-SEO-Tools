@@ -1,5 +1,7 @@
 import streamlit as st
 import os
+import io
+import pandas as pd
 from google import genai
 
 # --- INIEZIONE CSS per il bottone rosso e wrap testo nelle tabelle ---
@@ -31,6 +33,8 @@ if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
 if 'search_intent' not in st.session_state:
     st.session_state.search_intent = None
+if 'meta_md' not in st.session_state:
+    st.session_state.meta_md = None
 # Initialize contesto and tipologia so keys exist
 if 'contesto' not in st.session_state:
     st.session_state.contesto = ""
@@ -53,13 +57,21 @@ step_title_style = (
     "font-weight: 600;"
 )
 
+def parse_md_table(md: str) -> pd.DataFrame:
+    lines = [l for l in md.splitlines() if l.startswith("|") and not l.startswith("| :")]
+    header = [h.strip() for h in lines[0].strip("|").split("|")]
+    rows = []
+    for row in lines[2:]:
+        cells = [c.strip() for c in row.strip("|").split("|")]
+        rows.append(cells)
+    return pd.DataFrame(rows, columns=header)
+
 # === STEP 1: Input testi competitor ===
 if st.session_state.step == 1:
     st.markdown(
         f"<div style='{step_title_style}'>Step 1: Inserisci i testi dei competitor (max 5)</div>",
         unsafe_allow_html=True
     )
-
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
         num_texts = st.selectbox(
@@ -68,7 +80,6 @@ if st.session_state.step == 1:
             key="num_texts_step1"
         )
     with col2:
-        # the selectbox itself writes into st.session_state['contesto']
         contesto = st.selectbox(
             "Contesto",
             ["", "E-commerce", "Blog / Contenuto Informativo"],
@@ -79,11 +90,10 @@ if st.session_state.step == 1:
             "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
-        options = [""] + mapping.get(st.session_state.contesto, []) if st.session_state.contesto in mapping else [""]
-        # this writes into st.session_state['tipologia']
+        opts = [""] + mapping.get(st.session_state.contesto, []) if st.session_state.contesto in mapping else [""]
         tipologia = st.selectbox(
             "Tipologia di contenuto",
-            options,
+            opts,
             key="tipologia",
             disabled=(st.session_state.contesto not in mapping)
         )
@@ -108,6 +118,7 @@ if st.session_state.step == 1:
                 st.session_state.analysis_tables = []
                 st.session_state.keyword_table = None
                 st.session_state.search_intent = None
+                st.session_state.meta_md = None
                 go_to(2)
 
 # === STEP 2: Analisi Entità Fondamentali & Content Gap + Intent Table ===
@@ -264,7 +275,68 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
         if st.button("◀️ Indietro"):
             go_to(2)
     with d2:
+        if st.button("Vai a Step 4 ▶️"):
+            go_to(4)
+
+# === STEP 4: Generazione Meta Title & Description ===
+elif st.session_state.step == 4:
+    st.markdown(
+        f"<div style='{step_title_style}'>Step 4: Generazione Meta Title & Description</div>",
+        unsafe_allow_html=True
+    )
+
+    if st.session_state.meta_md is None:
+        # estraggo keyword principale dalla prima tabella entità
+        lines = st.session_state.analysis_tables[0].splitlines()
+        main_entity = lines[2].split("|")[1].strip()
+
+        # estraggo keyword secondarie/correlate dalla tabella delle keyword
+        ks = []
+        for row in st.session_state.keyword_table.splitlines():
+            if row.startswith("|") and "Keyword Secondarie" in row:
+                ks = row.strip("|").split("|")[2].strip()
+                break
+
+        prompt4 = f"""
+**RUOLO:** Agisci come uno specialista SEO d'élite, specializzato in scrittura dei testi ottimizzati per la SEO e in semantica competitiva. La tua missione è scrivere meta title meta description ottimizzate perfettamente per la SEO del 2025.
+
+**CONTESTO:** Voglio posizionare il mio sito sopra ai principali competitor in SERP per keyword: {main_entity}.
+
+**COMPITO:** Scrivi una meta title e una meta description semanticamente perfette per rispondere in maniera impeccabile all’intento di ricerca {st.session_state.search_intent} della keyword {main_entity}. Ricorda che queste meta title e queste meta description saranno inserite in un {st.session_state.contesto} all’interno di una {st.session_state.tipologia}. Se vuoi e se lo reputi corretto puoi inserire o utilizzare una o più di queste keywords secondarie/correlate: {ks}. Ricorda che i testi devono essere scritti in modo estremamente naturale e le keywords non devono essere inserite in maniera forzata nel testo. Nella meta description inserisci sempre una CTA. La keyword principale sia nel meta title che nella meta description devono essere all’inizio o quasi. Scrivi 5 varianti diverse di meta title e 5 varianti diverse di meta description.
+
+Crea poi una **tabella Markdown** come descritto di seguito:
+| N. Variante | Tipologia | Testo | Lunghezza |
+| :--- | :--- | :--- | :--- |
+"""
+        with st.spinner("Generazione meta..."):
+            r4 = client.models.generate_content(
+                model="gemini-2.5-flash-preview-05-20",
+                contents=[prompt4]
+            )
+        st.session_state.meta_md = r4.text
+
+    st.markdown(st.session_state.meta_md, unsafe_allow_html=True)
+
+    # converto la tabella in DataFrame e offro download Excel
+    df_meta = parse_md_table(st.session_state.meta_md)
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
+        df_meta.to_excel(writer, index=False, sheet_name="Varianti")
+        writer.save()
+    buf.seek(0)
+    st.download_button(
+        "Scarica .xlsx",
+        buf,
+        file_name="meta_varianti.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    e1, e2 = st.columns([1,1])
+    with e1:
+        if st.button("◀️ Indietro"):
+            go_to(3)
+    with e2:
         if st.button("🔄 Ricomincia"):
-            for k in ['step','competitor_texts','analysis_tables','keyword_table','search_intent','contesto','tipologia']:
+            for k in ['step','competitor_texts','analysis_tables','keyword_table','search_intent','contesto','tipologia','meta_md']:
                 st.session_state.pop(k, None)
             go_to(1)
