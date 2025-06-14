@@ -328,6 +328,11 @@ Meta Description: Lunghezza tra 120 e 158 caratteri, includendo sempre una CTA (
 Crea poi una **tabella Markdown** come descritto di seguito:
 | N. Variante | Tipologia | Testo | Lunghezza |
 | :--- | :--- | :--- | :--- |
+
+**CRITICO:**  
+- La tabella deve avere **10 righe**: una per ciascuna variante di Meta Title e una per ciascuna variante di Meta Description.  
+- **Ogni riga** deve avere esattamente **4 colonne**: `N. Variante`, `Tipologia`, `Testo`, `Lunghezza`.  
+- **Non usare a capo** all’interno delle celle.
 """
         with st.spinner("Generazione meta..."):
             r4 = client.models.generate_content(
