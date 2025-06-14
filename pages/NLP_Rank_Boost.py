@@ -2,6 +2,30 @@ import streamlit as st
 import os
 from google import genai
 
+# --- Dipendenze per sentiment e leggibilità ---
+import textstat
+import nltk
+from transformers import pipeline
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+STOPWORDS_IT = set(stopwords.words('italian'))
+
+# Inizializza modelli locali
+sentiment_model = pipeline(
+    'sentiment-analysis',
+    model='nlptown/bert-base-multilingual-uncased-sentiment'
+)
+
+def compute_readability(text: str) -> float:
+    sentences = textstat.sentence_count(text)
+    words = len(text.split())
+    letters = sum(c.isalpha() for c in text)
+    return round(89 + (300 * sentences - 10 * letters) / words, 2) if words > 0 else None
+
+def compute_sentiment_score(text: str) -> float:
+    out = sentiment_model(text)[0]['label']  # es. "4 stars"
+    return float(out.split()[0])
+
 # --- INIEZIONE CSS per il bottone rosso e wrap testo nelle tabelle ---
 st.markdown("""
 <style>
@@ -20,7 +44,7 @@ table td {
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# --- Inizializza session_state per multi-step wizard e nuove variabili ---
+# --- Inizializza session_state ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'competitor_texts' not in st.session_state:
@@ -29,16 +53,13 @@ if 'analysis_tables' not in st.session_state:
     st.session_state.analysis_tables = []
 if 'keyword_table' not in st.session_state:
     st.session_state.keyword_table = None
-# contesto e tipologia vengono gestiti automaticamente da st.selectbox keys
 
 st.title("Analisi Competitiva & Content Gap con Gemini")
 st.divider()
 
-# Funzione helper per cambiare step
 def go_to(step):
     st.session_state.step = step
 
-# stile CSS per i titoli degli step
 step_title_style = (
     "background: rgba(255, 43, 43, 0.09);"
     "color: rgb(125, 53, 59);"
@@ -49,54 +70,37 @@ step_title_style = (
     "font-weight: 600;"
 )
 
-# === STEP 1: Input testi competitor ===
+# === STEP 1 ===
 if st.session_state.step == 1:
     st.markdown(
         f"<div style='{step_title_style}'>Step 1: Inserisci i testi dei competitor (max 5)</div>",
         unsafe_allow_html=True
     )
-    # tre dropdown sulla stessa riga
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
-        num_texts = st.selectbox(
-            "Numero di testi competitor da analizzare",
-            list(range(1, 6)),
-            key="num_texts_step1"
-        )
+        num_texts = st.selectbox("Numero di testi competitor da analizzare",
+                                 list(range(1, 6)), key="num_texts_step1")
     with col2:
         contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
-        contesto = st.selectbox(
-            "Contesto",
-            contesti,
-            key="contesto"
-        )
+        contesto = st.selectbox("Contesto", contesti, key="contesto")
     with col3:
         mapping = {
             "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
             "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
         }
-        # inseriamo un'opzione vuota come prima voce
-        if contesto in mapping:
-            tip_options = [""] + mapping[contesto]
-        else:
-            tip_options = [""]
-        tipologia = st.selectbox(
-            "Tipologia di contenuto",
-            tip_options,
-            key="tipologia",
-            disabled=(contesto not in mapping)
-        )
+        options = [""] + mapping.get(contesto, [])
+        tipologia = st.selectbox("Tipologia di contenuto",
+                                 options, key="tipologia",
+                                 disabled=(contesto not in mapping))
 
-    # generazione dei text_area per i testi
     cols = st.columns(num_texts)
     texts = []
     for i, col in enumerate(cols, start=1):
         with col:
-            t = st.text_area(f"Testo competitor {i}", height=200, key=f"text_{i}")
-            texts.append(t.strip())
+            texts.append(st.text_area(f"Testo competitor {i}", height=200,
+                                     key=f"text_{i}").strip())
 
     if st.button("🚀 Avvia l'Analisi NLU"):
-        # controlli obbligatorietà dropdown
         if not contesto:
             st.error("Per favore, seleziona il Contesto prima di proseguire.")
         elif not tipologia:
@@ -107,19 +111,22 @@ if st.session_state.step == 1:
                 st.error("Per favore, incolla almeno un testo.")
             else:
                 st.session_state.competitor_texts = non_empty
-                # reset analysis e keyword precedenti
                 st.session_state.analysis_tables = []
                 st.session_state.keyword_table = None
                 go_to(2)
 
-# === STEP 2: Analisi Entità Fondamentali & Content Gap ===
+# === STEP 2 ===
 elif st.session_state.step == 2:
     st.markdown(
         f"<div style='{step_title_style}'>Step 2: Analisi Entità Fondamentali e Content Gap</div>",
         unsafe_allow_html=True
     )
 
-    # se non ho ancora le tabelle, o se ho premuto "Analizza di nuovo", genero l'analisi
+    # calcolo sentiment medio e leggibilità media
+    texts = st.session_state.competitor_texts
+    avg_sentiment = round(sum(compute_sentiment_score(t) for t in texts) / len(texts), 2)
+    avg_readability = round(sum(compute_readability(t) for t in texts) / len(texts), 2)
+
     if not st.session_state.analysis_tables:
         prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
@@ -127,31 +134,30 @@ elif st.session_state.step == 2:
 
 **CONTESTO:** Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi 3 competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darmi una mappa precisa delle entità che devo assolutamente trattare e delle opportunità (entità mancanti) che posso sfruttare per creare un contenuto oggettivamente più completo e autorevole.
 
-**COMPITO:** Analizza i seguenti testi competitor:
----
-{'\n---\n'.join(st.session_state.competitor_texts)}
+**COMPITO AGGIUNTIVO:**  
+1. Identifica il search intent dei vari testi. Dammi una sola risposta concisa (Informazionale, Navigazionale, Commerciale o Transazionale).  
+2. Usa i risultati dei nostri script per il sentiment e la leggibilità:
+   - Sentiment medio: {avg_sentiment}  
+   - Indice Gulpease medio: {avg_readability}  
 
-1. Identifica e dichiara qual è l'**Argomento Principale Comune** o l'**Entità Centrale** condivisa da tutti i testi.
-2. Basandoti su questo, definisci il **Search Intent Primario** a cui i competitor stanno rispondendo (es: "Confronto informativo tra prodotti", "Guida all'acquisto per principianti", "Spiegazione approfondita di un concetto").
-3. Crea **due tabelle Markdown separate e distinte**, come descritto di seguito:
+3. Crea una tabella Markdown con header e valori:
+| Search Intent | Sentiment | Leggibilità |  
+| :--- | :--- | :--- |  
+| <!--intent--> | {avg_sentiment} | {avg_readability} |
+
+4. Sotto questa tabella, continua con le due tabelle originali:
 
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
-*In questa tabella, elenca le entità più importanti che sono **presenti in almeno uno dei testi dei competitor**. Questo è il "minimo sindacale" semantico per essere competitivi.*
-
 | Entità | Rilevanza Strategica | Azione per il Mio Testo |
 | :--- | :--- | :--- |
 
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
-*In questa tabella, elenca le entità rilevanti che **nessuno (o quasi nessuno) dei competitor tratta in modo adeguato**. Queste sono le tue opportunità per superarli.*
-
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
 Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
 Nella prima riga inserisci sempre l'entità principale.
-Inserisci nelle tabelle solamente le informazioni **veramente utili** al fine di ottenere un testo semanticamente migliore rispetto a quello dei miei competitors, che rispetti l'intento di ricerca dell'argomento principale e che mi porti a superarli nella SERP.
-Nota Bene: I testi sono inseriti in ordine casuale. Anche l'ordine delle frasi è inserito in ordine casuale. Questo per non falsificare i risultati e per non portarti a pensare che le informazioni che vengono inserite prima siano più importanti.
-Mantieni solo le due tabelle, con markdown valido e wrap del testo.
+Mantieni le tre tabelle, con markdown valido e wrap del testo.
 """
         with st.spinner("Eseguo analisi entità..."):
             resp2 = client.models.generate_content(
@@ -159,31 +165,34 @@ Mantieni solo le due tabelle, con markdown valido e wrap del testo.
                 contents=[prompt2]
             )
         md2 = resp2.text
+        # estraggo le 3 tabelle generate
         st.session_state.analysis_tables = [
             blk for blk in md2.split("\n\n") if blk.strip().startswith("|")
         ]
 
-    # Visualizzo le tabelle
-    st.subheader("Entità Fondamentali (Common Ground Analysis)")
+    # visualizzo le 3 tabelle
+    st.subheader("Sintesi Intent, Sentiment e Leggibilità")
     st.markdown(st.session_state.analysis_tables[0], unsafe_allow_html=True)
-    st.subheader("Entità Mancanti (Content Gap Opportunity)")
+
+    st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(st.session_state.analysis_tables[1], unsafe_allow_html=True)
 
-    # Pulsanti di navigazione + Rifai analisi
+    st.subheader("Entità Mancanti (Content Gap Opportunity)")
+    st.markdown(st.session_state.analysis_tables[2], unsafe_allow_html=True)
+
     c1, c2, c3 = st.columns([1,1,1])
     with c1:
         if st.button("◀️ Indietro"):
             go_to(1)
     with c2:
         if st.button("🔄 Analizza di nuovo"):
-            # resetto solo le tabelle dell'analisi, manterrò competitor_texts
             st.session_state.analysis_tables = []
             st.session_state.keyword_table = None
     with c3:
         if st.button("Vai a Step 3 ▶️"):
             go_to(3)
 
-# === STEP 3: Generazione della Keyword Strategy ===
+# === STEP 3 ===
 elif st.session_state.step == 3:
     st.markdown(
         f"<div style='{step_title_style}'>Step 3: Generazione della Keyword Strategy</div>",
@@ -192,8 +201,8 @@ elif st.session_state.step == 3:
 
     if st.session_state.keyword_table is None:
         full_text = "\n---\n".join(st.session_state.competitor_texts)
-        table1 = st.session_state.analysis_tables[0]
-        table2 = st.session_state.analysis_tables[1]
+        table1 = st.session_state.analysis_tables[1]
+        table2 = st.session_state.analysis_tables[2]
         prompt3 = f"""
 ## GENERAZIONE KEYWORD STRATEGY ##
 
@@ -236,16 +245,14 @@ La tabella deve avere 3 colonne: **Categoria Keyword**, **Keywords** e **Valore 
             )
         st.session_state.keyword_table = resp3.text
 
-    # Visualizzo la tabella
     st.markdown(st.session_state.keyword_table, unsafe_allow_html=True)
 
-    # Pulsanti di navigazione finale
     d1, d2 = st.columns([1,1])
     with d1:
         if st.button("◀️ Indietro"):
             go_to(2)
     with d2:
         if st.button("🔄 Ricomincia"):
-            for k in ['step','competitor_texts','analysis_tables','keyword_table','contesto','tipologia']:
+            for k in ['step','competitor_texts','analysis_tables','keyword_table']:
                 st.session_state.pop(k, None)
             go_to(1)
