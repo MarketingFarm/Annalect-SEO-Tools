@@ -332,7 +332,7 @@ Crea poi una **tabella Markdown** come descritto di seguito:
     # converto la tabella in DataFrame e offro download Excel
     df_meta = parse_md_table(st.session_state.meta_md)
     buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df_meta.to_excel(writer, index=False, sheet_name="Varianti")
     buf.seek(0)
     st.download_button(
