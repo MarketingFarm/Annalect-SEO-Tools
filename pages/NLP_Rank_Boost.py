@@ -49,6 +49,7 @@ step_title_style = (
     "border-radius: 8px;"
     "font-size: 20px;"
     "margin-bottom: 20px;"
+    "font-weight: 600;"
 )
 
 # === STEP 1: Input testi competitor ===
