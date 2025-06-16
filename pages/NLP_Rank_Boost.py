@@ -64,7 +64,6 @@ table, th, td {
   padding: 8px !important;
   font-size: 14px;
 }
-table tr:nth-child(odd) { background-color: #f9f9f9; }
 th {
   background-color: #f1f1f1 !important;
   position: sticky;
@@ -73,6 +72,8 @@ th {
 }
 /* Wrap text */
 td { white-space: normal !important; }
+/* Left-align all table text */
+th, td { text-align: left !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -148,7 +149,7 @@ if st.button("🚀 Avvia l'Analisi"):
     def desc_style(val):
         return 'background-color: #d4edda' if 120 <= val <= 160 else 'background-color: #f8d7da'
     styled_org = df_org.style.format({'URL': lambda u: u}) 
-    styled_org = styled_org.applymap(lambda v: 'text-align: left', subset=['Meta Title','Meta Description'])
+    styled_org = styled_org.set_properties(subset=['Lunghezza Title','Lunghezza Description'], **{'text-align':'center'})
     styled_org = styled_org.applymap(title_style, subset=['Lunghezza Title'])
     styled_org = styled_org.applymap(desc_style, subset=['Lunghezza Description'])
     st.subheader("Risultati Organici (top 10)")
