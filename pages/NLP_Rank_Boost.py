@@ -62,15 +62,16 @@ with col5:
 # Selezione numero di competitor
 st.markdown("---")
 num_competitor = st.selectbox(
-    "Numero di competitor da analizzare",
-    options=list(range(1, 6)),
-    index=4,
+    "Numero di competitor da analizzare (0 = nessuno)",
+    options=list(range(0, 6)),  # 0–5 competitor
+    index=0,
     key="num_competitor"
 )
 
 # Creazione dinamica degli editor (2 colonne per riga)
 competitor_texts = []
 idx = 1
+# Genera solo se num_competitor > 0
 for _ in range((num_competitor + 1) // 2):  # numero di righe
     cols = st.columns(2)
     for col in cols:
@@ -85,4 +86,4 @@ for _ in range((num_competitor + 1) // 2):  # numero di righe
 action = st.button("🚀 Avvia l'Analisi")
 
 # Ora session_state contiene: query, country, language, contesto, tipologia,
-# num_competitor e comp_quill_1..comp_quill_{num_competitor}
+# num_competitor e comp_quill_1..comp_quill_{num_competitor
