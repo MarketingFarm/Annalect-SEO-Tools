@@ -3,7 +3,7 @@ from streamlit_quill import st_quill
 import requests
 from urllib.parse import urlparse, urlunparse
 import pandas as pd
-from google_genai import Client
+from google import genai
 
 # --- CONFIG DATAFORSEO & GEMINI ---
 DFS_USERNAME = st.secrets["dataforseo"]["username"]
