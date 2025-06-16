@@ -41,7 +41,8 @@ with col3:
     }
     languages = lang_map.get(st.session_state.get("country", ""), [])
     language = st.selectbox(
-        "Lingua", [""] + languages, key="language", disabled=(not languages)
+        "Lingua", [""] + languages,
+        key="language", disabled=(not languages)
     )
 with col4:
     contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
@@ -61,29 +62,31 @@ with col5:
 
 # Selezione numero di competitor
 st.markdown("---")
-num_competitor = st.selectbox(
-    "Numero di competitor da analizzare (0 = nessuno)",
-    options=list(range(0, 6)),  # 0–5 competitor
+num_opts = [""] + list(range(1, 6))
+num_comp = st.selectbox(
+    "Numero di competitor da analizzare",
+    options=num_opts,
     index=0,
     key="num_competitor"
 )
+# Convert to int count
+count = int(num_comp) if isinstance(num_comp, int) else 0
 
 # Creazione dinamica degli editor (2 colonne per riga)
 competitor_texts = []
 idx = 1
-# Genera solo se num_competitor > 0
-for _ in range((num_competitor + 1) // 2):  # numero di righe
+for _ in range((count + 1) // 2):  # numero di righe
     cols = st.columns(2)
     for col in cols:
-        if idx <= num_competitor:
+        if idx <= count:
             with col:
-                # Editor WYSIWYG per competitor
-                content = st_quill(f"Editor Competitor {idx}", key=f"comp_quill_{idx}")
+                st.markdown(f"**Testo Competitor #{idx}**")
+                content = st_quill(f"", key=f"comp_quill_{idx}")
             competitor_texts.append(content)
             idx += 1
 
 # Pulsante di avvio analisi
 action = st.button("🚀 Avvia l'Analisi")
 
-# Ora session_state contiene: query, country, language, contesto, tipologia,
-# num_competitor e comp_quill_1..comp_quill_{num_competitor
+# session_state contiene: query, country, language, contesto, tipologia,
+# num_competitor ("" o int), e comp_quill_1..comp_quill_{count}
