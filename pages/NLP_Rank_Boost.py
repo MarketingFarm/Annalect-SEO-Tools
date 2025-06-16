@@ -9,7 +9,7 @@ from google import genai
 DFS_USERNAME = st.secrets["dataforseo"]["username"]
 DFS_PASSWORD = st.secrets["dataforseo"]["password"]
 auth = (DFS_USERNAME, DFS_PASSWORD)
-GEMINI_API_KEY = st.secrets["gemini"]["api_key"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 genai = Client(api_key=GEMINI_API_KEY)
 
 # --- FUNZIONI DATAFORSEO ---
