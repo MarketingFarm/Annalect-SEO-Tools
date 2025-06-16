@@ -1,6 +1,15 @@
 import streamlit as st
 from streamlit_quill import st_quill
 
+# Configurazione toolbar Quill minimale
+toolbar_options = [
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'header': 1 }, { 'header': 2 }],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    [{ 'align': [] }],
+    ['link']
+]
+
 # --- INIEZIONE CSS per stile pulsante rosso e wrap tabelle ---
 st.markdown("""
 <style>
@@ -75,13 +84,17 @@ count = int(num_comp) if isinstance(num_comp, int) else 0
 # Creazione dinamica degli editor (2 colonne per riga)
 competitor_texts = []
 idx = 1
-for _ in range((count + 1) // 2):  # numero di righe
+for _ in range((count + 1) // 2):
     cols = st.columns(2)
     for col in cols:
         if idx <= count:
             with col:
                 st.markdown(f"**Testo Competitor #{idx}**")
-                content = st_quill(f"", key=f"comp_quill_{idx}")
+                content = st_quill(
+                    "",
+                    key=f"comp_quill_{idx}",
+                    modules={ 'toolbar': toolbar_options }
+                )
             competitor_texts.append(content)
             idx += 1
 
