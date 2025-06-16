@@ -118,34 +118,32 @@ if st.button("🚀 Avvia l'Analisi"):
         'Meta Description': it.get('description') or it.get('snippet', '')
     } for i, it in enumerate(organic)])
     st.subheader("Risultati Organici (top 10)")
-    st.markdown(df_organic.to_html(index=False), unsafe_allow_html=True)
+    st.dataframe(df_organic.style.set_properties(**{'white-space': 'normal'}), use_container_width=True)
 
-    # People Also Ask
+    # People Also Ask and Related in two columns
     paa_list = []
+    related = []
     for element in items:
         if element.get('type') == 'people_also_ask':
             paa_list = [q.get('title') for q in element.get('items', [])]
-            break
-    st.subheader("People Also Ask")
-    if paa_list:
-        df_paa = pd.DataFrame({'Domanda': paa_list})
-        st.markdown(df_paa.to_html(index=False), unsafe_allow_html=True)
-    else:
-        st.write("Nessuna sezione PAA trovata.")
-
-    # Related searches
-    related = []
-    for element in items:
         if element.get('type') in ('related_searches', 'related_search'):
             for rel in element.get('items', []):
                 if isinstance(rel, str):
                     related.append(rel)
                 else:
                     related.append(rel.get('query') or rel.get('keyword'))
-            break
-    st.subheader("Ricerche Correlate")
-    if related:
-        df_related = pd.DataFrame({'Query Correlata': related})
-        st.markdown(df_related.to_html(index=False), unsafe_allow_html=True)
-    else:
-        st.write("Nessuna sezione Ricerche correlate trovata.")
+    col_paa, col_rel = st.columns(2)
+    with col_paa:
+        st.subheader("People Also Ask")
+        if paa_list:
+            df_paa = pd.DataFrame({'Domanda': paa_list})
+            st.dataframe(df_paa, use_container_width=True)
+        else:
+            st.write("Nessuna sezione PAA trovata.")
+    with col_rel:
+        st.subheader("Ricerche Correlate")
+        if related:
+            df_related = pd.DataFrame({'Query Correlata': related})
+            st.dataframe(df_related, use_container_width=True)
+        else:
+            st.write("Nessuna sezione Ricerche correlate trovata.")
