@@ -72,8 +72,11 @@ th {
 }
 /* Wrap text */
 td { white-space: normal !important; }
-/* Left-align all table text */
-th, td { text-align: left !important; }
+/* Center length columns */
+table th:nth-child(3), table td:nth-child(3),
+table th:nth-child(5), table td:nth-child(5) {
+  text-align: center !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
