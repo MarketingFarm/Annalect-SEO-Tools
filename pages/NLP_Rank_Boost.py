@@ -22,15 +22,12 @@ st.divider()
 
 # Step 1: Input parametri di base
 col1, col2, col3, col4, col5 = st.columns(5)
-
 with col1:
     query = st.text_input("Query", key="query", placeholder="Inserisci la query di ricerca")
 with col2:
-    # Countries principali
     countries = ["", "Italy", "United States", "France", "Germany", "Spain"]
     country = st.selectbox("Country", countries, key="country")
 with col3:
-    # Lingue adattate al Country selezionato
     lang_map = {
         "Italy": ["Italiano"],
         "United States": ["English"],
@@ -56,16 +53,27 @@ with col5:
         disabled=(not tipologie)
     )
 
-# Box di testo per i 5 competitor come editor WYSIWYG con Quill
+# Selezione numero di competitor e editor dinamici
 st.markdown("---")
+num_competitor = st.selectbox(
+    "Numero di competitor da analizzare", 
+    options=[i for i in range(1, 6)],
+    index=4,
+    key="num_competitor"
+)
+
+# Creazione editor in due colonne
 competitor_texts = []
-for i in range(1, 6):
-    # Usa Quill editor per formattazione rich text
-    content = st_quill(f"Editor Competitor {i}", key=f"comp_quill_{i}")
-    competitor_texts.append(content)
+idx = 1
+for row_start in range(1, num_competitor + 1, 2):
+    cols = st.columns(2)
+    for col in cols:
+        if idx <= num_competitor:
+            content = col.quill_editor(label=f"Editor Competitor {idx}", key=f"comp_quill_{idx}")
+            competitor_texts.append(content)
+            idx += 1
 
 # Pulsante di avvio analisi
 action = st.button("🚀 Avvia l'Analisi")
 
-# Ora tutte le variabili query, country, language, contesto, tipologia e comp_quill_1..5
-# sono disponibili in st.session_state per i passaggi successivi.
+# session_state contiene: query, country, language, contesto, tipologia, num_competitor e comp_quill_1..N
