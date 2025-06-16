@@ -313,15 +313,15 @@ elif st.session_state.step == 4:
         prompt4 = f"""
 RUOLO: Agisci come uno specialista SEO d'élite, esperto in scrittura di testi ottimizzati e semantica competitiva.
 
-CONTESTO: L'obiettivo è superare i principali competitor in SERP per la keyword principale: {main_entity}. Il contenuto sarà inserito in una {st.session_state.tipologia} con un {st.session_state.contesto}.
+CONTESTO: L'obiettivo è superare i principali competitor in SERP per la keyword principale: {main_entity}. Il contenuto sarà inserito in una {st.session_state.tipologia} di un {st.session_state.contesto}.
 
 COMPITO: Genera 5 varianti di meta title e 5 varianti di meta description semanticamente perfette per rispondere all'intento di ricerca {st.session_state.search_intent}.
 
 Requisiti:
 
-Lingua: Italiano perfetto, fluido e scorrevole.
+Lingua: Italiano perfetto, fluido e scorrevole. Con un corretto utilizzo della punteggiatura.
 Terminologia: Adatta al topic di {main_entity}.
-Keyword: Utilizzo naturale, con la keyword principale all'inizio o quasi (sia nel title che nella description).
+Keyword: Utilizzo naturale, con la keyword principale all'inizio o quasi (sia nel title che nella description). Utilizza in maniera corretta gli articoli determinativi e indeterminativi per inserire in maniera naturale la keyword nel testo.
 Meta Title: Lunghezza tra 50 e 60 caratteri.
 Meta Description: Lunghezza tra 120 e 158 caratteri, includendo sempre una CTA (Call to Action).
 
