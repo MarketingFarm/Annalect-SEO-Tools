@@ -261,9 +261,81 @@ Mantieni solo le due tabelle, con markdown valido.
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_competitiva]
         )
-    # Splitting solo le due tabelle markdown
     tables = [blk for blk in resp2.text.split("\n\n") if blk.strip().startswith("|")]
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(tables[1], unsafe_allow_html=True)
+
+    # --- NUOVO STEP: ANALISI SEO STRATEGICA E GENERAZIONE KEYWORD ---
+    prompt_strategica = f"""
+## ANALISI SEO STRATEGICA E GENERAZIONE KEYWORD ##
+
+**RUOLO:** Assumi il ruolo di un SEO Strategist di livello mondiale, con specializzazione in SEO semantica, analisi dell'intento di ricerca e data-driven content strategy. La tua missione è quella di sezionare il panorama competitivo e i dati della SERP per costruire una strategia di keyword e contenuti inattaccabile.
+
+**OBIETTIVO PRIMARIO:** Elaborare una strategia completa e attuabile che mi permetta di creare un contenuto (testo) oggettivamente superiore a quello dei competitor. L'obiettivo non è solo inserire keyword, ma raggiungere una rilevanza e un'autorità tematica (topical authority) schiaccianti per dominare la SERP per la keyword principale.
+
+---
+
+**DATI FORNITI PER L'ANALISI:**
+
+* **Keyword Principale:** `{query}`
+* **Country:** `{country}`
+* **Lingua:** `{language}`
+* **Contesto del Contenuto:** `{contesto}`
+* **Tipologia di Contenuto:** `{tipologia}`
+
+* **Testi Completi dei Competitor:**
+{joined_texts}
+
+* **Tabella 1: Entità Principali Estratte dai Competitor:**
+{tables[0]}
+
+* **Tabella 2: Entità Mancanti / Content Gap:**
+{tables[1]}
+
+* **Tabella 3: Ricerche Correlate dalla SERP:**
+{pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)}
+
+* **Tabella 4: People Also Ask (PAA) dalla SERP:**
+{pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)}
+
+
+---
+
+**COMPITO DETTAGLIATO (Esegui in ordine):**
+
+1.  **Analisi dell'Intento di Ricerca (Search Intent):** Basandoti su tutti i dati forniti, definisci l'intento di ricerca primario e gli eventuali intenti secondari.  
+2.  **Sintesi e Correlazione dei Dati:** Analizza e metti in relazione TUTTE le fonti di dati per individuare angoli di approfondimento.  
+3.  **Generazione della Strategia Keyword e Contenutistica:** Organizza le informazioni nelle tabelle sotto.
+
+**FORMATO DI OUTPUT OBBLIGATORIO:**
+
+**Executive Summary:**
+* **Keyword Principale:** `{query}`
+* **Intento di Ricerca Primario:**  
+* **Intenti di Ricerca Secondari:**  
+* **Angolo Strategico Raccomandato:**  
+
+**Tabella 1: Architettura delle Keyword**
+| Categoria | Keyword / Concetto / Domanda | Fonte Dati Principale | Azione Strategica / Valore Aggiunto |
+| :--- | :--- | :--- | :--- |
+| **Keyword Principale (Focus)** |  | Input Utente |  |
+| **Cluster di Keyword Secondarie** |  | Competitor / Correlate |  |
+| **Entità e Concetti Correlati (LSI)** |  | Entità / Testi Competitor |  |
+| **Domande degli Utenti (da PAA)** |  | PAA / Correlate |  |
+
+**Tabella 2: Opportunità Strategiche (Content Gaps)**
+| Opportunità di Gap / Angolo d'Attacco | Dati a Supporto | Azione Raccomandata per il Contenuto |
+| :--- | :--- | :--- |
+|  |  |  |
+|  |  |  |
+|  |  |  |
+"""
+    with st.spinner("Analisi strategica e generazione keyword..."):
+        resp3 = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=[prompt_strategica]
+        )
+    st.subheader("Strategia SEO e Keyword")
+    st.markdown(resp3.text, unsafe_allow_html=True)
