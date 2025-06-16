@@ -2,41 +2,54 @@ import streamlit as st
 from streamlit_quill import st_quill
 import requests
 from urllib.parse import urlparse, urlunparse
+import pandas as pd
 
 # --- CONFIG DATAFORSEO ---
-# Credenziali via st.secrets
 DFS_USERNAME = st.secrets["dataforseo"]["username"]
 DFS_PASSWORD = st.secrets["dataforseo"]["password"]
 auth = (DFS_USERNAME, DFS_PASSWORD)
 
 @st.cache_data(show_spinner=False)
 def get_countries():
-    """Recupera la lista di paesi da DataForSEO"""
     url = 'https://api.dataforseo.com/v3/serp/google/locations'
     resp = requests.get(url, auth=auth)
     resp.raise_for_status()
-    data = resp.json()
-    locations = data['tasks'][0]['result']
-    return sorted(
-        loc['location_name']
-        for loc in locations
-        if loc.get('location_type') == 'Country'
-    )
+    locations = resp.json()['tasks'][0]['result']
+    return sorted(loc['location_name'] for loc in locations if loc.get('location_type')=='Country')
 
 @st.cache_data(show_spinner=False)
 def get_languages():
-    """Recupera la lista di lingue da DataForSEO"""
     url = 'https://api.dataforseo.com/v3/serp/google/languages'
     resp = requests.get(url, auth=auth)
     resp.raise_for_status()
-    data = resp.json()
-    langs = data['tasks'][0]['result']
-    return sorted(
-        lang['language_name']
-        for lang in langs
-    )
+    langs = resp.json()['tasks'][0]['result']
+    return sorted(lang['language_name'] for lang in langs)
 
-# --- INIEZIONE CSS ---
+# Utility to clean URL
+def clean_url(url: str) -> str:
+    parsed = urlparse(url)
+    cleaned = parsed._replace(query='', params='', fragment='')
+    return urlunparse(cleaned)
+
+# Fetch SERP data from DataForSEO
+@st.cache_data(show_spinner=True)
+def fetch_serp(query: str, country: str, language: str) -> dict:
+    payload = [{
+        'keyword': query,
+        'location_name': country,
+        'language_name': language,
+        'calculate_rectangles': True,
+        'people_also_ask_click_depth': 1
+    }]
+    resp = requests.post(
+        'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
+        auth=auth,
+        json=payload
+    )
+    resp.raise_for_status()
+    return resp.json()['tasks'][0]['result'][0]
+
+# CSS
 st.markdown("""
 <style>
 button { background-color: #e63946 !important; color: white !important; }
@@ -44,60 +57,87 @@ table td { white-space: normal !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Titolo e descrizione
+# UI
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Step 1: Parametri di base
+# Input parametri
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    query = st.text_input("Query", key="query", placeholder="Inserisci la query")
+    query = st.text_input("Query", key="query")
 with col2:
-    countries = get_countries()
-    country = st.selectbox("Country", [""] + countries, key="country")
+    country = st.selectbox("Country", [""]+get_countries(), key="country")
 with col3:
-    all_langs = get_languages()
-    language = st.selectbox(
-        "Lingua",
-        [""] + all_langs,
-        key="language"
-    )
+    language = st.selectbox("Lingua", [""]+get_languages(), key="language")
 with col4:
     contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
     contesto = st.selectbox("Contesto", contesti, key="contesto")
 with col5:
-    tip_map = {
-        "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
-        "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
-    }
-    tipologie = tip_map.get(contesto, [])
-    tipologia = st.selectbox(
-        "Tipologia di Contenuto",
-        [""] + tipologie,
-        key="tipologia",
-        disabled=(not tipologie)
-    )
+    tip_map = {"E-commerce": ["PDP", "PLP"],
+               "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]}
+    tipologia = st.selectbox("Tipologia di Contenuto", [""]+tip_map.get(contesto, []), key="tipologia")
 
-# Selezione numero competitor\st.markdown("---")
-num_opts = [""] + list(range(1, 6))
+st.markdown("---")
+num_opts = [""] + list(range(1,6))
 num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
 count = int(num_comp) if isinstance(num_comp, int) else 0
 
-# Editor WYSIWYG dinamici (2 colonne per riga)
+# Editor dinamici
 competitor_texts = []
 idx = 1
-for _ in range((count + 1) // 2):
+for _ in range((count+1)//2):
     cols = st.columns(2)
     for col in cols:
-        if idx <= count:
+        if idx<=count:
             with col:
                 st.markdown(f"**Testo Competitor #{idx}**")
-                content = st_quill("", key=f"comp_quill_{idx}")
-            competitor_texts.append(content)
-            idx += 1
+                competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
+            idx+=1
 
-# Pulsante di avvio analisi
-action = st.button("🚀 Avvia l'Analisi")
-
-# Ora st.session_state contiene tutti i valori per i passi successivi.
+# Avvia analisi
+if st.button("🚀 Avvia l'Analisi"):
+    # richiesta SERP
+    if not (query and country and language):
+        st.error("Query, Country e Lingua sono obbligatori.")
+    else:
+        result = fetch_serp(query, country, language)
+        items = result.get('items', [])
+        # Organici top10
+        organic = [it for it in items if it.get('type')=='organic'][:10]
+        df_organic = pd.DataFrame([
+            {
+                'Ranking': i+1,
+                'URL': clean_url(it.get('link') or it.get('url','')),
+                'Meta Title': it.get('title') or it.get('link_title',''),
+                'Meta Description': it.get('description') or it.get('snippet','')
+            }
+            for i,it in enumerate(organic)
+        ])
+        st.subheader("Risultati Organici (top 10)")
+        st.table(df_organic)
+        # PAA
+        paa = []
+        for element in items:
+            if element.get('type')=='people_also_ask':
+                paa = [q.get('title') for q in element.get('items',[])]
+                break
+        st.subheader("People Also Ask")
+        if paa:
+            st.table(pd.DataFrame({'Domanda': paa}))
+        else:
+            st.write("Nessuna sezione PAA trovata.")
+        # Ricerche correlate
+        related=[]
+        for element in items:
+            if element.get('type') in ('related_searches','related_search'):
+                for rel in element.get('items',[]):
+                    if isinstance(rel,str): related.append(rel)
+                    else:
+                        related.append(rel.get('query') or rel.get('keyword'))
+                break
+        st.subheader("Ricerche Correlate")
+        if related:
+            st.table(pd.DataFrame({'Query Correlata': related}))
+        else:
+            st.write("Nessuna sezione Ricerche correlate trovata.")
