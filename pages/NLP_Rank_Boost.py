@@ -1,48 +1,67 @@
 import streamlit as st
 from streamlit_quill import st_quill
+import requests
+from urllib.parse import urlparse, urlunparse
 
-# --- INIEZIONE CSS per stile pulsante rosso e wrap tabelle ---
+# --- CONFIG DATAFORSEO ---
+# Credenziali via st.secrets
+DFS_USERNAME = st.secrets["dataforseo"]["username"]
+DFS_PASSWORD = st.secrets["dataforseo"]["password"]
+auth = (DFS_USERNAME, DFS_PASSWORD)
+
+@st.cache_data(show_spinner=False)
+def get_countries():
+    """Recupera la lista di paesi da DataForSEO"""
+    url = 'https://api.dataforseo.com/v3/serp/google/locations'
+    resp = requests.get(url, auth=auth)
+    resp.raise_for_status()
+    data = resp.json()
+    locations = data['tasks'][0]['result']
+    return sorted(
+        loc['location_name']
+        for loc in locations
+        if loc.get('location_type') == 'Country'
+    )
+
+@st.cache_data(show_spinner=False)
+def get_languages():
+    """Recupera la lista di lingue da DataForSEO"""
+    url = 'https://api.dataforseo.com/v3/serp/google/languages'
+    resp = requests.get(url, auth=auth)
+    resp.raise_for_status()
+    data = resp.json()
+    langs = data['tasks'][0]['result']
+    return sorted(
+        lang['language_name']
+        for lang in langs
+    )
+
+# --- INIEZIONE CSS ---
 st.markdown("""
 <style>
-button {
-  background-color: #e63946 !important;
-  color: white !important;
-}
-/* wrap table cells */
-table td {
-  white-space: normal !important;
-}
+button { background-color: #e63946 !important; color: white !important; }
+table td { white-space: normal !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Titolo principale e descrizione
+# Titolo e descrizione
 st.title("Analisi SEO Competitiva Multi-Step")
-st.markdown(
-    "Questo tool ti aiuta a eseguire un'analisi SEO competitiva in più fasi, integrando scraping SERP, analisi NLU e molto altro."
-)
+st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Step 1: Input parametri di base
+# Step 1: Parametri di base
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    query = st.text_input(
-        "Query", key="query", placeholder="Inserisci la query di ricerca"
-    )
+    query = st.text_input("Query", key="query", placeholder="Inserisci la query")
 with col2:
-    countries = ["", "Italy", "United States", "France", "Germany", "Spain"]
-    country = st.selectbox("Country", countries, key="country")
+    countries = get_countries()
+    country = st.selectbox("Country", [""] + countries, key="country")
 with col3:
-    lang_map = {
-        "Italy": ["Italiano"],
-        "United States": ["English"],
-        "France": ["Français"],
-        "Germany": ["Deutsch"],
-        "Spain": ["Español"]
-    }
-    languages = lang_map.get(st.session_state.get("country", ""), [])
+    all_langs = get_languages()
     language = st.selectbox(
-        "Lingua", [""] + languages,
-        key="language", disabled=(not languages)
+        "Lingua",
+        [""] + all_langs,
+        key="language"
     )
 with col4:
     contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
@@ -52,7 +71,7 @@ with col5:
         "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
         "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
     }
-    tipologie = tip_map.get(st.session_state.get("contesto", ""), [])
+    tipologie = tip_map.get(contesto, [])
     tipologia = st.selectbox(
         "Tipologia di Contenuto",
         [""] + tipologie,
@@ -60,33 +79,25 @@ with col5:
         disabled=(not tipologie)
     )
 
-# Selezione numero di competitor
-st.markdown("---")
+# Selezione numero competitor\st.markdown("---")
 num_opts = [""] + list(range(1, 6))
-num_comp = st.selectbox(
-    "Numero di competitor da analizzare",
-    options=num_opts,
-    index=0,
-    key="num_competitor"
-)
-# Convert to int count
+num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
 count = int(num_comp) if isinstance(num_comp, int) else 0
 
-# Creazione dinamica degli editor (2 colonne per riga)
+# Editor WYSIWYG dinamici (2 colonne per riga)
 competitor_texts = []
 idx = 1
-for _ in range((count + 1) // 2):  # numero di righe
+for _ in range((count + 1) // 2):
     cols = st.columns(2)
     for col in cols:
         if idx <= count:
             with col:
                 st.markdown(f"**Testo Competitor #{idx}**")
-                content = st_quill(f"", key=f"comp_quill_{idx}")
+                content = st_quill("", key=f"comp_quill_{idx}")
             competitor_texts.append(content)
             idx += 1
 
 # Pulsante di avvio analisi
 action = st.button("🚀 Avvia l'Analisi")
 
-# session_state contiene: query, country, language, contesto, tipologia,
-# num_competitor ("" o int), e comp_quill_1..comp_quill_{count}
+# Ora st.session_state contiene tutti i valori per i passi successivi.
