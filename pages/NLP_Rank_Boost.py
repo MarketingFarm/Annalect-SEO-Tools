@@ -85,38 +85,38 @@ if st.session_state.step == 1:
     )
     # quattro widget sulla stessa riga: numero testi, contesto, tipologia, query
     col1, col2, col3, col4 = st.columns([1,1,1,1])
-with col1:
-    num_texts = st.selectbox(
-        "Numero di testi competitor da analizzare",
-        list(range(1, 6)),
-        key="num_texts_step1"
-    )
-with col2:
-    query = st.text_input(
-        "Query",
-        key="query",
-        placeholder="Inserisci la query di ricerca"
-    )
-with col3:
-    contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
-    contesto = st.selectbox(
-        "Contesto",
-        contesti,
-        key="contesto"
-    )
-with col4:
-    mapping = {
-        "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
-        "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
-    }
-    opts = [""] + mapping.get(st.session_state.contesto, []) \
-           if st.session_state.contesto in mapping else [""]
-    tipologia = st.selectbox(
-        "Tipologia di contenuto",
-        opts,
-        key="tipologia",
-        disabled=(st.session_state.contesto not in mapping)
-    )
+    with col1:
+        num_texts = st.selectbox(
+            "Numero di testi competitor da analizzare",
+            list(range(1, 6)),
+            key="num_texts_step1"
+        )
+    with col2:
+        query = st.text_input(
+            "Query",
+            key="query",
+            placeholder="Inserisci la query di ricerca"
+        )
+    with col3:
+        contesti = ["", "E-commerce", "Blog / Contenuto Informativo"]
+        contesto = st.selectbox(
+            "Contesto",
+            contesti,
+            key="contesto"
+        )
+    with col4:
+        mapping = {
+            "E-commerce": ["Product Detail Page (PDP)", "Product Listing Page (PLP)"],
+            "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
+        }
+        tip_options = [""] + mapping.get(st.session_state.contesto, []) \
+            if st.session_state.contesto in mapping else [""]
+        tipologia = st.selectbox(
+            "Tipologia di contenuto",
+            tip_options,
+            key="tipologia",
+            disabled=(st.session_state.contesto not in mapping)
+        )
 
     # generazione dei text_area per i testi
     cols = st.columns(num_texts)
