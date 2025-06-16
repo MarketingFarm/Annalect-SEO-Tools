@@ -109,14 +109,13 @@ if st.button("🚀 Avvia l'Analisi"):
     result = fetch_serp(query, country, language)
     items = result.get('items', [])
 
-    # Organic results top 10
+    # Organic results top 10 without Ranking column
     organic = [it for it in items if it.get('type') == 'organic'][:10]
     df_organic = pd.DataFrame([{
-        'Ranking': i + 1,
         'URL': clean_url(it.get('link') or it.get('url', '')),
         'Meta Title': it.get('title') or it.get('link_title', ''),
         'Meta Description': it.get('description') or it.get('snippet', '')
-    } for i, it in enumerate(organic)])
+    } for it in organic])
     st.subheader("Risultati Organici (top 10)")
     st.dataframe(df_organic.style.set_properties(**{'white-space': 'normal'}), use_container_width=True)
 
