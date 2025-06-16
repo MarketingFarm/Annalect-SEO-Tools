@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_quill import st_quill
 
 # --- INIEZIONE CSS per stile pulsante rosso e wrap tabelle (esempio) ---
 st.markdown("""
@@ -25,7 +26,7 @@ col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     query = st.text_input("Query", key="query", placeholder="Inserisci la query di ricerca")
 with col2:
-    # Countries principali (stub, da popolamento dinamico)
+    # Countries principali
     countries = ["", "Italy", "United States", "France", "Germany", "Spain"]
     country = st.selectbox("Country", countries, key="country")
 with col3:
@@ -55,15 +56,16 @@ with col5:
         disabled=(not tipologie)
     )
 
-# Box di testo per i 5 competitor
+# Box di testo per i 5 competitor come editor WYSIWYG con Quill
 st.markdown("---")
 competitor_texts = []
 for i in range(1, 6):
-    txt = st.text_area(f"Testo Competitor {i}", height=150, key=f"comp_txt_{i}")
-    competitor_texts.append(txt)
+    # Usa Quill editor per formattazione rich text
+    content = st_quill(f"Editor Competitor {i}", key=f"comp_quill_{i}")
+    competitor_texts.append(content)
 
 # Pulsante di avvio analisi
 action = st.button("🚀 Avvia l'Analisi")
 
-# Ora tutte le variabili query, country, language, contesto, tipologia e comp_txt_1..5
+# Ora tutte le variabili query, country, language, contesto, tipologia e comp_quill_1..5
 # sono disponibili in st.session_state per i passaggi successivi.
