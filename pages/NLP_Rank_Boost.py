@@ -70,11 +70,4 @@ for row_start in range(1, num_competitor + 1, 2):
     for col in cols:
         if idx <= num_competitor:
             with col:
-                content = st_quill(label=f"Editor Competitor {idx}", key=f"comp_quill_{idx}")
-            competitor_texts.append(content)
-            idx += 1
-
-# Pulsante di avvio analisi
-action = st.button("🚀 Avvia l'Analisi")
-
-# session_state contiene: query, country, language, contesto, tipologia, num_competitor e comp_quill_1..N
+                content = st_quill(f"Editor Competitor {idx}", key=f"comp_quill_{idx}")
