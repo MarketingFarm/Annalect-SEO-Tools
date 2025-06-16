@@ -10,10 +10,10 @@ DFS_USERNAME = st.secrets["dataforseo"]["username"]
 DFS_PASSWORD = st.secrets["dataforseo"]["password"]
 auth = (DFS_USERNAME, DFS_PASSWORD)
 GEMINI_API_KEY = st.secrets["gemini"]["api_key"]
-genai = Client()
+genai = Client(api_key=GEMINI_API_KEY)
 
+# --- FUNZIONI DATAFORSEO ---
 def get_countries():
-    """Recupera i paesi da DataForSEO"""
     url = 'https://api.dataforseo.com/v3/serp/google/locations'
     resp = requests.get(url, auth=auth)
     resp.raise_for_status()
@@ -22,7 +22,6 @@ def get_countries():
 
 @st.cache_data(show_spinner=False)
 def get_languages():
-    """Recupera le lingue da DataForSEO"""
     url = 'https://api.dataforseo.com/v3/serp/google/languages'
     resp = requests.get(url, auth=auth)
     resp.raise_for_status()
@@ -52,7 +51,7 @@ def fetch_serp(query: str, country: str, language: str) -> dict:
     resp.raise_for_status()
     return resp.json()['tasks'][0]['result'][0]
 
-# CSS per tabelle
+# CSS per tabelle e formattazioni
 st.markdown("""
 <style>
 button{background:#e63946!important;color:#fff!important}
@@ -154,36 +153,56 @@ if st.button("🚀 Avvia l'Analisi"):
     # Preparazione testi per NLU
     joined_texts = "\n---\n".join(texts)
 
-    # Prompt 1: leggibilità, intent, tone, sentiment
+    # Prompt 1: Analisi Sintetica Avanzata del Contenuto
     prompt1 = f"""
 ## PROMPT: ANALISI SINTETICA AVANZATA DEL CONTENUTO ##
-**RUOLO:** Agisci come un analista SEO e Content Strategist esperto.
-**CONTESTO:** Analizza i testi dei competitor per una query.
-**OBIETTIVO:** Fornisci UNA tabella Markdown sintetica con:
-Livello Leggibilità | Search Intent | Tone of Voce | Tone of Voice (Approfondimento) | Sentiment Medio
 
-**TESTI:**
+**RUOLO:** Agisci come un analista SEO e Content Strategist esperto. Il tuo compito è distillare le caratteristiche qualitative fondamentali da un insieme di testi dei competitor.
+
+**CONTESTO:** Ho raccolto i testi delle pagine che si posizionano meglio in Google per una specifica query. Devo capire le loro caratteristiche comuni per creare un contenuto superiore.
+
+**OBIETTIVO:** Analizza i testi forniti di seguito e compila UNA SINGOLA tabella Markdown di sintesi. La tabella deve rappresentare la media o la tendenza predominante riscontrata in TUTTI i testi. Analizzare i testi singolarmente, ma fornisci una visione d'insieme consolidata.
+
+**TESTI DA ANALIZZARE:**
+---
 {joined_texts}
+---
 
-**OUTPUT:** Esclusivamente la tabella con header e dati, nulla più.
+**ISTRUZIONI DETTAGLIATE PER LA COMPILAZIONE:**
+
+1. **Livello Leggibilità:** Stima il pubblico di destinazione basandoti sulla complessità generale del linguaggio e dei concetti. Esempi: "Semplice, per un pubblico di principianti", "Intermedio, richiede una conoscenza di base dell'argomento", "Avanzato, per un pubblico di esperti o tecnici". Inserisci anche il target di destinazione (Generalista, B2C, B2B o più di uno).
+
+2. **Search Intent:** Identifica l'intento di ricerca primario e prevalente che i testi soddisfano (es: Informazionale, Transazionale, Commerciale, Navigazionale). Fornisci solo la classificazione.
+
+3. **Tone of Voce:** Definisci il tono di voce predominante nell'insieme dei testi. Sii specifico. Esempi: "Formale e accademico", "Informale e rassicurante", "Tecnico e didattico", "Entusiasta e promozionale", "Umoristico e coinvolgente".
+
+4. **Tone of Voice (Approfondimento):** Fornisci tre aggettivi distinti che lo descrivono. Non ripetere un aggettivo già usato nel Tone of Voice.
+
+5. **Sentiment Medio:** Valuta il sentiment generale (Positivo, Neutro, Negativo) e aggiungi una giustificazione estremamente concisa (massimo 10 parole) che spieghi il perché. Esempio: "Positivo, grazie all'uso di aggettivi entusiastici e focus sui beneficios".
+
+**COMPITO FINALE:**
+Genera come output **ESCLUSIVAMENTE** la tabella Markdown compilata con la tua analisi. Non aggiungere alcuna frase introduttiva, commento o conclusione. L'output deve iniziare direttamente con la riga dell'header della tabella.
+
 | Livello Leggibilità | Search Intent | Tone of Voce | Tone of Voice (Approfondimento) | Sentiment Medio |
 | :--- | :--- | :--- | :--- | :--- |
 """
-    resp1 = genai.chat.create(messages=[{"content":prompt1,"author":"user"}], model="gemini-proto")
-    st.markdown(resp1.last.reply.content)
+    resp1 = genai.chat.create(messages=[{"content": prompt1, "author": "user"}], model="gemini-proto")
+    st.markdown(resp1.last.reply.content, unsafe_allow_html=True)
 
-    # Prompt 2: entità e content gap
+    # Prompt 2: Analisi Competitiva e Content Gap
     prompt2 = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
-**RUOLO:** Analista SEO d'élite.
-**CONTESTO:** Analisi testi per individuare entità e gap.
+**RUOLO:** Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva. La tua missione è "ingegneria inversa" del successo dei contenuti che si posizionano ai vertici di Google.
 
-**TESTI:**
+**CONTESTO:** Sto per scrivere o migliorare un testo e il mio obiettivo è superare i primi 3 competitor attualmente posizionati per la mia keyword target. Analizzerai i loro testi per darmi una mappa precisa delle entità che devo assolutamente trattare e delle opportunità (entità mancanti) che posso sfruttare per creare un contenuto oggettivamente più completo e autorevole.
+
+**COMPITO:** Analizza i seguenti testi competitor:
+---
 {joined_texts}
 
-1. Identifica Entità Centrale.
-2. Definisci Search Intent Primario.
-3. Crea due tabelle Markdown:
+1. Identifica e dichiara qual è l'**Argomento Principale Comune** o l'**Entità Centrale** condivisa da tutti i testi.
+2. Basandoti su questo, definisci il **Search Intent Primario** a cui i competitor stanno rispondendo (es: "Confronto informativo tra prodotti", "Guida all'acquisto per principianti", "Spiegazione approfondita di un concetto").
+3. Crea **due tabelle Markdown separate e distinte**, come descritto di seguito:
 
 ### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
 | Entità | Rilevanza Strategica | Azione per il Mio Testo |
@@ -192,6 +211,10 @@ Livello Leggibilità | Search Intent | Tone of Voce | Tone of Voice (Approfondim
 ### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
+
+Arricchisci la colonna "Entità" con esempi specifici tra parentesi.
+Nella prima riga inserisci sempre l'entità principale.
+Mantieni solo le due tabelle, con markdown valido e wrap del testo.
 """
-    resp2 = genai.chat.create(messages=[{"content":prompt2,"author":"user"}], model="gemini-proto")
-    st.markdown(resp2.last.reply.content)
+    resp2 = genai.chat.create(messages=[{"content": prompt2, "author": "user"}], model="gemini-proto")
+    st.markdown(resp2.last.reply.content, unsafe_allow_html=True)
