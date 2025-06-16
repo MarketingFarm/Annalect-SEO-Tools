@@ -57,7 +57,7 @@ with col5:
 st.markdown("---")
 num_competitor = st.selectbox(
     "Numero di competitor da analizzare", 
-    options=[i for i in range(1, 6)],
+    options=list(range(1, 6)),
     index=4,
     key="num_competitor"
 )
@@ -69,7 +69,8 @@ for row_start in range(1, num_competitor + 1, 2):
     cols = st.columns(2)
     for col in cols:
         if idx <= num_competitor:
-            content = col.quill_editor(label=f"Editor Competitor {idx}", key=f"comp_quill_{idx}")
+            with col:
+                content = st_quill(label=f"Editor Competitor {idx}", key=f"comp_quill_{idx}")
             competitor_texts.append(content)
             idx += 1
 
