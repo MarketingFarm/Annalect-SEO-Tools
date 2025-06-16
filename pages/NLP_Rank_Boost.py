@@ -49,8 +49,7 @@ def fetch_serp(query: str, country: str, language: str) -> dict:
     resp.raise_for_status()
     return resp.json()['tasks'][0]['result'][0]
 
-# CSS
-st.markdown("""
+# CSS\st.markdown("""
 <style>
 button { background-color: #e63946 !important; color: white !important; }
 table td { white-space: normal !important; }
@@ -97,47 +96,54 @@ for _ in range((count+1)//2):
 
 # Avvia analisi
 if st.button("🚀 Avvia l'Analisi"):
-    # richiesta SERP
+    # Validazione
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
+        st.stop()
+
+    # Fetch SERP
+esult = fetch_serp(query, country, language)
+    items = result.get('items', [])
+
+    # Organici top10
+    organic = [it for it in items if it.get('type')=='organic'][:10]
+    df_organic = pd.DataFrame([
+        {
+            'Ranking': i+1,
+            'URL': clean_url(it.get('link') or it.get('url','')),
+            'Meta Title': it.get('title') or it.get('link_title',''),
+            'Meta Description': it.get('description') or it.get('snippet','')
+        }
+        for i,it in enumerate(organic)
+    ])
+    st.subheader("Risultati Organici (top 10)")
+    st.markdown(df_organic.to_html(index=False), unsafe_allow_html=True)
+
+    # PAA\paa_list = []
+    for element in items:
+        if element.get('type')=='people_also_ask':
+            paa_list = [q.get('title') for q in element.get('items',[])]
+            break
+    st.subheader("People Also Ask")
+    if paa_list:
+        df_paa = pd.DataFrame({'Domanda': paa_list})
+        st.markdown(df_paa.to_html(index=False), unsafe_allow_html=True)
     else:
-        result = fetch_serp(query, country, language)
-        items = result.get('items', [])
-        # Organici top10
-        organic = [it for it in items if it.get('type')=='organic'][:10]
-        df_organic = pd.DataFrame([
-            {
-                'Ranking': i+1,
-                'URL': clean_url(it.get('link') or it.get('url','')),
-                'Meta Title': it.get('title') or it.get('link_title',''),
-                'Meta Description': it.get('description') or it.get('snippet','')
-            }
-            for i,it in enumerate(organic)
-        ])
-        st.subheader("Risultati Organici (top 10)")
-        st.table(df_organic)
-        # PAA
-        paa = []
-        for element in items:
-            if element.get('type')=='people_also_ask':
-                paa = [q.get('title') for q in element.get('items',[])]
-                break
-        st.subheader("People Also Ask")
-        if paa:
-            st.table(pd.DataFrame({'Domanda': paa}))
-        else:
-            st.write("Nessuna sezione PAA trovata.")
-        # Ricerche correlate
-        related=[]
-        for element in items:
-            if element.get('type') in ('related_searches','related_search'):
-                for rel in element.get('items',[]):
-                    if isinstance(rel,str): related.append(rel)
-                    else:
-                        related.append(rel.get('query') or rel.get('keyword'))
-                break
-        st.subheader("Ricerche Correlate")
-        if related:
-            st.table(pd.DataFrame({'Query Correlata': related}))
-        else:
-            st.write("Nessuna sezione Ricerche correlate trovata.")
+        st.write("Nessuna sezione PAA trovata.")
+
+    # Ricerche correlate
+    related = []
+    for element in items:
+        if element.get('type') in ('related_searches','related_search'):
+            for rel in element.get('items',[]):
+                if isinstance(rel,str):
+                    related.append(rel)
+                else:
+                    related.append(rel.get('query') or rel.get('keyword'))
+            break
+    st.subheader("Ricerche Correlate")
+    if related:
+        df_related = pd.DataFrame({'Query Correlata': related})
+        st.markdown(df_related.to_html(index=False), unsafe_allow_html=True)
+    else:
+        st.write("Nessuna sezione Ricerche correlate trovata.")
