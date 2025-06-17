@@ -264,7 +264,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_strategica]
         )
-    st.subheader("Analisi Strategica e GAP di Contenuto")
+    st.subheader("Search Intent & Content Analysis with NLU")
     st.markdown(resp1.text, unsafe_allow_html=True)
 
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
