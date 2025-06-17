@@ -119,6 +119,8 @@ with col5:
         key="tipologia"
     )
 
+st.markdown("---")
+
 # Step 1b: numero competitor e editor in expander
 competitor_texts = []
 with st.expander("Numero e Testi dei Competitor", expanded=not st.session_state['analysis_started']):
