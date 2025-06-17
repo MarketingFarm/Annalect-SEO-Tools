@@ -268,24 +268,20 @@ Mantieni solo le due tabelle, con markdown valido.
     st.markdown(tables[1], unsafe_allow_html=True)
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
-    # Preparo variabili per il prompt
     keyword_principale = query
     table1_entities = tables[0]
     table2_gaps = tables[1]
-    table3_related_searches = (
-        "| Query Correlata |\n| :--- |\n" +
-        "\n".join(f"| {item} |" for item in related)
-    )
-    table4_paa = (
-        "| Domanda |\n| :--- |\n" +
-        "\n".join(f"| {q} |" for q in paa_list)
-    )
-    full_text = joined_texts
+    table3_related_searches = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
+    table4_paa = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
-    prompt_banca = f"""
+    prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-**PERSONA:** Agisci come un Semantic SEO Data-Miner, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP...
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e priorizzata: la base strategica indispensabile per armare un team di contenuti e costruire un pezzo definitivo, progettato per dominare la SERP superando i competitor attuali.
+
+**OBIETTIVO FINALE:** Utilizzare l'insieme di dati forniti per generare un'unica e sintetica **banca dati di keyword strategiche**. L'output deve aggregare tutti i termini di ricerca in categorie chiare basate sulla loro tipologia e priorità, fornendo una risorsa densa e di rapida consultazione.
+
+---
 
 <INPUTS>
 * **Keyword Principale:** {keyword_principale}
@@ -293,36 +289,46 @@ Mantieni solo le due tabelle, con markdown valido.
 * **Lingua:** {language}
 * **Contesto del Contenuto:** {contesto}
 * **Tipologia di Contenuto:** {tipologia}
-* **Testi Completi dei Competitor:** {full_text}
-* **Tabella 1: Entità Principali Estratte:** {table1_entities}
-* **Tabella 2: Entità Mancanti / Content Gap:** {table2_gaps}
-* **Tabella 3: Ricerche Correlate dalla SERP:** {table3_related_searches}
-* **Tabella 4: People Also Ask (PAA) dalla SERP:** {table4_paa}
+* **Testi Completi dei Competitor:** {joined_texts}
+* **Tabella 1: Entità Principali Estratte dai Competitor:** 
+{table1_entities}
+* **Tabella 2: Entità Mancanti / Content Gap:** 
+{table2_gaps}
+* **Tabella 3: Ricerche Correlate dalla SERP:** 
+{table3_related_searches}
+* **Tabella 4: People Also Ask (PAA) dalla SERP:** 
+{table4_paa}
 </INPUTS>
 
+---
+
 <TASK>
-1. Analisi e Classificazione di keyword, entità e domande.
-2. Aggregazione e Sintesi in categorie e priorità.
-3. Formattazione finale in un'unica tabella.
+**PROCESSO DI ESECUZIONE (In ordine rigoroso):**
+
+1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domanda. Assegna a ciascuna una tipologia e una priorità strategica (Alta, Media).
+2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
+3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
+    * Usa la virgola come separatore per le liste.
+    * **IMPORTANTE:** Scrivi tutte le keyword e i concetti in minuscolo. Fai eccezione solo per la lettera iniziale delle "Domande degli Utenti", che deve essere maiuscola.
+
 </TASK>
 
 <OUTPUT_FORMAT>
 ### Banca Dati Keyword per: "{keyword_principale}"
 
-| Categoria Keyword | Elenco Keyword / Concetti / Domande (virgola) | Intento Prevalente | Fonte Dati Principale |
-| :--- | :--- | :--- | :--- |
-| **Keyword Principale** | [{keyword_principale}] | Informazionale | Input Utente |
-| **Keyword Secondarie (Priorità Alta)** |  |  | Competitor / Correlate |
-| **Keyword Secondarie (Priorità Media)** |  |  | Competitor / Correlate |
-| **Entità Semantiche (Priorità Alta)** |  |  | Entità / Testi Competitor |
-| **Entità Semantiche (Priorità Media)** |  |  | Entità / Testi Competitor |
-| **Domande degli Utenti (H3/FAQ)** |  |  | PAA / Correlate |
-</OUTPUT_FORMAT>
+| Categoria Keyword | Keywords / Concetti / Domande | Intento Prevalente |
+| :--- | :--- | :--- |
+| **Keyword Principale** | `{keyword_principale.lower()}` | _(inserisci intento primario)_ |
+| **Keyword Secondarie (Priorità Alta)** | _(inserisci qui le keyword secondarie ALTE)_ | _(es: informazionale / commerciale)_ |
+| **Keyword Secondarie (Priorità Media)** | _(inserisci qui le keyword secondarie MEDIE)_ | _(es: informazionale (pratico))_ |
+| **Keyword Correlate e LSI (Priorità Alta)** | _(inserisci qui i termini correlati ALTI)_ | _(supporto all'intento)_ |
+| **Keyword Correlate e LSI (Priorità Media)** | _(inserisci qui i termini correlati MEDI)_ | _(supporto all'intento)_ |
+| **Domande degli Utenti (H3/FAQ)** | _(inserisci qui le domande, prima lettera maiuscola)_ | _(informazionale (specifico))_ |
 """
-    with st.spinner("Generazione Banca Dati Keyword Strategiche..."):
-        resp_banca = client.models.generate_content(
+    with st.spinner("Generazione banca dati keyword..."):
+        resp3 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
-            contents=[prompt_banca]
+            contents=[prompt_bank]
         )
-    st.subheader(f"Banca Dati Keyword per: \"{keyword_principale}\"")
-    st.markdown(resp_banca.text, unsafe_allow_html=True)
+    st.subheader("Banca Dati Keyword Strategiche")
+    st.markdown(resp3.text, unsafe_allow_html=True)
