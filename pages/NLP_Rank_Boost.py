@@ -38,6 +38,9 @@ table th:nth-child(3), table td:nth-child(3),
 table th:nth-child(5), table td:nth-child(5) {
   text-align: center !important;
 }
+.ql-editor {
+  height: 250px
+}
 </style>
 """, unsafe_allow_html=True)
 
