@@ -173,8 +173,8 @@ if st.button("🚀 Avvia l'Analisi"):
         df_org.style
         .format({'URL': lambda u: u})
         .set_properties(subset=['Lunghezza Title','Lunghezza Description'], **{'text-align':'center'})
-        .map(style_title, subset=['Lunghezza Title'])
-        .map(style_desc, subset=['Lunghezza Description'])
+        .applymap(style_title, subset=['Lunghezza Title'])
+        .applymap(style_desc, subset=['Lunghezza Description'])
     )
     st.subheader("Risultati Organici (top 10)")
     st.write(styled.to_html(escape=False), unsafe_allow_html=True)
