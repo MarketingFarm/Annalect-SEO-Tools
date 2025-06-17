@@ -11,6 +11,28 @@ from google import genai
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Preformatted
 from reportlab.lib.styles import getSampleStyleSheet
 
+# --- UTILITIES CACHING GEMINI CALLS ---
+@st.cache_data(show_spinner=False)
+def run_nlu_strategica(prompt: str) -> str:
+    return client.models.generate_content(
+        model="gemini-2.5-flash-preview-05-20",
+        contents=[prompt]
+    ).text
+
+@st.cache_data(show_spinner=False)
+def run_nlu_competitiva(prompt: str) -> str:
+    return client.models.generate_content(
+        model="gemini-2.5-flash-preview-05-20",
+        contents=[prompt]
+    ).text
+
+@st.cache_data(show_spinner=False)
+def run_nlu_mining(prompt: str) -> str:
+    return client.models.generate_content(
+        model="gemini-2.5-flash-preview-05-20",
+        contents=[prompt]
+    ).text
+
 # --- INIEZIONE CSS GENERALE ---
 st.markdown("""
 <style>
@@ -263,12 +285,9 @@ Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetiz
 OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
     with st.spinner("Semantic Content Analysis with NLU..."):
-        resp1 = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            contents=[prompt_strategica]
-        )
+        resp1_text = run_nlu_strategica(prompt_strategica)
     st.subheader("Search Intent & Content Analysis with NLU")
-    st.markdown(resp1.text, unsafe_allow_html=True)
+    st.markdown(resp1_text, unsafe_allow_html=True)
 
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
     prompt_competitiva = f"""
@@ -280,7 +299,6 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
 **COMPITO:** Analizza i testi competitor:
 ---
 {joined_texts}
-
 1. Identifica l'**Entità Centrale** condivisa da tutti i testi.
 2. Definisci il **Search Intent Primario** a cui i competitor rispondono.
 3. Crea DUE tabelle Markdown separate:
@@ -296,12 +314,8 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
 OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
     with st.spinner("Entity & Semantic Gap Extraction..."):
-        resp2 = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            contents=[prompt_competitiva]
-        )
+        resp2_text = run_nlu_competitiva(prompt_competitiva)
     # Estrazione robusta delle tabelle Markdown con regex
-    resp2_text = resp2.text or ""
     pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
     table_blocks = re.findall(pattern, resp2_text)
     if len(table_blocks) >= 2:
@@ -359,28 +373,21 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 | Categoria Keyword                 | Keywords / Concetti / Domande           | Intento Prevalente           |
 | :-------------------------------- | :-------------------------------------- | :---------------------------- |
 | **Keyword Principale**            | `{keyword_principale.lower()}`          | _(inserisci intento primario)_|
-| **Keyword Secondarie**     | _(elenca keyword secondarie più importanti, non inserire in questa riga la keyword principale se già presente)_      | _(Informazionale / Commerciale ecc.)_|
-| **LSI Keywords**| _(elenca le migliori Keywords LSI)_                     | _(Supporto all'intento)_      |
+| **Keyword Secondarie**            | _(elenca keyword secondarie più importanti, non inserire in questa riga la keyword principale se già presente)_      | _(Informazionale / Commerciale ecc.)_|
+| **LSI Keywords**                  | _(elenca le migliori Keywords LSI)_                     | _(Supporto all'intento)_      |
 | **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
 </OUTPUT_FORMAT>
 """
     with st.spinner("Semantic Keyword Mining..."):
-        resp3 = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            contents=[prompt_bank]
-        )
+        resp3_text = run_nlu_mining(prompt_bank)
 
     # --- Estrazione e rendering della tabella di Semantic Keyword Mining ---
-    resp3_text = resp3.text or ""
     table_mining = None
-
-    # Prima provo con la regex multiline
     regex = r"(\|[^\n]+\n\|[^\n]+\n(?:\|.*\n)+)"
     match = re.search(regex, resp3_text + "\n", re.MULTILINE)
     if match:
         table_mining = match.group(1).strip()
     else:
-        # fallback: parsing manuale se tutto in una linea
         if "| Categoria Keyword" in resp3_text:
             parts = resp3_text.split("|")[1:]
             rows = []
@@ -401,7 +408,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     else:
         st.markdown(resp3_text, unsafe_allow_html=True)
 
-     # --- Pulsanti Reset e Download JSON affiancati ---
+    # --- Pulsanti Reset e Download JSON affiancati ---
     export_data = {
         "query": query,
         "country": country,
@@ -411,7 +418,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
         "organic": data,
         "people_also_ask": paa_list,
         "related_searches": related,
-        "analysis_strategica": resp1.text,
+        "analysis_strategica": resp1_text,
         "common_ground": table1_entities,
         "content_gap": table2_gaps,
         "keyword_mining": table_mining or resp3_text
