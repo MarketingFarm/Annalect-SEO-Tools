@@ -439,4 +439,4 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     with col_pdf:
         st.download_button("Esporta il Report", data=pdf_bytes, file_name="report.pdf", mime="application/pdf")
     with col_json:
-        st.download_button("Download (json)", data=export_json, file_name="data.json", mime="application/json")
+        st.download_button("Download (json)", data=export_json, file_name=f"{keyword_principale}.json", mime="application/json")
