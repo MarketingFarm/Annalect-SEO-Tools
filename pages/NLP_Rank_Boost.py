@@ -1,12 +1,15 @@
 import os
 import io
 import re
+import json
 import streamlit as st
 import requests
 import pandas as pd
 from urllib.parse import urlparse, urlunparse
 from streamlit_quill import st_quill
 from google import genai
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Preformatted
+from reportlab.lib.styles import getSampleStyleSheet
 
 # --- INIEZIONE CSS GENERALE ---
 st.markdown("""
@@ -342,7 +345,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 <TASK>
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
 
-1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domanda. Assegna a ciascuna una tipologia e una priorità strategica e restituisci solo quelle che hanno alti volumi di ricerca, rilevanza semantica con l'argomento e una una priorità strategica elevata.
+1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concento e domande. Assegna a ciascuna una tipologia e una priorità strategica e restituisci solo quelle che hanno alti volumi di ricerca, rilevanza semantica con l'argomento e una priorità strategica elevata.
 2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
 3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
     * Usa la virgola come separatore per le liste.
@@ -397,3 +400,43 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
         st.markdown(table_mining, unsafe_allow_html=True)
     else:
         st.markdown(resp3_text, unsafe_allow_html=True)
+
+    # --- Pulsanti Reset, Esporta PDF, Download JSON ---
+    export_data = {
+        "query": query,
+        "country": country,
+        "language": language,
+        "num_competitor": count,
+        "competitor_texts": competitor_texts,
+        "organic": data,
+        "people_also_ask": paa_list,
+        "related_searches": related,
+        "analysis_strategica": resp1.text,
+        "common_ground": table1_entities,
+        "content_gap": table2_gaps,
+        "keyword_mining": table_mining or resp3_text
+    }
+    export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
+
+    # Genera PDF
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_buffer)
+    styles = getSampleStyleSheet()
+    flowables = [
+        Paragraph("Analisi SEO Competitiva Multi-Step", styles['Title']),
+        Preformatted(export_json, styles['Code'])
+    ]
+    doc.build(flowables)
+    pdf_bytes = pdf_buffer.getvalue()
+
+    # Mostra i pulsanti
+    col_reset, col_pdf, col_json = st.columns(3)
+    with col_reset:
+        if st.button("Reset"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.experimental_rerun()
+    with col_pdf:
+        st.download_button("Esporta il Report", data=pdf_bytes, file_name="report.pdf", mime="application/pdf")
+    with col_json:
+        st.download_button("Download (json)", data=export_json, file_name="data.json", mime="application/json")
