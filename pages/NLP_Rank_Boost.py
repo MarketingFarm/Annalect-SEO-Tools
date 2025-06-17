@@ -129,31 +129,9 @@ st.markdown("---")
 contesto = ""
 tipologia = ""
 
-# Step 1c: editor in expander (mostrato solo prima dell'analisi)
-competitor_texts: list[str] = []
-with st.expander(
-    "Testi dei Competitor",
-    expanded=not st.session_state['analysis_started']
-):
-    if not st.session_state['analysis_started']:
-        idx = 1
-        for _ in range((count + 1) // 2):
-            cols_pair = st.columns(2)
-            for col in cols_pair:
-                if idx <= count:
-                    with col:
-                        st.markdown(f"**Testo Competitor #{idx}**")
-                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
-                    idx += 1
-    else:
-        # dopo l’analisi, recupera i testi già inseriti senza ricreare gli editor
-        for i in range(1, count + 1):
-            competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
-
 # Bottone di avvio
 if st.button("🚀 Avvia l'Analisi"):
     st.session_state['analysis_started'] = True
-    st.experimental_rerun()
 
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
@@ -223,7 +201,10 @@ if st.button("🚀 Avvia l'Analisi"):
 
     # --- STEP NLU: analisi strategica e gap di contenuto ---
     separator = "\n\n--- SEPARATORE TESTO ---\n\n"
-    joined_texts = separator.join(competitor_texts)
+    joined_texts = separator.join(
+        st.session_state.get(f"comp_quill_{i}", "")
+        for i in range(1, count + 1)
+    )
 
     prompt_strategica = f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
