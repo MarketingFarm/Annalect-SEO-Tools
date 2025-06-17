@@ -264,7 +264,6 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_strategica]
         )
-
     st.subheader("Analisi Strategica e GAP di Contenuto")
     st.markdown(resp1.text, unsafe_allow_html=True)
 
@@ -298,12 +297,10 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_competitiva]
         )
-
     # Estrazione robusta delle tabelle Markdown con regex
     resp2_text = resp2.text or ""
     pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
     table_blocks = re.findall(pattern, resp2_text)
-
     if len(table_blocks) >= 2:
         table1_entities = table_blocks[0].strip()
         table2_gaps = table_blocks[1].strip()
@@ -371,4 +368,16 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_bank]
         )
-    st.markdown(resp3.text, unsafe_allow_html=True)
+
+    # --- Estrazione e rendering della tabella di Semantic Keyword Mining ---
+    resp3_text = resp3.text or ""
+    # cerchiamo il blocco tabella che inizia con "| Categoria Keyword"
+    match = re.search(r"(\| Categoria Keyword[^\n]*\n\|[^\n]*\n(?:\|.*\n)+)", resp3_text)
+    if match:
+        table_mining = match.group(1).strip()
+        st.subheader("Semantic Keyword Mining with NLP")
+        st.markdown(table_mining, unsafe_allow_html=True)
+    else:
+        # fallback: mostriamo l'intero output raw se non trova il pattern
+        st.subheader("Semantic Keyword Mining with NLP")
+        st.markdown(resp3_text, unsafe_allow_html=True)
