@@ -10,7 +10,7 @@ from google import genai
 # --- INIEZIONE CSS GENERALE ---
 st.markdown("""
 <style>
-.element-container:has(> iframe) {
+.stElementContainer:has(> iframe) {
   height: 300px;
   overflow-y: scroll;
   overflow-x: hidden;
