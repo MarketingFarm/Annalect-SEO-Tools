@@ -401,7 +401,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     else:
         st.markdown(resp3_text, unsafe_allow_html=True)
 
-        # --- Pulsanti Reset e Download JSON ---
+    # --- Pulsanti Reset e Download JSON ---
     export_data = {
         "query": query,
         "country": country,
@@ -418,18 +418,17 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     }
     export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
 
+    # due colonne affiancate
     col_reset, col_json = st.columns(2)
-with col_reset:
-    if st.button("Reset"):
-        # cancello tutto lo stato; lo script verrà ricaricato automaticamente
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        # non serve altro
-
-with col_json:
-    st.download_button(
-        "Download (json)",
-        data=export_json,
-        file_name=f"{keyword_principale}.json",
-        mime="application/json"
-    )
+    with col_reset:
+        if st.button("Reset"):
+            # cancella tutto lo stato e ricarica automaticamente
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+    with col_json:
+        st.download_button(
+            "Download (json)",
+            data=export_json,
+            file_name=f"{keyword_principale}.json",
+            mime="application/json"
+        )
