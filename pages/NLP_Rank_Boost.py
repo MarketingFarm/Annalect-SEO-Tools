@@ -88,7 +88,7 @@ def fetch_serp(query: str, country: str, language: str) -> dict:
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# === SESSION STATE PER ACCORDION ===
+# === SESSION STATE PER CHIUSURA EXPANDER DOPO ANALISI ===
 if 'analysis_started' not in st.session_state:
     st.session_state['analysis_started'] = False
 
@@ -121,13 +121,14 @@ with col5:
 
 st.markdown("---")
 
-# Step 1b: numero competitor e editor in expander
-competitor_texts = []
-with st.expander("Numero e Testi dei Competitor", expanded=not st.session_state['analysis_started']):
-    num_opts = [""] + list(range(1, 6))
-    num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
-    count = int(num_comp) if isinstance(num_comp, int) else 0
+# Dropdown numero competitor appena dopo i parametri di ricerca
+num_opts = [""] + list(range(1, 6))
+num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
+count = int(num_comp) if isinstance(num_comp, int) else 0
 
+# Expander per i testi dei competitor
+competitor_texts = []
+with st.expander("Testi dei Competitor", expanded=not st.session_state['analysis_started']):
     idx = 1
     for _ in range((count + 1) // 2):
         cols_pair = st.columns(2)
@@ -173,8 +174,8 @@ if st.button("🚀 Avvia l'Analisi"):
         df_org.style
         .format({'URL': lambda u: u})
         .set_properties(subset=['Lunghezza Title','Lunghezza Description'], **{'text-align':'center'})
-        .applymap(style_title, subset=['Lunghezza Title'])
-        .applymap(style_desc, subset=['Lunghezza Description'])
+        .map(style_title, subset=['Lunghezza Title'])
+        .map(style_desc, subset=['Lunghezza Description'])
     )
     st.subheader("Risultati Organici (top 10)")
     st.write(styled.to_html(escape=False), unsafe_allow_html=True)
