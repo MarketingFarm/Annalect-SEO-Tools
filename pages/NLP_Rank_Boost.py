@@ -40,6 +40,8 @@ table th:nth-child(5), table td:nth-child(5) {
 }
 .ql-editor {
   height: 250px !important;
+  max-height: 250px !important;
+  overflow-y: auto !important;
 }
 </style>
 """, unsafe_allow_html=True)
