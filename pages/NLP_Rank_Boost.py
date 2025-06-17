@@ -401,7 +401,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     else:
         st.markdown(resp3_text, unsafe_allow_html=True)
 
-    # --- Pulsanti Reset, Esporta PDF, Download JSON ---
+        # --- Pulsanti Reset e Download JSON ---
     export_data = {
         "query": query,
         "country": country,
@@ -418,25 +418,16 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     }
     export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
 
-    # Genera PDF
-    pdf_buffer = io.BytesIO()
-    doc = SimpleDocTemplate(pdf_buffer)
-    styles = getSampleStyleSheet()
-    flowables = [
-        Paragraph("Analisi SEO Competitiva Multi-Step", styles['Title']),
-        Preformatted(export_json, styles['Code'])
-    ]
-    doc.build(flowables)
-    pdf_bytes = pdf_buffer.getvalue()
-
-    # Mostra i pulsanti
-    col_reset, col_pdf, col_json = st.columns(3)
+    col_reset, col_json = st.columns(2)
     with col_reset:
         if st.button("Reset"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.experimental_rerun()
-    with col_pdf:
-        st.download_button("Esporta il Report", data=pdf_bytes, file_name="report.pdf", mime="application/pdf")
     with col_json:
-        st.download_button("Download (json)", data=export_json, file_name=f"{keyword_principale}.json", mime="application/json")
+        st.download_button(
+            "Download (json)",
+            data=export_json,
+            file_name=f"{keyword_principale}.json",
+            mime="application/json"
+        )
