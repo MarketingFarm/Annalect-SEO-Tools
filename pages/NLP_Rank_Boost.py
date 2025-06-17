@@ -153,7 +153,7 @@ with st.expander(
         for i in range(1, count + 1):
             competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
-# Bottone di avvio, chiude subito l’expander
+# Bottone di avvio, usa on_click per chiudere l’expander immediatamente
 st.button("🚀 Avvia l'Analisi", on_click=start_analysis)
 
 # --- dopo il click, eseguo l’analisi ---
@@ -224,34 +224,42 @@ if st.session_state['analysis_started']:
         else:
             st.write("Nessuna sezione Ricerche correlate trovata.")
 
-    # --- STEP NLU: Semantic Content Intelligence ---
+    # --- STEP NLU: analisi strategica e gap di contenuto ---
     separator = "\n\n--- SEPARATORE TESTO ---\n\n"
     joined_texts = separator.join(competitor_texts)
 
     prompt_strategica = f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
-**PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor.
+**PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
+
+**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per una query strategica. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni e, soprattutto, le loro lacune.
+
+**OBIETTIVO FINALE:** Esegui una procedura in una singola fase per fornirmi un'analisi comparativa.
+1.  **FASE 1: ANALISI COMPARATIVA.** Analizza tutti i testi forniti e aggrega i risultati in una SINGOLA tabella Markdown di sintesi. La tabella deve riflettere la tendenza predominante o la media.
+
 **TESTI DEI COMPETITOR DA ANALIZZARE:**
 <TESTI>
 {joined_texts}
 </TESTI>
 
 ---
-### ISTRUZIONI PER LA TABELA DI ANALISI
+### **FASE 1: ISTRUZIONI PER LA TABELLA DI ANALISI**
+
+Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetizza il risultato. Se noti forti divergenze, segnalale (es. "Misto: 60% Informale, 40% Formale").
 
 | Caratteristica SEO              | Analisi Sintetica                                                     | Giustificazione e Dettagli                                                                 |
 | :------------------------------ | :-------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
-| **Search Intent Primario**      | `[Informazionale, Commerciale, ecc.]`                                  | `[Spiega perché... ]`                                                                       |
-| **Search Intent Secondario**    | `[Informazionale, Commerciale, ecc. o "Nessuno"]`                       | `[Spiega il secondo livello...]`                                                           |
-| **Target Audience & Leggibilità**| `[B2B Esperto, B2C Principiante, Generalista, ecc.]`                 | `[Stima il livello e il target]`                                                           |
-| **Tone of Voice (ToV)**         | `[Es: "Didattico e professionale", ...]`                              | `[3 aggettivi chiave]`                                                                      |
-| **Segnali E-E-A-T**             | `[Deboli / Medi / Forti]`                                             | `[Citazioni di esperti...]`                                                                 |
-| **Angolo del Contenuto**        | `[Es: "Guida definitiva...", ...]`                                    | `[Descrive il "gancio"...]`                                                                |
+| **Search Intent Primario**      | `[Informazionale, Commerciale, ecc.]`                                  | `[Spiega perché, es: "L'utente cerca definizioni e guide, non vuole ancora comprare."]`    |
+| **Search Intent Secondario**    | `[Informazionale, Commerciale, ecc. o "Nessuno"]`                       | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente confronta soluzioni."]` |
+| **Target Audience & Leggibilità**| `[B2B Esperto, B2C Principiante, Generalista, ecc.]`                  | `[Stima il livello (es: "Linguaggio semplice, per non addetti ai lavori") e il target.]`    |
+| **Tone of Voice (ToV)**         | `[Es: "Didattico e professionale", "Empatico e rassicurante"]`         | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]` |
+| **Segnali E-E-A-T**             | `[Deboli / Medi / Forti]`                                             | `[Elenca i segnali trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio, link a fonti autorevoli."]` |
+| **Angolo del Contenuto**        | `[Es: "Guida definitiva step-by-step", "Analisi comparativa basata su dati", "Elenco curato di risorse"]` | `[Descrive il "gancio" principale usato per attrarre il lettore.]`        |
 
-OUTPUT: **SOLO** la tabella Markdown, senza testo aggiuntivo.
+OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
-    with st.spinner("Semantic Content Analysis..."):
+    with st.spinner("Semantic Content Analysis with NLU..."):
         resp1 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_strategica]
@@ -263,9 +271,17 @@ OUTPUT: **SOLO** la tabella Markdown, senza testo aggiuntivo.
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
     prompt_competitiva = f"""
 ## ANALISI COMPETITIVA E CONTENT GAP ##
-**RUOLO:** Agisci come un analista SEO d'élite.
-**TESTI:**
+**RUOLO:** Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva.
+
+**CONTESTO:** Obiettivo: superare i primi 3 competitor per la keyword target. Analizza i loro testi.
+
+**COMPITO:** Analizza i testi competitor:
+---
 {joined_texts}
+
+1. Identifica l'**Entità Centrale** condivisa da tutti i testi.
+2. Definisci il **Search Intent Primario** a cui i competitor rispondono.
+3. Crea DUE tabelle Markdown separate:
 
 ### TABELLA 1: Common Ground Analysis
 | Entità | Rilevanza Strategica | Azione SEO Strategica |
@@ -275,50 +291,68 @@ OUTPUT: **SOLO** la tabella Markdown, senza testo aggiuntivo.
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
-OUTPUT: **SOLO** le due tabelle Markdown.
+OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
     with st.spinner("Entity & Semantic Gap Extraction..."):
         resp2 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_competitiva]
         )
-
     tables = [blk for blk in resp2.text.split("\n\n") if blk.strip().startswith("|")]
-    if len(tables) >= 2:
-        st.subheader("Semantic Common Ground Analysis")
-        st.markdown(tables[0], unsafe_allow_html=True)
-        st.subheader("Semantic Content Gap Opportunity")
-        st.markdown(tables[1], unsafe_allow_html=True)
-    else:
-        st.error("⚠️ Gemini non ha restituito le tabelle attese per l'analisi entità.")
-        st.markdown("**Output grezzo del modello:**")
-        st.text(resp2.text)
+    st.subheader("Semantic Common Ground Analysis")
+    st.markdown(tables[0], unsafe_allow_html=True)
+    st.subheader("Semantic Content Gap Opportunity)")
+    st.markdown(tables[1], unsafe_allow_html=True)
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
-    table1_entities      = tables[0] if len(tables) > 0 else ""
-    table2_gaps          = tables[1] if len(tables) > 1 else ""
+    table1_entities = tables[0]
+    table2_gaps = tables[1]
     table3_related_searches = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
-    table4_paa              = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
+    table4_paa = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-**INPUTS:**
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria...
 * **Keyword Principale:** {keyword_principale}
-* **Tabella 1: Entità Principali:** 
+* **Country:** {country}
+* **Lingua:** {language}
+* **Testi Completi dei Competitor:** {joined_texts}
+* **Tabella 1: Entità Principali Estratte dai Competitor:** 
 {table1_entities}
-* **Tabella 2: Entità Mancanti:** 
+* **Tabella 2: Entità Mancanti / Content Gap:** 
 {table2_gaps}
-* **Tabella 3: Ricerche Correlate:** 
+* **Tabella 3: Ricerche Correlate dalla SERP:** 
 {table3_related_searches}
-* **Tabella 4: People Also Ask:** 
+* **Tabella 4: People Also Ask (PAA) dalla SERP:** 
 {table4_paa}
+</INPUTS>
+
+---
 
 <TASK>
-...
-OUTPUT: tabella unica...
+**PROCESSO DI ESECUZIONE (In ordine rigoroso):**
+
+1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domanda. Assegna a ciascuna una tipologia e una priorità strategica (Alta, Media).
+2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
+3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
+    * Usa la virgola come separatore per le liste.
+    * **IMPORTANTE:** Scrivi tutte le keyword e i concetti in minuscolo. Fai eccezione solo per la lettera iniziale delle "Domande degli Utenti", che deve essere maiuscola.
+
 </TASK>
+
+<OUTPUT_FORMAT>
+### Semantic Keyword Mining with NLP
+
+| Categoria Keyword                 | Keywords / Concetti / Domande           | Intento Prevalente           |
+| :-------------------------------- | :-------------------------------------- | :---------------------------- |
+| **Keyword Principale**            | `{keyword_principale.lower()}`          | _(inserisci intento primario)_|
+| **Keyword Secondarie (Alta)**     | _(elenca keyword secondarie alte)_      | _(Informazionale / Commerciale ecc.)_|
+| **Keyword Secondarie (Media)**    | _(elenca keyword secondarie medie)_     | _(Informazionale (Pratico))_  |
+| **Keyword Correlate e LSI (Alta)**| _(elenca LSI alta)_                     | _(Supporto all'intento)_      |
+| **Keyword Correlate e LSI (Media)**| _(elenca LSI media)_                   | _(Supporto all'intento)_      |
+| **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
 """
     with st.spinner("Semantic Keyword Mining..."):
         resp3 = client.models.generate_content(
