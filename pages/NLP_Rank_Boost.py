@@ -88,12 +88,16 @@ def fetch_serp(query: str, country: str, language: str) -> dict:
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
+# === SESSION STATE PER ACCORDION ===
+if 'analysis_started' not in st.session_state:
+    st.session_state['analysis_started'] = False
+
 # === UI PRINCIPALE ===
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Step 1 inputs
+# Step 1 inputs: query, country, language, contesto, tipologia
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     query = st.text_input("Query", key="query")
@@ -116,24 +120,28 @@ with col5:
     )
 
 st.markdown("---")
-num_opts = [""] + list(range(1, 6))
-num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
-count = int(num_comp) if isinstance(num_comp, int) else 0
 
-# editor WYSIWYG per competitor
+# Step 1b: numero competitor e editor in expander
 competitor_texts = []
-idx = 1
-for _ in range((count + 1) // 2):
-    cols_pair = st.columns(2)
-    for col in cols_pair:
-        if idx <= count:
-            with col:
-                st.markdown(f"**Testo Competitor #{idx}**")
-                competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
-            idx += 1
+with st.expander("Numero e Testi dei Competitor", expanded=not st.session_state['analysis_started']):
+    num_opts = [""] + list(range(1, 6))
+    num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
+    count = int(num_comp) if isinstance(num_comp, int) else 0
 
-# Avvia Analisi
+    idx = 1
+    for _ in range((count + 1) // 2):
+        cols_pair = st.columns(2)
+        for col in cols_pair:
+            if idx <= count:
+                with col:
+                    st.markdown(f"**Testo Competitor #{idx}**")
+                    competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
+                idx += 1
+
+# Bottone di avvio
 if st.button("🚀 Avvia l'Analisi"):
+    st.session_state['analysis_started'] = True
+
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
         st.stop()
