@@ -91,8 +91,6 @@ client = genai.Client(api_key=api_key)
 # === SESSION STATE PER ACCORDION ===
 if 'analysis_started' not in st.session_state:
     st.session_state['analysis_started'] = False
-if 'comp_expander' not in st.session_state:
-    st.session_state['comp_expander'] = False
 
 # === UI PRINCIPALE ===
 st.title("Analisi SEO Competitiva Multi-Step")
@@ -116,20 +114,19 @@ with col5:
         "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
     }
     tipologia = st.selectbox(
-        "Tipologia",
+        "Tipologia di Contenuto",
         [""] + tip_map.get(contesto, []),
         key="tipologia"
     )
 
 st.markdown("---")
 
-# Step 1b: expander vuoto con key per nascondere/mostrare editor
-with st.expander("Numero e Testi dei Competitor", expanded=False, key="comp_expander"):
-    st.write("")  # intestazione dell'expander, editor fuori
-
-# Generazione editor SOLO quando expander è chiuso
+# Step 1b: numero competitor e editor in expander collapsible
 competitor_texts = []
-if not st.session_state["comp_expander"]:
+with st.expander(
+    "Numero e Testi dei Competitor",
+    expanded=not st.session_state['analysis_started']
+):
     num_opts = [""] + list(range(1, 6))
     num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
     count = int(num_comp) if isinstance(num_comp, int) else 0
@@ -143,11 +140,6 @@ if not st.session_state["comp_expander"]:
                     st.markdown(f"**Testo Competitor #{idx}**")
                     competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
                 idx += 1
-else:
-    # quando expander è aperto, manteniamo count e testi precedenti solo in session_state
-    count = int(st.session_state.get("num_competitor", 0))
-    for i in range(1, count+1):
-        competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
 # Bottone di avvio
 if st.button("🚀 Avvia l'Analisi"):
@@ -316,7 +308,7 @@ Mantieni solo le due tabelle, con markdown valido.
 * **Keyword Principale:** {keyword_principale}
 * **Country:** {country}
 * **Lingua:** {language}
-* **Contesto del Contenido:** {contesto}
+* **Contesto del Contenuto:** {contesto}
 * **Tipologia di Contenuto:** {tipologia}
 * **Testi Completi dei Competitor:** {joined_texts}
 * **Tabella 1: Entità Principali Estratte dai Competitor:** 
