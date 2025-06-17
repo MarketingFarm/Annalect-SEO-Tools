@@ -38,11 +38,6 @@ table th:nth-child(3), table td:nth-child(3),
 table th:nth-child(5), table td:nth-child(5) {
   text-align: center !important;
 }
-.ql-editor {
-  height: 250px !important;
-  max-height: 250px !important;
-  overflow-y: auto !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,7 +134,7 @@ if not st.session_state['analysis_started']:
                 if idx <= count:
                     with col:
                         st.markdown(f"**Testo Competitor #{idx}**")
-                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
+                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}", height=250))
                     idx += 1
 else:
     # dopo l'analisi, recupero i testi già inseriti dallo session_state
