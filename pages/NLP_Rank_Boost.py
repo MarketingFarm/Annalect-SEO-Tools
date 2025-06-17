@@ -43,6 +43,9 @@ table th:nth-child(5), table td:nth-child(5) {
   overflow-y: scroll;
   overflow-x: hidden;
 }
+.ql-editor {
+  max-height: 250px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
