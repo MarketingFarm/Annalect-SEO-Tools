@@ -228,6 +228,8 @@ Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetiz
 | **Angolo del Contenuto**        | `[Es: "Guida definitiva step-by-step", "Analisi comparativa basata su dati", "Elenco curato di risorse"]` | `[Descrive il "gancio" principale usato per attrarre il lettore.]`        |
 | **Cluster di Topic / Entità**   | `[Elenca i 3-5 sotto-argomenti o entità più comuni]`                   | `[Esempi di concetti ricorrenti che dimostrano la completezza, es: "Prezzi, Vantaggi, Alternative A, Normativa XYZ".]` |
 | **Segnali E-E-A-T**             | `[Deboli / Medi / Forti]`                                             | `[Elenca i segnali trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio, link a fonti autorevoli."]` |
+
+OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
 
     with st.spinner("Analisi strategica e gap di contenuto..."):
