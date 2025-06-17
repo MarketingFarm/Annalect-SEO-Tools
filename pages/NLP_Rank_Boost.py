@@ -114,7 +114,7 @@ with col5:
         "Blog / Contenuto Informativo": ["Articolo", "Pagina informativa"]
     }
     tipologia = st.selectbox(
-        "Tipologia di Contenuto",
+        "Tipologia",
         [""] + tip_map.get(contesto, []),
         key="tipologia"
     )
