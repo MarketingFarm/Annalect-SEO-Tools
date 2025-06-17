@@ -228,7 +228,7 @@ if st.button("🚀 Avvia l'Analisi"):
     joined_texts = separator.join(competitor_texts)
 
     prompt_strategica = f"""
-## PROMPT: ANALISI STRATEGICA E DI GAP DI CONTENUTO ##
+## PROMPT: NLU Semantic Content Intelligence ##
 
 **PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
 
@@ -253,14 +253,13 @@ Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetiz
 | **Search Intent Secondario**    | `[Informazionale, Commerciale, ecc. o "Nessuno"]`                       | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente confronta soluzioni."]` |
 | **Target Audience & Leggibilità**| `[B2B Esperto, B2C Principiante, Generalista, ecc.]`                  | `[Stima il livello (es: "Linguaggio semplice, per non addetti ai lavori") e il target.]`    |
 | **Tone of Voice (ToV)**         | `[Es: "Didattico e professionale", "Empatico e rassicurante"]`         | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]` |
-| **Angolo del Contenuto**        | `[Es: "Guida definitiva step-by-step", "Analisi comparativa basata su dati", "Elenco curato di risorse"]` | `[Descrive il "gancio" principale usato per attrarre il lettore.]`        |
-| **Cluster di Topic / Entità**   | `[Elenca i 3-5 sotto-argomenti o entità più comuni]`                   | `[Esempi di concetti ricorrenti che dimostrano la completezza, es: "Prezzi, Vantaggi, Alternative A, Normativa XYZ".]` |
 | **Segnali E-E-A-T**             | `[Deboli / Medi / Forti]`                                             | `[Elenca i segnali trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio, link a fonti autorevoli."]` |
+| **Angolo del Contenuto**        | `[Es: "Guida definitiva step-by-step", "Analisi comparativa basata su dati", "Elenco curato di risorse"]` | `[Descrive il "gancio" principale usato per attrarre il lettore.]`        |
 
 OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
 
-    with st.spinner("Analisi strategica e gap di contenuto..."):
+    with st.spinner("Semantic Content Analysis with NLU..."):
         resp1 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_strategica]
@@ -284,15 +283,15 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
 2. Definisci il **Search Intent Primario** a cui i competitor rispondono.
 3. Crea DUE tabelle Markdown separate:
 
-### TABELLA 1: ENTITÀ FONDAMENTALI (Common Ground Analysis)
-| Entità | Rilevanza Strategica | Azione per il Mio Testo |
+### TABELLA 1: Common Ground Analysis
+| Entità | Rilevanza Strategica | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
-### TABELLA 2: ENTITÀ MANCANTI (Content Gap Opportunity)
+### TABELLA 2: Content Gap Opportunity
 | Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
 | :--- | :--- | :--- |
 
-Mantieni solo le due tabelle, con markdown valido.
+OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
     with st.spinner("Analisi entità e content gap..."):
         resp2 = client.models.generate_content(
@@ -352,21 +351,20 @@ Mantieni solo le due tabelle, con markdown valido.
 </TASK>
 
 <OUTPUT_FORMAT>
-### Banca Dati Keyword per: "{keyword_principale}"
+### Semantic Keyword Mining with NLP"
 
-| Categoria Keyword | Keywords / Concetti / Domande | Intento Prevalente |
+| Tipologia | Keywords / Concetti / Domande | Serch Intent |
 | :--- | :--- | :--- |
 | **Keyword Principale** | `{keyword_principale.lower()}` | _(inserisci intento primario)_ |
-| **Keyword Secondarie (Priorità Alta)** | _(inserisci qui le keyword secondarie ALTE)_ | _(es: informazionale / commerciale)_ |
+| **Keyword Secondarie (Priorità Alta)** | _(inserisci qui le keyword secondarie ALTE, non ripetere la keyword principale se presente)_ | _(es: informazionale, commerciale, transazionale o una combinazione come ad esempio commerciale / transazione, commerciale / transazionale ecc.)_ |
 | **Keyword Secondarie (Priorità Media)** | _(inserisci qui le keyword secondarie MEDIE)_ | _(es: informazionale (pratico))_ |
-| **Keyword Correlate e LSI (Priorità Alta)** | _(inserisci qui i termini correlati ALTI)_ | _(supporto all'intento)_ |
-| **Keyword Correlate e LSI (Priorità Media)** | _(inserisci qui i termini correlati MEDI)_ | _(supporto all'intento)_ |
+| **LSI Keywords (Priorità Alta)** | _(inserisci qui i termini correlati ALTI)_ | _(supporto all'intento)_ |
+| **LSI Keywords (Priorità Media)** | _(inserisci qui i termini correlati MEDI)_ | _(supporto all'intento)_ |
 | **Domande degli Utenti (H3/FAQ)** | _(inserisci qui le domande, prima lettera maiuscola)_ | _(informazionale (specifico))_ |
 """
-    with st.spinner("Generazione banca dati keyword..."):
+    with st.spinner("Semantic Keyword Mining..."):
         resp3 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_bank]
         )
-    st.subheader("Banca Dati Keyword Strategiche")
     st.markdown(resp3.text, unsafe_allow_html=True)
