@@ -105,6 +105,9 @@ client = genai.Client(api_key=api_key)
 if 'analysis_started' not in st.session_state:
     st.session_state['analysis_started'] = False
 
+def start_analysis():
+    st.session_state['analysis_started'] = True
+
 # === UI PRINCIPALE ===
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
@@ -150,15 +153,14 @@ with st.expander(
         for i in range(1, count + 1):
             competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
+# Bottone di avvio, usa on_click per chiudere l’expander immediatamente
+st.button("🚀 Avvia l'Analisi", on_click=start_analysis)
+
 # --- dopo il click, eseguo l’analisi ---
 if st.session_state['analysis_started']:
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
         st.stop()
-
-  # Bottone di avvio
-if st.button("🚀 Avvia l'Analisi"):
-    st.session_state['analysis_started'] = True
 
     # --- STEP SERP SCRAPING E TABELLE ---
     result = fetch_serp(query, country, language)
