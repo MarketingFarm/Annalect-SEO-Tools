@@ -133,6 +133,29 @@ tipologia = ""
 if st.button("🚀 Avvia l'Analisi"):
     st.session_state['analysis_started'] = True
 
+# Step 1c: editor in expander
+competitor_texts: list[str] = []
+with st.expander(
+    "Testi dei Competitor",
+    expanded=not st.session_state['analysis_started']
+):
+    if not st.session_state['analysis_started']:
+        idx = 1
+        for _ in range((count + 1) // 2):
+            cols_pair = st.columns(2)
+            for col in cols_pair:
+                if idx <= count:
+                    with col:
+                        st.markdown(f"**Testo Competitor #{idx}**")
+                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
+                    idx += 1
+    else:
+        # dopo l’analisi, recupera i testi già inseriti senza ricreare gli editor
+        for i in range(1, count + 1):
+            competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
+
+# --- dopo il click, eseguo l’analisi ---
+if st.session_state['analysis_started']:
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
         st.stop()
@@ -201,10 +224,7 @@ if st.button("🚀 Avvia l'Analisi"):
 
     # --- STEP NLU: analisi strategica e gap di contenuto ---
     separator = "\n\n--- SEPARATORE TESTO ---\n\n"
-    joined_texts = separator.join(
-        st.session_state.get(f"comp_quill_{i}", "")
-        for i in range(1, count + 1)
-    )
+    joined_texts = separator.join(competitor_texts)
 
     prompt_strategica = f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
@@ -292,18 +312,10 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e priorizzata: la base strategica indispensabile per armare un team di contenuti e costruire un pezzo definitivo, progettato per dominare la SERP superando i competitor attuali.
-
-**OBIETTIVO FINALE:** Utilizzare l'insieme di dati forniti per generare un'unica e sintetica **banca dati di keyword strategiche**. L'output deve aggregare tutti i termini di ricerca in categorie chiare basate sulla loro tipologia e priorità, fornendo una risorsa densa e di rapida consultazione.
-
----
-
-<INPUTS>
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria...
 * **Keyword Principale:** {keyword_principale}
 * **Country:** {country}
 * **Lingua:** {language}
-* **Contesto del Contenuto:** {contesto}
-* **Tipologia di Contenuto:** {tipologia}
 * **Testi Completi dei Competitor:** {joined_texts}
 * **Tabella 1: Entità Principali Estratte dai Competitor:** 
 {table1_entities}
@@ -331,18 +343,19 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 <OUTPUT_FORMAT>
 ### Semantic Keyword Mining with NLP
 
-| Tipologia                   | Keywords / Concetti / Domande | Search Intent                      |
-| :--------------------------  | :---------------------------  | :--------------------------------- |
-| **Keyword Principale**       | `{keyword_principale.lower()}`| _(inserisci intento primario)_     |
-| **Keyword Secondarie (Alta)**| _(elenca keyword secondarie alte)_  | _(Informazionale / Commerciale ecc.)_ |
-| **Keyword Secondarie (Media)**| _(elenca keyword secondarie medie)_ | _(Informazionale (Pratico))_       |
-| **LSI Keywords (Alta)**      | _(elenca LSI alta)_           | _(Supporto all'intento)_           |
-| **LSI Keywords (Media)**     | _(elenca LSI media)_          | _(Supporto all'intento)_           |
-| **Domande Utenti (FAQ)**     | _(elenca domande, prima lettera maiuscola)_ | _(Informazionale (Specifico))_ |
+| Categoria Keyword                 | Keywords / Concetti / Domande           | Intento Prevalente           |
+| :-------------------------------- | :-------------------------------------- | :---------------------------- |
+| **Keyword Principale**            | `{keyword_principale.lower()}`          | _(inserisci intento primario)_|
+| **Keyword Secondarie (Alta)**     | _(elenca keyword secondarie alte)_      | _(Informazionale / Commerciale ecc.)_|
+| **Keyword Secondarie (Media)**    | _(elenca keyword secondarie medie)_     | _(Informazionale (Pratico))_  |
+| **Keyword Correlate e LSI (Alta)**| _(elenca LSI alta)_                     | _(Supporto all'intento)_      |
+| **Keyword Correlate e LSI (Media)**| _(elenca LSI media)_                   | _(Supporto all'intento)_      |
+| **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
 """
     with st.spinner("Semantic Keyword Mining..."):
         resp3 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_bank]
         )
+    st.subheader("Banca Dati Keyword Strategiche")
     st.markdown(resp3.text, unsafe_allow_html=True)
