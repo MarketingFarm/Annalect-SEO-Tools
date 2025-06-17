@@ -121,12 +121,9 @@ with col5:
 
 st.markdown("---")
 
-# Step 1b: numero competitor e editor in expander collapsible
+# Step 1b: numero competitor e editor in expander
 competitor_texts = []
-with st.expander(
-    "Numero e Testi dei Competitor",
-    expanded=not st.session_state['analysis_started']
-):
+with st.expander("Numero e Testi dei Competitor", expanded=not st.session_state['analysis_started']):
     num_opts = [""] + list(range(1, 6))
     num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
     count = int(num_comp) if isinstance(num_comp, int) else 0
