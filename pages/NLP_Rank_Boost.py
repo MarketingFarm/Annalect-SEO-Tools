@@ -129,10 +129,6 @@ st.markdown("---")
 contesto = ""
 tipologia = ""
 
-# Bottone di avvio
-if st.button("🚀 Avvia l'Analisi"):
-    st.session_state['analysis_started'] = True
-
 # Step 1c: editor in expander
 competitor_texts: list[str] = []
 with st.expander(
@@ -159,6 +155,10 @@ if st.session_state['analysis_started']:
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
         st.stop()
+
+  # Bottone di avvio
+if st.button("🚀 Avvia l'Analisi"):
+    st.session_state['analysis_started'] = True
 
     # --- STEP SERP SCRAPING E TABELLE ---
     result = fetch_serp(query, country, language)
