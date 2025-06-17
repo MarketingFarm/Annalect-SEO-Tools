@@ -195,41 +195,71 @@ if st.button("🚀 Avvia l'Analisi"):
         else:
             st.write("Nessuna sezione Ricerche correlate trovata.")
 
-    # --- STEP NLU: leggibilità, intent, tone, sentiment ---
-    joined_texts = "\n---\n".join(competitor_texts)
-    prompt_sintetica = f"""
-## PROMPT: ANALISI SINTETICA AVANZATA DEL CONTENUTO ##
+# --- STEP NLU: ANALISI STRATEGICA E DI GAP DI CONTENUTO ---
+    separator = "\n\n--- SEPARATORE TESTO ---\n\n"
+    joined_texts = separator.join(competitor_texts)
 
-**RUOLO:** Agisci come un analista SEO e Content Strategist esperto. Il tuo compito è distillare le caratteristiche qualitative fondamentali da un insieme di testi dei competitor.
+    prompt_strategica = f"""
+**PRIMO PASSAGGIO**
 
-**CONTESTO:** Ho raccolto i testi delle pagine che si posizionano meglio in Google per una specifica query. Devo capire le loro caratteristiche comuni per creare un contenuto superiore.
+## PROMPT: ANALISI STRATEGICA E DI GAP DI CONTENUTO ##
 
-**OBIETTIVO:** Analizza i testi forniti di seguito e compila UNA SINGOLA tabella Markdown di sintesi. La tabella deve rappresentare la media o la tendenza predominante riscontrata in TUTTI i testi.
+**PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
 
-**TESTI DA ANALIZZARE:**
----
+**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per una query strategica. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni e, soprattutto, le loro lacune.
+
+**OBIETTIVO FINALE:** Esegui una procedura in due fasi per fornirmi un'analisi completa e un piano d'azione strategico.
+1.  **FASE 1: ANALISI COMPARATIVA.** Analizza tutti i testi forniti e aggrega i risultati in una SINGOLA tabella Markdown di sintesi. La tabella deve riflettere la tendenza predominante o la media.
+2.  **FASE 2: INSIGHT STRATEGICI.** Subito dopo la tabella, fornisci un'analisi qualitativa che traduca i dati in strategia.
+
+**TESTI DEI COMPETITOR DA ANALIZZARE:**
+<TESTI>
 {joined_texts}
+</TESTI>
+
 ---
+### **FASE 1: ISTRUZIONI PER LA TABELLA DI ANALISI**
 
-**ISTRUZIONI DETTAGLIATE PER LA COMPILAZIONE:**
+Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetizza il risultato. Se noti forti divergenze, segnalale (es. "Misto: 60% Informale, 40% Formale").
 
-1. **Livello Leggibilità:** Stima il pubblico di destinazione basandoti sulla complessità generale del linguaggio e dei concetti. Inserisci anche il target (Generalista, B2C, B2B o più di uno).
-2. **Search Intent:** Classificazione (Informazionale, Transazionale, Commerciale, Navigazionale).
-3. **Tone of Voce:** Tono predominante (es: "Formale e accademico", "Informale e rassicurante").
-4. **Tone of Voice (Approfondimento):** Tre aggettivi distinti.
-5. **Sentiment Medio:** Positivo/Neutro/Negativo con giustificazione (≤10 parole).
+| Caratteristica SEO                   | Analisi Sintetica                                              | Giustificazione e Dettagli                                                                 |
+| :---                                  | :---                                                           | :---                                                                                       |
+| **Search Intent Primario**           | `[Informazionale, Commerciale, ecc.]`                          | `[Spiega perché, es: "L'utente cerca definizioni e guide, non vuole ancora comprare."]`      |
+| **Search Intent Secondario**         | `[Informazionale, Commerciale, ecc. o "Nessuno"]`               | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente confronta soluzioni."]` |
+| **Target Audience & Leggibilità**    | `[B2B Esperto, B2C Principiante, Generalista, ecc.]`            | `[Stima il livello (es: "Linguaggio semplice, per non addetti ai lavori") e il target.]`     |
+| **Tone of Voice (ToV)**              | `[Es: "Didattico e professionale", "Empatico e rassicurante"]` | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]` |
+| **Angolo del Contenuto**             | `[Es: "Guida definitiva step-by-step", "Analisi comparativa basata su dati"]` | `[Descrive il "gancio" principale usato per attrarre il lettore.]`                          |
+| **Cluster di Topic / Entità**        | `[Elenca i 3-5 sotto-argomenti o entità più comuni]`           | `[Esempi di concetti ricorrenti che dimostrano la completezza, es: "Prezzi, Vantaggi, Alternative A, Normativa XYZ".]` |
+| **Segnali E-E-A-T**                  | `[Deboli / Medi / Forti]`                                      | `[Elenca i segnali trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio, link a fonti autorevoli."]` |
 
-Output: **SOLO** la tabella Markdown iniziando dall’header.
-| Livello Leggibilità | Search Intent | Tone of Voce | Tone of Voice (Approfondimento) | Sentiment Medio |
-| :--- | :--- | :--- | :--- | :--- |
+---
+### **FASE 2: ISTRUZIONI PER GLI INSIGHT STRATEGICI**
+
+Basandoti sull'analisi precedente, rispondi in modo conciso ma approfondito alle seguenti domande strategiche. Usa elenchi puntati per chiarezza.
+
+**1. Content Gap e Opportunità:**
+* Quali sotto-argomenti o domande degli utenti vengono trattati superficialmente o ignorati da tutti i competitor?
+* Quale **Angolo del Contenuto** alternativo o più potente potremmo adottare per differenziarci?
+
+**2. Opportunità su E-E-A-T:**
+* Qual è la più grande debolezza dei competitor in termini di Esperienza, Competenza, Autorevolezza e Affidabilità?
+* Come possiamo iniettare segnali E-E-A-T superiori nel nostro contenuto (es. dati proprietari, intervista a un esperto, test personali, ecc.)?
+
+**3. Piano d'Azione Suggerito (3 punti):**
+* **Punto 1:** `[Azione concreta per la struttura o la profondità del contenuto.]`
+* **Punto 2:** `[Azione concreta per attaccare il content gap identificato.]`
+* **Punto 3:** `[Azione concreta per costruire un E-E-A-T superiore.]`
 """
-    with st.spinner("Analisi qualitativa (leggibilità, intent, tone, sentiment)..."):
-        resp1 = client.models.generate_content(
+    with st.spinner("Analisi strategica e gap di contenuto..."):
+        resp_strat = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
-            contents=[prompt_sintetica]
+            contents=[prompt_strategica]
         )
-    st.subheader("Sintesi Qualitativa")
-    st.markdown(resp1.text, unsafe_allow_html=True)
+    parts = resp_strat.text.strip().split("\n\n")
+    st.subheader("Fase 1: Analisi Comparativa")
+    st.markdown(parts[0], unsafe_allow_html=True)
+    st.subheader("Fase 2: Insight Strategici")
+    st.markdown("\n\n".join(parts[1:]), unsafe_allow_html=True)
 
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
     prompt_competitiva = f"""
