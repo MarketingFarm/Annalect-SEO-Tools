@@ -369,13 +369,31 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 
     # --- Estrazione e rendering della tabella di Semantic Keyword Mining ---
     resp3_text = resp3.text or ""
-    # cerchiamo il blocco tabella che inizia con "| Categoria Keyword"
-    match = re.search(r"(\| Categoria Keyword[^\n]*\n\|[^\n]*\n(?:\|.*\n)+)", resp3_text)
+    table_mining = None
+
+    # Prima provo con la regex multiline
+    regex = r"(\|[^\n]+\n\|[^\n]+\n(?:\|.*\n)+)"
+    match = re.search(regex, resp3_text + "\n", re.MULTILINE)
     if match:
         table_mining = match.group(1).strip()
-        st.subheader("Semantic Keyword Mining with NLP")
+    else:
+        # fallback: parsing manuale se tutto in una linea
+        if "| Categoria Keyword" in resp3_text:
+            parts = resp3_text.split("|")[1:]
+            rows = []
+            for i in range(0, len(parts), 4):
+                if i + 2 < len(parts):
+                    f1 = parts[i].strip()
+                    f2 = parts[i+1].strip()
+                    f3 = parts[i+2].strip()
+                    rows.append(f"| {f1} | {f2} | {f3} |")
+            if rows:
+                header = rows[0]
+                alignment = "| :-------------------------------- | :-------------------------------------- | :---------------------------- |"
+                table_mining = "\n".join([header, alignment] + rows[1:])
+
+    st.subheader("Semantic Keyword Mining with NLP")
+    if table_mining:
         st.markdown(table_mining, unsafe_allow_html=True)
     else:
-        # fallback: mostriamo l'intero output raw se non trova il pattern
-        st.subheader("Semantic Keyword Mining with NLP")
         st.markdown(resp3_text, unsafe_allow_html=True)
