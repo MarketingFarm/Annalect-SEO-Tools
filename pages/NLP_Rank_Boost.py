@@ -68,7 +68,7 @@ def clean_url(url: str) -> str:
     return urlunparse(cleaned)
 
 @st.cache_data(show_spinner=True)
-def fetch_serp(query: str, country: str, language: str) -> dict:
+def fetch_serp(query: str, country: str, language: str) -> dict | None:
     payload = [{
         'keyword': query,
         'location_name': country,
@@ -82,13 +82,20 @@ def fetch_serp(query: str, country: str, language: str) -> dict:
         json=payload
     )
     resp.raise_for_status()
-    return resp.json()['tasks'][0]['result'][0]
+    data = resp.json()
+    tasks = data.get('tasks')
+    if not tasks:
+        return None
+    results = tasks[0].get('result')
+    if not results:
+        return None
+    return results[0]
 
 # --- CONFIG GEMINI / VERTEX AI ---
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# === SESSION STATE PER CHIUSURA EXPANDER DOPO ANALISI ===
+# === SESSION STATE PER CHIUDERE EXPANDER DOPO ANALISI ===
 if 'analysis_started' not in st.session_state:
     st.session_state['analysis_started'] = False
 
@@ -97,7 +104,7 @@ st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Step 1 inputs: query, country, language, contesto, tipologia
+# Step 1 inputs
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     query = st.text_input("Query", key="query")
@@ -121,23 +128,29 @@ with col5:
 
 st.markdown("---")
 
-# Dropdown numero competitor appena dopo i parametri di ricerca
+# Step 1b: numero competitor
 num_opts = [""] + list(range(1, 6))
 num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
 count = int(num_comp) if isinstance(num_comp, int) else 0
 
-# Expander per i testi dei competitor
+# Step 1c: editor in expander (mostrato solo prima dell'analisi)
+competitor_texts: list[str]
 competitor_texts = []
-with st.expander("Testi dei Competitor", expanded=not st.session_state['analysis_started']):
-    idx = 1
-    for _ in range((count + 1) // 2):
-        cols_pair = st.columns(2)
-        for col in cols_pair:
-            if idx <= count:
-                with col:
-                    st.markdown(f"**Testo Competitor #{idx}**")
-                    competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
-                idx += 1
+if not st.session_state['analysis_started']:
+    with st.expander("Testi dei Competitor", expanded=True):
+        idx = 1
+        for _ in range((count + 1) // 2):
+            cols_pair = st.columns(2)
+            for col in cols_pair:
+                if idx <= count:
+                    with col:
+                        st.markdown(f"**Testo Competitor #{idx}**")
+                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
+                    idx += 1
+else:
+    # dopo l'analisi, recupero i testi già inseriti dallo session_state
+    for i in range(1, count+1):
+        competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
 # Bottone di avvio
 if st.button("🚀 Avvia l'Analisi"):
@@ -149,6 +162,9 @@ if st.button("🚀 Avvia l'Analisi"):
 
     # --- STEP SERP SCRAPING E TABELLE ---
     result = fetch_serp(query, country, language)
+    if result is None:
+        st.error("Errore nel recupero dei dati SERP. Verifica query e parametri.")
+        st.stop()
     items = result.get('items', [])
 
     # ORGANIC TOP 10
@@ -166,10 +182,13 @@ if st.button("🚀 Avvia l'Analisi"):
             'Lunghezza Description': len(desc)
         })
     df_org = pd.DataFrame(data)
+
     def style_title(val):
         return 'background-color: #d4edda' if 50 <= val <= 60 else 'background-color: #f8d7da'
+
     def style_desc(val):
         return 'background-color: #d4edda' if 120 <= val <= 160 else 'background-color: #f8d7da'
+
     styled = (
         df_org.style
         .format({'URL': lambda u: u})
