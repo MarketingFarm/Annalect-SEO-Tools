@@ -8,3 +8,4 @@ trafilatura>=1.2.4
 google-genai>=0.5.3
 streamlit-quill==0.0.3
 tabulate>=0.8.10
+reportlab>=3.6.12
