@@ -131,8 +131,11 @@ tipologia = ""
 
 # Step 1c: editor in expander (mostrato solo prima dell'analisi)
 competitor_texts: list[str] = []
-if not st.session_state['analysis_started']:
-    with st.expander("Testi dei Competitor", expanded=True):
+with st.expander(
+    "Testi dei Competitor",
+    expanded=not st.session_state['analysis_started']
+):
+    if not st.session_state['analysis_started']:
         idx = 1
         for _ in range((count + 1) // 2):
             cols_pair = st.columns(2)
@@ -142,10 +145,10 @@ if not st.session_state['analysis_started']:
                         st.markdown(f"**Testo Competitor #{idx}**")
                         competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
                     idx += 1
-else:
-    # dopo l'analisi, recupero i testi già inseriti dallo session_state
-    for i in range(1, count+1):
-        competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
+    else:
+        # dopo l’analisi, recupera i testi già inseriti senza ricreare gli editor
+        for i in range(1, count + 1):
+            competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
 # Bottone di avvio
 if st.button("🚀 Avvia l'Analisi"):
