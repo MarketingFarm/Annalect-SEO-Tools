@@ -104,11 +104,7 @@ st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Definisco contesto e tipologia vuoti (se usati in prompt_bank)
-contesto = ""
-tipologia = ""
-
-# Step 1 inputs su 4 colonne: query, country, lingua, numero competitor
+# Step 1 inputs: query, country, language, numero competitor
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     query = st.text_input("Query", key="query")
@@ -118,12 +114,16 @@ with col3:
     language = st.selectbox("Lingua", [""] + get_languages(), key="language")
 with col4:
     num_opts = [""] + list(range(1, 6))
-    num_comp = st.selectbox("Numero di competitor da analizzare", num_opts, key="num_competitor")
+    num_comp = st.selectbox("Numero competitor", num_opts, key="num_competitor")
 count = int(num_comp) if isinstance(num_comp, int) else 0
 
 st.markdown("---")
 
-# Step 1c: editor dei competitor in expander (prima dell'analisi)
+# Placeholder contesto e tipologia (rimossi dall'UI)
+contesto = ""
+tipologia = ""
+
+# Step 1c: editor in expander (mostrato solo prima dell'analisi)
 competitor_texts: list[str] = []
 if not st.session_state['analysis_started']:
     with st.expander("Testi dei Competitor", expanded=True):
@@ -137,8 +137,8 @@ if not st.session_state['analysis_started']:
                         competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
                     idx += 1
 else:
-    # dopo l'analisi, recupero i testi già inseriti da session_state
-    for i in range(1, count + 1):
+    # dopo l'analisi, recupero i testi già inseriti dallo session_state
+    for i in range(1, count+1):
         competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
 # Bottone di avvio
@@ -162,7 +162,7 @@ if st.button("🚀 Avvia l'Analisi"):
     for it in organic:
         title = it.get('title') or it.get('link_title', '')
         desc = it.get('description') or it.get('snippet', '')
-        clean = clean_url(it.get('link') or it.get('url', ''))
+        clean = clean_url(it.get('link') or it.get('url',''))
         data.append({
             'URL': f"<a href='{clean}' target='_blank'>{clean}</a>",
             'Meta Title': title,
@@ -174,14 +174,13 @@ if st.button("🚀 Avvia l'Analisi"):
 
     def style_title(val):
         return 'background-color: #d4edda' if 50 <= val <= 60 else 'background-color: #f8d7da'
-
     def style_desc(val):
         return 'background-color: #d4edda' if 120 <= val <= 160 else 'background-color: #f8d7da'
 
     styled = (
         df_org.style
         .format({'URL': lambda u: u})
-        .set_properties(subset=['Lunghezza Title', 'Lunghezza Description'], **{'text-align': 'center'})
+        .set_properties(subset=['Lunghezza Title','Lunghezza Description'], **{'text-align':'center'})
         .map(style_title, subset=['Lunghezza Title'])
         .map(style_desc, subset=['Lunghezza Description'])
     )
@@ -193,7 +192,7 @@ if st.button("🚀 Avvia l'Analisi"):
     for el in items:
         if el.get('type') == 'people_also_ask':
             paa_list = [q.get('title') for q in el.get('items', [])]
-        if el.get('type') in ('related_searches', 'related_search'):
+        if el.get('type') in ('related_searches','related_search'):
             for rel in el.get('items', []):
                 related.append(rel if isinstance(rel, str) else rel.get('query') or rel.get('keyword'))
     col_paa, col_rel = st.columns(2)
@@ -247,7 +246,6 @@ Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetiz
 
 OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
-
     with st.spinner("Semantic Content Analysis with NLU..."):
         resp1 = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
@@ -342,14 +340,14 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 <OUTPUT_FORMAT>
 ### Semantic Keyword Mining with NLP
 
-| Tipologia | Keywords / Concetti / Domande | Search Intent |
-| :--- | :--- | :--- |
-| **Keyword Principale** | `{keyword_principale.lower()}` | _(inserisci intento primario)_ |
-| **Keyword Secondarie (Priorità Alta)** | _(inserisci qui le keyword secondarie ALTE, non ripetere la keyword principale se presente)_ | _(es: informazionale, commerciale, transazionale o combinazioni)_ |
-| **Keyword Secondarie (Priorità Media)** | _(inserisci qui le keyword secondarie MEDIE)_ | _(es: informazionale (pratico))_ |
-| **LSI Keywords (Priorità Alta)** | _(inserisci qui i termini correlati ALTI)_ | _(supporto all'intento)_ |
-| **LSI Keywords (Priorità Media)** | _(inserisci qui i termini correlati MEDI)_ | _(supporto all'intento)_ |
-| **Domande degli Utenti (H3/FAQ)** | _(inserisci qui le domande, prima lettera maiuscola)_ | _(informazionale (specifico))_ |
+| Tipologia                   | Keywords / Concetti / Domande | Search Intent                      |
+| :--------------------------  | :---------------------------  | :--------------------------------- |
+| **Keyword Principale**       | `{keyword_principale.lower()}`| _(inserisci intento primario)_     |
+| **Keyword Secondarie (Alta)**| _(elenca keyword secondarie alte)_  | _(Informazionale / Commerciale ecc.)_ |
+| **Keyword Secondarie (Media)**| _(elenca keyword secondarie medie)_ | _(Informazionale (Pratico))_       |
+| **LSI Keywords (Alta)**      | _(elenca LSI alta)_           | _(Supporto all'intento)_           |
+| **LSI Keywords (Media)**     | _(elenca LSI media)_          | _(Supporto all'intento)_           |
+| **Domande Utenti (FAQ)**     | _(elenca domande, prima lettera maiuscola)_ | _(Informazionale (Specifico))_ |
 """
     with st.spinner("Semantic Keyword Mining..."):
         resp3 = client.models.generate_content(
