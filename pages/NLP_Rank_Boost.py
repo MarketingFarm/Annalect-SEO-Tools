@@ -315,7 +315,6 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 """
     with st.spinner("Entity & Semantic Gap Extraction..."):
         resp2_text = run_nlu_competitiva(prompt_competitiva)
-    # Estrazione robusta delle tabelle Markdown con regex
     pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
     table_blocks = re.findall(pattern, resp2_text)
     if len(table_blocks) >= 2:
@@ -351,7 +350,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 {table2_gaps}  
 * **Tabella 3: Ricerche Correlate dalla SERP:**  
 {table3_related_searches}  
-* **Tabella 4: People Also Ask (PAA) dalla SERP:**  
+* **Tabella 4: People Anche Ask (PAA) dalla SERP:**  
 {table4_paa}
 
 ---
@@ -359,7 +358,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 <TASK>
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
 
-1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concento e domande. Assegna a ciascuna una tipologia e una priorità strategica e restituisci solo quelle che hanno alti volumi di ricerca, rilevanza semantica con l'argomento e una priorità strategica elevata.
+1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domande. Assegna a ciascuna una tipologia e una priorità strategica e restituisci solo quelle che hanno alti volumi di ricerca, rilevanza semantica con l'argomento e una priorità strategica elevata.
 2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
 3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
     * Usa la virgola come separatore per le liste.
@@ -378,8 +377,12 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 | **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
 </OUTPUT_FORMAT>
 """
-    with st.spinner("Semantic Keyword Mining..."):
-        resp3_text = run_nlu_mining(prompt_bank)
+
+    # --- Semantic Keyword Mining con cache in session_state ---
+    if 'resp3_text' not in st.session_state:
+        with st.spinner("Semantic Keyword Mining..."):
+            st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
+    resp3_text = st.session_state['resp3_text']
 
     # --- Estrazione e rendering della tabella di Semantic Keyword Mining ---
     table_mining = None
