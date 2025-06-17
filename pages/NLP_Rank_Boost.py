@@ -301,7 +301,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     tables = [blk for blk in resp2.text.split("\n\n") if blk.strip().startswith("|")]
     st.subheader("Semantic Common Ground Analysis")
     st.markdown(tables[0], unsafe_allow_html=True)
-    st.subheader("Semantic Content Gap Opportunity)")
+    st.subheader("Semantic Content Gap Opportunity")
     st.markdown(tables[1], unsafe_allow_html=True)
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
@@ -359,5 +359,4 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_bank]
         )
-    st.subheader("Banca Dati Keyword Strategiche")
     st.markdown(resp3.text, unsafe_allow_html=True)
