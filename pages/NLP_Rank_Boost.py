@@ -261,9 +261,68 @@ Mantieni solo le due tabelle, con markdown valido.
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_competitiva]
         )
-    # Splitting solo le due tabelle markdown
     tables = [blk for blk in resp2.text.split("\n\n") if blk.strip().startswith("|")]
     st.subheader("Entità Fondamentali (Common Ground Analysis)")
     st.markdown(tables[0], unsafe_allow_html=True)
     st.subheader("Entità Mancanti (Content Gap Opportunity)")
     st.markdown(tables[1], unsafe_allow_html=True)
+
+    # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
+    # Preparo variabili per il prompt
+    keyword_principale = query
+    table1_entities = tables[0]
+    table2_gaps = tables[1]
+    table3_related_searches = (
+        "| Query Correlata |\n| :--- |\n" +
+        "\n".join(f"| {item} |" for item in related)
+    )
+    table4_paa = (
+        "| Domanda |\n| :--- |\n" +
+        "\n".join(f"| {q} |" for q in paa_list)
+    )
+    full_text = joined_texts
+
+    prompt_banca = f"""
+## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
+
+**PERSONA:** Agisci come un Semantic SEO Data-Miner, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP...
+
+<INPUTS>
+* **Keyword Principale:** {keyword_principale}
+* **Country:** {country}
+* **Lingua:** {language}
+* **Contesto del Contenuto:** {contesto}
+* **Tipologia di Contenuto:** {tipologia}
+* **Testi Completi dei Competitor:** {full_text}
+* **Tabella 1: Entità Principali Estratte:** {table1_entities}
+* **Tabella 2: Entità Mancanti / Content Gap:** {table2_gaps}
+* **Tabella 3: Ricerche Correlate dalla SERP:** {table3_related_searches}
+* **Tabella 4: People Also Ask (PAA) dalla SERP:** {table4_paa}
+</INPUTS>
+
+<TASK>
+1. Analisi e Classificazione di keyword, entità e domande.
+2. Aggregazione e Sintesi in categorie e priorità.
+3. Formattazione finale in un'unica tabella.
+</TASK>
+
+<OUTPUT_FORMAT>
+### Banca Dati Keyword per: "{keyword_principale}"
+
+| Categoria Keyword | Elenco Keyword / Concetti / Domande (virgola) | Intento Prevalente | Fonte Dati Principale |
+| :--- | :--- | :--- | :--- |
+| **Keyword Principale** | [{keyword_principale}] | Informazionale | Input Utente |
+| **Keyword Secondarie (Priorità Alta)** |  |  | Competitor / Correlate |
+| **Keyword Secondarie (Priorità Media)** |  |  | Competitor / Correlate |
+| **Entità Semantiche (Priorità Alta)** |  |  | Entità / Testi Competitor |
+| **Entità Semantiche (Priorità Media)** |  |  | Entità / Testi Competitor |
+| **Domande degli Utenti (H3/FAQ)** |  |  | PAA / Correlate |
+</OUTPUT_FORMAT>
+"""
+    with st.spinner("Generazione Banca Dati Keyword Strategiche..."):
+        resp_banca = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=[prompt_banca]
+        )
+    st.subheader(f"Banca Dati Keyword per: \"{keyword_principale}\"")
+    st.markdown(resp_banca.text, unsafe_allow_html=True)
