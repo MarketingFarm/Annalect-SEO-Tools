@@ -153,6 +153,7 @@ with st.expander(
 # Bottone di avvio
 if st.button("🚀 Avvia l'Analisi"):
     st.session_state['analysis_started'] = True
+    st.experimental_rerun()
 
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
