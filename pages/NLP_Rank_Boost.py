@@ -342,7 +342,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 <TASK>
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
 
-1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domanda. Assegna a ciascuna una tipologia e una priorità strategica (Alta, Media).
+1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domanda. Assegna a ciascuna una tipologia e una priorità strategica e restituisci solo quelle che hanno alti volumi di ricerca, rilevanza semantica con l'argomento e una una priorità strategica elevata.
 2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
 3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
     * Usa la virgola come separatore per le liste.
@@ -356,10 +356,8 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 | Categoria Keyword                 | Keywords / Concetti / Domande           | Intento Prevalente           |
 | :-------------------------------- | :-------------------------------------- | :---------------------------- |
 | **Keyword Principale**            | `{keyword_principale.lower()}`          | _(inserisci intento primario)_|
-| **Keyword Secondarie (Alta)**     | _(elenca keyword secondarie alte)_      | _(Informazionale / Commerciale ecc.)_|
-| **Keyword Secondarie (Media)**    | _(elenca keyword secondarie medie)_     | _(Informazionale (Pratico))_  |
-| **Keyword Correlate e LSI (Alta)**| _(elenca LSI alta)_                     | _(Supporto all'intento)_      |
-| **Keyword Correlate e LSI (Media)**| _(elenca LSI media)_                   | _(Supporto all'intento)_      |
+| **Keyword Secondarie**     | _(elenca keyword secondarie più importanti, non inserire in questa riga la keyword principale se già presente)_      | _(Informazionale / Commerciale ecc.)_|
+| **LSI Keywords**| _(elenca le migliori Keywords LSI)_                     | _(Supporto all'intento)_      |
 | **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
 </OUTPUT_FORMAT>
 """
