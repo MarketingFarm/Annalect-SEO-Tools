@@ -10,6 +10,12 @@ from google import genai
 # --- INIEZIONE CSS GENERALE ---
 st.markdown("""
 <style>
+.element-container:has(> iframe) {
+  height: 300px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  max-height: 250px !important;
+}
 /* Bottone rosso */
 button {
   background-color: #e63946 !important;
@@ -37,14 +43,6 @@ td { white-space: normal !important; }
 table th:nth-child(3), table td:nth-child(3),
 table th:nth-child(5), table td:nth-child(5) {
   text-align: center !important;
-}
-.element-container:has(> iframe) {
-  height: 300px;
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-.ql-editor {
-  max-height: 250px !important;
 }
 </style>
 """, unsafe_allow_html=True)
