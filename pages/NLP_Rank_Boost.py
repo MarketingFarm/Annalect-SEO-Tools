@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import streamlit as st
 import requests
 import pandas as pd
@@ -149,7 +150,6 @@ with st.expander(
                         competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
                     idx += 1
     else:
-        # dopo l’analisi, recupera i testi già inseriti senza ricreare gli editor
         for i in range(1, count + 1):
             competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
@@ -298,36 +298,47 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
             model="gemini-2.5-flash-preview-05-20",
             contents=[prompt_competitiva]
         )
-    tables = [blk for blk in resp2.text.split("\n\n") if blk.strip().startswith("|")]
-    st.subheader("Semantic Common Ground Analysis")
-    st.markdown(tables[0], unsafe_allow_html=True)
-    st.subheader("Semantic Content Gap Opportunity")
-    st.markdown(tables[1], unsafe_allow_html=True)
+
+    # Estrazione robusta delle tabelle Markdown con regex
+    resp2_text = resp2.text or ""
+    pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
+    table_blocks = re.findall(pattern, resp2_text)
+
+    if len(table_blocks) >= 2:
+        table1_entities = table_blocks[0].strip()
+        table2_gaps = table_blocks[1].strip()
+        st.subheader("Semantic Common Ground Analysis")
+        st.markdown(table1_entities, unsafe_allow_html=True)
+        st.subheader("Semantic Content Gap Opportunity")
+        st.markdown(table2_gaps, unsafe_allow_html=True)
+    else:
+        st.subheader("Errore nell'estrazione delle tabelle NLU")
+        st.error("Non sono state trovate due tabelle nel testo restituito da Gemini. Ecco il testo completo:")
+        st.text(resp2_text)
+        table1_entities = ""
+        table2_gaps = ""
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
-    table1_entities = tables[0]
-    table2_gaps = tables[1]
     table3_related_searches = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
     table4_paa = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria...
-* **Keyword Principale:** {keyword_principale}
-* **Country:** {country}
-* **Lingua:** {language}
-* **Testi Completi dei Competitor:** {joined_texts}
-* **Tabella 1: Entità Principali Estratte dai Competitor:** 
-{table1_entities}
-* **Tabella 2: Entità Mancanti / Content Gap:** 
-{table2_gaps}
-* **Tabella 3: Ricerche Correlate dalla SERP:** 
-{table3_related_searches}
-* **Tabella 4: People Also Ask (PAA) dalla SERP:** 
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.  
+* **Keyword Principale:** {keyword_principale}  
+* **Country:** {country}  
+* **Lingua:** {language}  
+* **Testi Completi dei Competitor:** {joined_texts}  
+* **Tabella 1: Entità Principali Estratte dai Competitor:**  
+{table1_entities}  
+* **Tabella 2: Entità Mancanti / Content Gap:**  
+{table2_gaps}  
+* **Tabella 3: Ricerche Correlate dalla SERP:**  
+{table3_related_searches}  
+* **Tabella 4: People Also Ask (PAA) dalla SERP:**  
 {table4_paa}
-</INPUTS>
 
 ---
 
@@ -353,6 +364,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 | **Keyword Correlate e LSI (Alta)**| _(elenca LSI alta)_                     | _(Supporto all'intento)_      |
 | **Keyword Correlate e LSI (Media)**| _(elenca LSI media)_                   | _(Supporto all'intento)_      |
 | **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
+</OUTPUT_FORMAT>
 """
     with st.spinner("Semantic Keyword Mining..."):
         resp3 = client.models.generate_content(
