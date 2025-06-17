@@ -38,6 +38,11 @@ table th:nth-child(3), table td:nth-child(3),
 table th:nth-child(5), table td:nth-child(5) {
   text-align: center !important;
 }
+.element-container:has(> iframe) {
+  height: 300px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -134,7 +139,7 @@ if not st.session_state['analysis_started']:
                 if idx <= count:
                     with col:
                         st.markdown(f"**Testo Competitor #{idx}**")
-                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}", height=250))
+                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
                     idx += 1
 else:
     # dopo l'analisi, recupero i testi già inseriti dallo session_state
