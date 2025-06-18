@@ -76,7 +76,7 @@ if organic:
     margin-bottom:1rem;
     font-family: Source Sans Pro, sans-serif;
     color: #202124;
-    font-size: 24px;
+    font-size: 32px;
     line-height: 24px;
   ">Risultati Organici (Top 10)</h3>
 """
