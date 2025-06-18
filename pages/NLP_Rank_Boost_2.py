@@ -99,7 +99,7 @@ if st.session_state.step == 1:
         col.markdown(f"""
   <div style="
     padding: 0.75rem 1.5rem;
-    border: 1px solid rgb(254, 212, 212);
+    border: 1px solid rgb(255 166 166);
     border-radius: 0.5rem;
     background-color: rgb(255, 246, 246);
     margin-bottom: 0.5rem;
@@ -136,12 +136,12 @@ if st.session_state.step == 1:
             c.markdown(f"""
   <div style="
     padding: 0.75rem 1.5rem;
-    border: 1px solid rgb(254, 212, 212);
+    border: 1px solid rgb(255 166 166);
     border-radius: 0.5rem;
     background-color: rgb(255, 246, 246);
     margin-bottom: 0.5rem;
   ">
-    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{lbl}</div>
+    <div style="font-size:0.8rem; color: rgb(255, 70, 70);">{lbl}</div>
     <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
   </div>
             """, unsafe_allow_html=True)
