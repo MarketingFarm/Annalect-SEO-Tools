@@ -3,7 +3,7 @@ import json
 import pandas as pd
 from io import StringIO
 
-# NOTA: st.set_page_config è già chiamato nel file principale, non lo ripetiamo qui.
+# La configurazione della pagina è già gestita nel file principale
 
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
@@ -36,29 +36,26 @@ if uploaded_file:
     table_str = data.get("keyword_mining", "")
     lines = [line for line in table_str.split("\n") if line.strip()]
     if len(lines) >= 3:
-        header_line = lines[0]
-        # salto la riga di allineamento
+        # Header e skip della riga di allineamento
         data_lines = lines[2:]
         rows = []
         for line in data_lines:
             parts = [cell.strip() for cell in line.split("|") if cell.strip()]
             if len(parts) == 3:
-                # parts = [Categoria Keyword, Keywords / Concetti / Domande, Intento Prevalente]
-                rows.append(parts)
+                rows.append(parts)  # [Categoria, Keywords stringa, Intento]
 
         st.subheader("🔍 Seleziona le singole keywords per l'analisi")
         selected_keywords = {}
 
-        # Per ogni categoria, creo un piccolo "mini-table" con checkbox
         for categoria, keywords_str, intento in rows:
-            # rimuovo backtick e spazi, poi split su virgola
             keywords_list = [kw.strip(" `") for kw in keywords_str.split(",")]
             st.markdown(f"**{categoria}**  _(Intento: {intento})_")
             cols = st.columns([1, 9])
             chosen = []
             for kw in keywords_list:
                 checked = cols[0].checkbox("", value=True, key=f"chk_{categoria}_{kw}")
-                cols[1].markdown(f"- {kw}")
+                # Mostro la keyword senza elenco puntato
+                cols[1].write(kw)
                 if checked:
                     chosen.append(kw)
             selected_keywords[categoria] = chosen
@@ -70,4 +67,4 @@ if uploaded_file:
         st.warning("⚠️ Non ho trovato una tabella di Keyword Mining nel JSON.")
 
 else:
-    st.info("⏳ Carica un file JSON per procedere con l'analisi.")    
+    st.info("⏳ Carica un file JSON per procedere con l'analisi.")
