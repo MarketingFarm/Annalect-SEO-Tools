@@ -63,7 +63,7 @@ separator = """
 if 'data' not in st.session_state:
     st.session_state.data = None
 
-# --- Se non ho ancora caricato i dati, mostro il file_uploader ---
+# --- Caricamento JSON (solo se non già caricato) ---
 if st.session_state.data is None:
     uploaded_file = st.file_uploader(
         "Carica il file JSON",
@@ -76,15 +76,14 @@ if st.session_state.data is None:
         except json.JSONDecodeError as e:
             st.error(f"❌ Errore nel parsing del JSON: {e}")
             st.stop()
-        st.experimental_rerun()
     else:
         st.info("⏳ Carica un file JSON per procedere con l'analisi.")
         st.stop()
 
-# A questo punto ho il JSON in session_state.data
+# Ora ho il JSON
 data = st.session_state.data
 
-# --- Step management ---
+# --- Session state per multi-step ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 
@@ -94,7 +93,7 @@ def go_next():
 def go_back():
     st.session_state.step = max(st.session_state.step - 1, 1)
 
-# --- Indicatore di Step ---
+# --- Step indicator ---
 st.markdown(f"## Step {st.session_state.step}", unsafe_allow_html=True)
 
 # === STEP 1 ===
@@ -243,9 +242,8 @@ if st.session_state.step == 1:
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
-    st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
-    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # === STEP 2 ===
 elif st.session_state.step == 2:
@@ -260,31 +258,30 @@ elif st.session_state.step == 2:
             kws     = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>', unsafe_allow_html=True)
             st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(" ", "_")}")
-        st.markdown("<div style='margin-top:1rem; text-align:left;'>", unsafe_allow_html=True)
-        st.button("Indietro", on_click=go_back, key="back_btn")
-        st.button("Avanti", on_click=go_next, key="next2_btn")
-        st.markdown("</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.button("Indietro", on_click=go_back, key="back_btn")
+        with c2:
+            st.button("Avanti", on_click=go_next, key="next2_btn")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
 
-# === STEP 3: Common Ground & Content Gap ===
-elif st.session_state.step == 3:
-    # separatore
-    st.markdown(separator, unsafe_allow_html=True)
 
-    # titolo
+# === STEP 3: Common Ground & Content Gap ===
+else:
+    st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>', unsafe_allow_html=True)
 
-    # carico i dati dal JSON
     common = data.get("common_ground", [])
     gap    = data.get("content_gap", [])
 
     # --- Common Ground ---
     df_common = pd.DataFrame(common)
+    df_common.insert(0, "Seleziona", False)
     st.subheader("Common Ground Analysis")
     edited_common = st.data_editor(
         df_common,
-        num_rows=len(df_common),
+        num_rows=len(df_common),        # fissa le righe, niente "+" per aggiungerne
         use_container_width=True,
         hide_index=True,
         key="editor_common"
@@ -292,6 +289,7 @@ elif st.session_state.step == 3:
 
     # --- Content Gap ---
     df_gap = pd.DataFrame(gap)
+    df_gap.insert(0, "Seleziona", False)
     st.subheader("Content Gap Opportunity")
     edited_gap = st.data_editor(
         df_gap,
@@ -301,7 +299,4 @@ elif st.session_state.step == 3:
         key="editor_gap"
     )
 
-    # bottoni
-    st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_3")
-    st.markdown("</div>", unsafe_allow_html=True)
