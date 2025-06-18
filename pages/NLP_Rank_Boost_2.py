@@ -25,6 +25,18 @@ st.markdown(
             white-space: normal !important;
             line-height: 1.3 !important;
         }
+      .st-cf {
+        padding-right: 0px !important;
+      }
+      .st-ce {
+        padding-left: 1rem !important;
+      }
+      .st-cd {
+        padding-bottom: 6px !important;
+      }
+      .st-cc {
+        padding-top: 6px !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
