@@ -37,6 +37,9 @@ st.markdown(
       .st-cc {
         padding-top: 6px !important;
       }
+      .st-ce{
+        padding-top: 6px !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
