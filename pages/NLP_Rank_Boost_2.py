@@ -197,7 +197,7 @@ with col_paa:
 st.markdown(separator, unsafe_allow_html=True)
 
 # --- Selezione delle keywords con multiselect senza troncamento ---
-st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
+st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
 lines = [l for l in table_str.split("\n") if l.strip()]
