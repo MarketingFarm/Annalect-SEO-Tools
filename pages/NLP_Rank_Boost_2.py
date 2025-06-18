@@ -25,9 +25,12 @@ with col_left:
         type="json",
         help="Carica qui il file JSON generato dalla pagina precedente"
     )
+    if uploaded_file is None:
+        st.info("⏳ Carica un file JSON per procedere con l'analisi.")
 
 with col_right:
     if uploaded_file is not None:
+        # parsing del JSON
         try:
             data = json.load(uploaded_file)
         except json.JSONDecodeError as e:
@@ -156,5 +159,3 @@ with col_right:
             st.json(selected)
         else:
             st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
-    else:
-        col_right.info("⏳ Carica un file JSON per procedere con l'analisi.")
