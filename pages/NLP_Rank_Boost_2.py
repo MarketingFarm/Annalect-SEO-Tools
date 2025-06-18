@@ -25,6 +25,9 @@ st.markdown(
             white-space: normal !important;
             line-height: 1.3 !important;
         }
+        .st-c5 {
+    padding: 16px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
