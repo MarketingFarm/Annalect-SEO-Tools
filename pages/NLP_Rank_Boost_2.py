@@ -4,7 +4,7 @@ import pandas as pd
 import re
 from urllib.parse import urlparse
 
-# Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
+# Assume st.set_page_config has already been called in the main app
 
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
@@ -15,8 +15,8 @@ st.markdown(
     """
 )
 
-# dividiamo la pagina in tre colonne: sinistra (upload), separator, destra (risultati)
-col_left, col_sep, col_right = st.columns([1, 0.1, 4])
+# Dividiamo la pagina in due colonne, sinistra stretta e destra larga
+col_left, col_right = st.columns([1, 4])
 
 with col_left:
     uploaded_file = st.file_uploader(
@@ -27,27 +27,31 @@ with col_left:
     if uploaded_file is None:
         st.info("⏳ Carica un file JSON per procedere con l'analisi.")
 
-with col_sep:
-    # separatore verticale
-    st.markdown(
-        '<div style="border-left:1px solid #ECEDEE; height:100vh; margin:0 auto;"></div>',
-        unsafe_allow_html=True
-    )
-
 with col_right:
     if uploaded_file is not None:
-        # parsing del JSON
+        # Parsing del JSON
         try:
             data = json.load(uploaded_file)
         except json.JSONDecodeError as e:
             st.error(f"❌ Errore nel parsing del JSON: {e}")
             st.stop()
 
-        # expander JSON completo
+        # Inizio del contenitore con bordo a sinistra
+        st.markdown(
+            """
+            <div style="
+              border-left: 1px solid #ECEDEE;
+              padding-left: 1rem;
+            ">
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # 1) Expander con JSON completo
         with st.expander("📂 Espandi per visualizzare il JSON completo"):
             st.json(data)
 
-        # 1) Dettagli della query
+        # 2) Dettagli della Query
         st.subheader("Dettagli della Query")
         df_details = pd.DataFrame([{
             "Query":    data.get("query", ""),
@@ -56,25 +60,27 @@ with col_right:
         }])
         st.dataframe(df_details, hide_index=True)
 
-        # 2) Risultati organici
+        # 3) Risultati Organici (Top 10) in stile SERP
         organic = data.get("organic", [])
         if organic:
             st.subheader("Risultati Organici (Top 10)")
-            # contenitore grigio con bordo arrotondato e padding
+
+            # contenitore grigio per i risultati
             html = """
-<div style="
-  background-color: #F8F9FB;
-  border: 1px solid #ECEDEE;
-  border-radius: 0.5rem;
-  padding: 1rem;
-">
-"""
+  <div style="
+    background-color: #F8F9FB;
+    border: 1px solid #ECEDEE;
+    border-radius: 0.5rem;
+    padding: 1rem;
+  ">
+  """
             for item in organic[:10]:
+                # Estrazione URL
                 anchor = item.get("URL", "")
                 m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
                 url = m.group(1) if m else anchor
 
-                # pretty URL
+                # Pretty URL
                 parsed = urlparse(url)
                 base = f"{parsed.scheme}://{parsed.netloc}"
                 segments = [seg for seg in parsed.path.split("/") if seg]
@@ -82,7 +88,7 @@ with col_right:
                 if segments:
                     pretty_url += " › " + " › ".join(segments)
 
-                # site name
+                # Site name
                 host = parsed.netloc
                 parts = host.split('.')
                 raw = parts[1] if len(parts) > 2 else parts[0]
@@ -92,52 +98,54 @@ with col_right:
                 desc  = item.get("Meta Description", "")
 
                 html += f"""
-  <div style="margin-bottom:30px;">
-    <div style="display:flex; align-items:center; margin-bottom:6px;">
-      <img src="https://www.google.com/favicon.ico" style="
-        width:26px;
-        height:26px;
-        border-radius:50%;
-        border:1px solid #d2d2d2;
-        margin-right:8px;
-      "/>
-      <div>
-        <div style="
-          font-family: Arial, sans-serif;
-          color: #202124;
-          font-size: 14px;
-          line-height: 20px;
-        ">{site_name}</div>
-        <div style="
-          font-family: Arial, sans-serif;
-          color: #4d5156;
-          font-size: 12px;
-          line-height: 18px;
-        ">{pretty_url}</div>
+    <div style="margin-bottom:30px;">
+      <div style="display:flex; align-items:center; margin-bottom:6px;">
+        <img src="https://www.google.com/favicon.ico" style="
+          width:26px;
+          height:26px;
+          border-radius:50%;
+          border:1px solid #d2d2d2;
+          margin-right:8px;
+        "/>
+        <div>
+          <div style="
+            font-family: Arial, sans-serif;
+            color: #202124;
+            font-size: 14px;
+            line-height: 20px;
+          ">{site_name}</div>
+          <div style="
+            font-family: Arial, sans-serif;
+            color: #4d5156;
+            font-size: 12px;
+            line-height: 18px;
+          ">{pretty_url}</div>
+        </div>
       </div>
+      <a href="{url}" style="
+        color: #1a0dab;
+        text-decoration: none;
+        font-family: Arial, sans-serif;
+        font-size: 20px;
+        font-weight: 400;
+      ">{title}</a>
+      <div style="
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        line-height: 22px;
+        color: #474747;
+        margin-top: 4px;
+      ">{desc}</div>
     </div>
-    <a href="{url}" style="
-      color: #1a0dab;
-      text-decoration: none;
-      font-family: Arial, sans-serif;
-      font-size: 20px;
-      font-weight: 400;
-    ">{title}</a>
-    <div style="
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      line-height: 22px;
-      color: #474747;
-      margin-top: 4px;
-    ">{desc}</div>
-  </div>
-"""
+  """
             html += "</div>"
+
+            # Render del blocco risultati
             st.markdown(html, unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
-        # 3) Selezione keywords
+        # 4) Selezione delle keywords
         st.subheader("🔍 Seleziona le singole keywords per l'analisi")
         table_str = data.get("keyword_mining", "")
         lines = [l for l in table_str.split("\n") if l.strip()]
@@ -165,6 +173,7 @@ with col_right:
             st.json(selected)
         else:
             st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
-    else:
-        # col_right vuota quando non c'è file
-        pass
+
+        # Fine del contenitore con bordo a sinistra
+        st.markdown("</div>", unsafe_allow_html=True)
+    # if no file, col_right rimane vuota
