@@ -82,13 +82,14 @@ st.markdown("""
 "></div>
 """, unsafe_allow_html=True)
 
-# --- Due colonne: sinistra risulta organici, destra PAA+related ---
+# --- Due colonne: sinistra risultati organici, destra PAA+related ---
 col_org, col_paa = st.columns([2, 1], gap="small")
 
 with col_org:
     st.subheader("Risultati Organici (Top 10)")
     organic = data.get("organic", [])
     if organic:
+        # costruisco l'HTML per i risultati
         html = """
   <div style="
     background-color: #F8F9FB;
@@ -164,7 +165,10 @@ with col_org:
     </div>
 """
         html += "</div>"
+
+        # Qui assicuriamoci di renderizzare come HTML
         st.markdown(html, unsafe_allow_html=True)
+
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
@@ -175,7 +179,10 @@ with col_paa:
     if paa:
         st.markdown(
             '<div style="display:flex; flex-wrap:wrap; gap:4px;">' +
-            ''.join(f'<span style="background-color:#E8F4FD; padding:4px 8px; border-radius:4px; font-family:Arial,sans-serif; font-size:14px;">{q}</span>' for q in paa) +
+            ''.join(
+                f'<span style="background-color:#E8F4FD; padding:4px 8px; border-radius:4px; font-family:Arial,sans-serif; font-size:14px;">{q}</span>'
+                for q in paa
+            ) +
             '</div>',
             unsafe_allow_html=True
         )
@@ -188,7 +195,10 @@ with col_paa:
     if related:
         st.markdown(
             '<div style="display:flex; flex-wrap:wrap; gap:4px;">' +
-            ''.join(f'<span style="background-color:#FEF4E6; padding:4px 8px; border-radius:4px; font-family:Arial,sans-serif; font-size:14px;">{r}</span>' for r in related) +
+            ''.join(
+                f'<span style="background-color:#FEF4E6; padding:4px 8px; border-radius:4px; font-family:Arial,sans-serif; font-size:14px;">{r}</span>'
+                for r in related
+            ) +
             '</div>',
             unsafe_allow_html=True
         )
