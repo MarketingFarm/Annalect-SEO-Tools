@@ -104,7 +104,7 @@ if st.session_state.step == 1:
     background-color: rgb(255, 246, 246);
     margin-bottom: 0.5rem;
   ">
-    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
+    <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
     <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
   </div>
         """, unsafe_allow_html=True)
