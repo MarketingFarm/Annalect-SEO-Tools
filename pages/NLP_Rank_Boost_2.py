@@ -15,7 +15,7 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per evitare il troncamento nel multiselect ---
+# --- Hack CSS per evitare il troncamento nel multiselect e ingrandire le label ---
 st.markdown(
     """
     <style>
@@ -25,9 +25,11 @@ st.markdown(
             white-space: normal !important;
             line-height: 1.3 !important;
         }
-        .st-c5 {
-    padding: 12px;
-    }
+        /* Ingrandisce le label dei multiselect */
+        .stMultiSelect > label {
+            font-size: 1.25rem !important;
+            font-weight: 500 !important;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -88,7 +90,6 @@ for col, label, val in zip(cols, labels, values):
 </div>
 """, unsafe_allow_html=True)
 
-# margine inferiore di 1rem sotto alla riga delle card
 st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
 # --- Separator specifico prima di Risultati Organici ---
@@ -201,7 +202,6 @@ st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywo
 
 table_str = data.get("keyword_mining", "")
 lines = [l for l in table_str.split("\n") if l.strip()]
-selected = {}
 if len(lines) >= 3:
     rows = []
     for line in lines[2:]:
@@ -211,15 +211,11 @@ if len(lines) >= 3:
 
     for cat, kw_str, intent in rows:
         kws = [k.strip(" `") for k in kw_str.split(",") if k.strip()]
-        sel = st.multiselect(
+        st.multiselect(
             label=f"{cat}  _(Intento: {intent})_",
             options=kws,
             default=kws,
             key=f"ms_{cat}"
         )
-        selected[cat] = sel
-
-    st.markdown('<h3 style="margin-top:0; padding-top:0;">✅ Keywords selezionate</h3>', unsafe_allow_html=True)
-    st.json(selected)
 else:
     st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
