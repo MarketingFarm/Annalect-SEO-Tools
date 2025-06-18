@@ -51,9 +51,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Dettagli della Query come card ---
-query   = data.get("query", "")
-country = data.get("country", "")
-lang    = data.get("language", "")
+query   = data.get("query", "").strip()
+country = data.get("country", "").strip()
+lang    = data.get("language", "").strip()
 
 st.markdown("### Dettagli della Query")
 cols = st.columns(3, gap="small")
@@ -89,7 +89,7 @@ with col_org:
     st.subheader("Risultati Organici (Top 10)")
     organic = data.get("organic", [])
     if organic:
-        # costruiamo l'HTML per i risultati
+        # costruiamo l'HTML per i risultati organici, visibili tutti senza scroll aggiuntivo
         html = '<div style="padding-right:1.5rem;">'
         for item in organic[:10]:
             anchor = item.get("URL", "")
@@ -126,12 +126,12 @@ with col_org:
             )
         html += '</div>'
 
-        # render HTML direttamente, senza scroll
         st.markdown(html, unsafe_allow_html=True)
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
 with col_paa:
+    # People Also Ask come pillole
     st.subheader("💡 People Also Ask")
     paa = data.get("people_also_ask", [])
     if paa:
@@ -147,15 +147,51 @@ with col_paa:
     else:
         st.write("_Nessuna PAA trovata_")
 
+    # Ricerche Correlate: evidenziamo la parte eccedente alla keyword principale in grassetto
     st.subheader("🔎 Ricerche Correlate")
     related = data.get("related_searches", [])
     if related:
+        # Precompiliamo pattern regex per keyword principale, IGNORECASE
+        q = query.strip()
+        if q:
+            pattern = re.compile(re.escape(q), re.IGNORECASE)
+        else:
+            pattern = None
+
+        spans = []
+        for r in related:
+            text = r.strip()
+            highlighted = ""
+            if pattern:
+                m = pattern.search(text)
+                if m:
+                    # Manteniamo esattamente il testo originale fino a m.end(), poi bold il resto
+                    prefix = text[:m.end()]
+                    suffix = text[m.end():]
+                    if suffix:
+                        # escape HTML in prefix/suffix? Qui assumiamo che i testi non contengano HTML pericoloso
+                        highlighted = f"{prefix}<strong>{suffix}</strong>"
+                    else:
+                        # se non c'è suffisso, non boldare nulla
+                        highlighted = prefix
+                else:
+                    highlighted = text
+            else:
+                highlighted = text
+
+            # wrap in pill-style span
+            span_html = (
+                f'<span style="background-color:#FEF4E6;'
+                f'padding:4px 8px; border-radius:4px; '
+                f'font-family:Arial,sans-serif; font-size:14px; margin-bottom:4px;">'
+                f'{highlighted}</span>'
+            )
+            spans.append(span_html)
+
+        # Disporre le pillole con flex-wrap
         st.markdown(
             '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
-            + ''.join(
-                f'<span style="background-color:#FEF4E6;padding:4px 8px;border-radius:4px;font-family:Arial,sans-serif;font-size:14px;">{r}</span>'
-                for r in related
-            )
+            + ''.join(spans)
             + '</div>',
             unsafe_allow_html=True
         )
