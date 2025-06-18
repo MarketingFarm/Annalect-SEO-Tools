@@ -23,6 +23,7 @@ st.markdown(
     div[data-baseweb="multi-select"] div[class*="multiValue"] {
       white-space: normal !important;
       line-height: 1.3 !important;
+      max-width: 500px;
     }
     </style>
     """,
