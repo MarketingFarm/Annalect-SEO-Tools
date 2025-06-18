@@ -306,29 +306,34 @@ else:
 
     # tre controlli su una riga
     c1, c2, c3 = st.columns(3, gap="small")
+
     with c1:
         context = st.selectbox(
             "Contesto",
-            options=["", "E-commerce", "Sito Vetrina", "Blog / Testata Giornalistica"],
+            options=["-- Seleziona --", "E-commerce", "Sito Vetrina", "Blog / Testata Giornalistica"],
             key="context_select"
         )
     with c2:
         dest_options = {
-            "": [""],
-            "E-commerce": ["", "Product Listing Page (PLP)", "Product Detail Page (PDP)",
+            "-- Seleziona --": ["-- Seleziona --"],
+            "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)",
                            "Guida all'Acquisto", "Pagina Informativa", "Articolo del Blog"],
-            "Sito Vetrina": ["", "Pagina", "Articolo del Blog"],
-            "Blog / Testata Giornalistica": ["", "Articolo del Blog"]
+            "Sito Vetrina": ["-- Seleziona --", "Pagina", "Articolo del Blog"],
+            "Blog / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
         destino = st.selectbox(
             "Destinazione Contenuto",
-            options=dest_options.get(context, [""]),
+            options=dest_options.get(context, ["-- Seleziona --"]),
             key="dest_select"
         )
     with c3:
-        custom_toggle = st.checkbox("Keyword Personalizzate", value=False, key="custom_kw_toggle")
+        custom_toggle = st.toggle(
+            "Keyword Personalizzate",
+            value=False,
+            key="custom_kw_toggle"
+        )
 
-    if st.session_state.custom_kw_toggle:
+    if custom_toggle:
         st.text_area(
             "Inserisci Keyword Personalizzate (una per riga o separate da virgola)",
             key="custom_keywords",
@@ -341,4 +346,6 @@ else:
         height=100
     )
 
+    st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
+    st.markdown("</div>", unsafe_allow_html=True)
