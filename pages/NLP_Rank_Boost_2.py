@@ -63,7 +63,7 @@ values = [query, country, lang]
 for col, label, val in zip(cols, labels, values):
     col.markdown(f"""
 <div style="
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 10rem;
   border: 1px solid rgb(254, 212, 212);
   border-radius: 0.5rem;
   background-color: rgb(255, 246, 246);
