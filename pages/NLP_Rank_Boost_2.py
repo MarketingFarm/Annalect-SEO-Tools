@@ -147,7 +147,7 @@ if st.session_state.step == 1:
   background-color: rgb(255, 246, 246);
 ">
   <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
-  <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
+  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{v}</div>
 </div>
         """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
