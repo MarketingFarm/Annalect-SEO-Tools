@@ -69,7 +69,7 @@ for col, label, val in zip(cols, labels, values):
         background-color: rgb(255, 246, 246);
       ">
         <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
-        <div style="font-size:1.15rem; color: #202124; font-weight:500;">{val}</div>
+        <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
       </div>
     """, unsafe_allow_html=True)
 
@@ -82,7 +82,7 @@ st.markdown("""
 "></div>
 """, unsafe_allow_html=True)
 
-# --- Risultati Organici (Top 10) in stile SERP ---
+# --- Risultati Organici (Top 10) in stile SERP con favicon dinamica ---
 organic = data.get("organic", [])
 if organic:
     html = """
@@ -102,15 +102,20 @@ if organic:
   ">Risultati Organici (Top 10)</h3>
 """
     for item in organic[:10]:
+        # Estrazione URL
         anchor = item.get("URL", "")
         m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
         url = m.group(1) if m else anchor
 
+        # Pretty URL
         parsed = urlparse(url)
         base = f"{parsed.scheme}://{parsed.netloc}"
         segments = [seg for seg in parsed.path.split("/") if seg]
-        pretty_url = base + (" › " + " › ".join(segments) if segments else "")
+        pretty_url = base
+        if segments:
+            pretty_url += " › " + " › ".join(segments)
 
+        # Site name
         host = parsed.netloc
         parts = host.split('.')
         raw = parts[1] if len(parts) > 2 else parts[0]
@@ -122,13 +127,17 @@ if organic:
         html += f"""
   <div style="margin-bottom:2rem;">
     <div style="display:flex; align-items:center; margin-bottom:0.5rem;">
-      <img src="https://www.google.com/favicon.ico" style="
-        width:26px;
-        height:26px;
-        border-radius:50%;
-        border:1px solid #d2d2d2;
-        margin-right:0.5rem;
-      "/>
+      <img
+        src="https://www.google.com/s2/favicons?domain={parsed.netloc}&sz=64"
+        onerror="this.src='https://www.google.com/favicon.ico';"
+        style="
+          width:26px;
+          height:26px;
+          border-radius:50%;
+          border:1px solid #d2d2d2;
+          margin-right:0.5rem;
+        "
+      />
       <div>
         <div style="
           font-family: Arial, sans-serif;
