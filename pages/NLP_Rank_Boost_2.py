@@ -53,8 +53,15 @@ if uploaded_file is not None:
             m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
             url = m.group(1) if m else anchor
 
-            # ricavo il nome del sito da www.xxx.yyy → xxx
+            # formatto l'URL in segmenti separati da " › "
             parsed = urlparse(url)
+            base = f"{parsed.scheme}://{parsed.netloc}"
+            path_segments = [seg for seg in parsed.path.split("/") if seg]
+            pretty_url = base
+            if path_segments:
+                pretty_url += " › " + " › ".join(path_segments)
+
+            # ricavo il nome del sito da www.xxx.yyy → xxx
             host = parsed.netloc
             parts = host.split('.')
             site_raw = parts[1] if len(parts) > 2 else parts[0]
@@ -87,7 +94,7 @@ if uploaded_file is not None:
         font-size: 12px;
         line-height: 18px;
         font-weight: 400;
-      ">{url}</div>
+      ">{pretty_url}</div>
     </div>
   </div>
   <a href="{url}" style="
