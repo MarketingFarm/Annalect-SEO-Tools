@@ -68,8 +68,8 @@ if uploaded_file is not None:
 <div style="margin-bottom:30px;">
   <div style="display:flex; align-items:center; margin-bottom:6px;">
     <img src="https://www.google.com/favicon.ico" style="
-      width:20px;
-      height:20px;
+      width:26px;
+      height:26px;
       border-radius:50%;
       border:1px solid #d2d2d2;
       margin-right:8px;
