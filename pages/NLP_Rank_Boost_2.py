@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 
 # --- Assumo st.set_page_config già invocato nel file principale ---
 
-# Titolo e descrizione
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
     """
@@ -15,27 +14,25 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per evitare il troncamento nel multiselect e ingrandire le label ---
+# --- Hack CSS per multiselect senza troncamento e label più grandi ---
 st.markdown(
     """
     <style>
-        /* Rimuove il max-width sulle pillole del multiselect e consente il wrap */
-        .stMultiSelect [data-baseweb="select"] span {
-            max-width: none !important;
-            white-space: normal !important;
-            line-height: 1.3 !important;
-        }
-        /* Ingrandisce le label dei multiselect */
-        .stMultiSelect > label {
-            font-size: 1.25rem !important;
-            font-weight: 500 !important;
-        }
+      .stMultiSelect [data-baseweb="select"] span {
+        max-width: none !important;
+        white-space: normal !important;
+        line-height: 1.3 !important;
+      }
+      .stMultiSelect > label {
+        font-size: 1.25rem !important;
+        font-weight: 500 !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- Separator standardizzato ---
+# --- Separatore standardizzato ---
 separator = """
 <div style="
   border-top:1px solid #ECEDEE;
@@ -44,7 +41,7 @@ separator = """
 "></div>
 """
 
-# --- Caricamento file JSON ---
+# --- Caricamento JSON ---
 uploaded_file = st.file_uploader(
     "Carica il file JSON",
     type="json",
@@ -54,7 +51,6 @@ if uploaded_file is None:
     st.info("⏳ Carica un file JSON per procedere con l'analisi.")
     st.stop()
 
-# --- Parsing JSON ---
 try:
     data = json.load(uploaded_file)
 except json.JSONDecodeError as e:
@@ -65,17 +61,15 @@ except json.JSONDecodeError as e:
 if 'step' not in st.session_state:
     st.session_state.step = 1
 
-# Callback per avanzare
 def go_next():
     st.session_state.step = 2
 
-# Callback per tornare indietro
 def go_back():
     st.session_state.step = 1
 
 # === STEP 1 ===
 if st.session_state.step == 1:
-    st.markdown(separator, unsafe_allow_html=True)
+    # un solo separatore qui
     st.markdown(separator, unsafe_allow_html=True)
 
     # Dettagli della Query
@@ -99,7 +93,7 @@ if st.session_state.step == 1:
         """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # Risultati Organici e PAA+Related
+    # Organici vs PAA/Correlate
     st.markdown("""
   <div style="
     border-top:1px solid #ECEDEE;
@@ -148,7 +142,10 @@ if st.session_state.step == 1:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
         paa = data.get("people_also_ask",[])
         if paa:
-            pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{q}</span>' for q in paa)
+            pills = ''.join(
+              f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{q}</span>'
+              for q in paa
+            )
             st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>', unsafe_allow_html=True)
         else:
             st.write("_Nessuna PAA trovata_")
@@ -165,12 +162,13 @@ if st.session_state.step == 1:
                     if m:
                         pre, suf = txt[:m.end()], txt[m.end():]
                         txt = pre + (f"<strong>{suf}</strong>" if suf else "")
-                spans.append(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>')
+                spans.append(
+                  f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>'
+                )
             st.markdown('<div style="display:flex;flex-wrap:wrap;gap:4px;">'+''.join(spans)+'</div>', unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
-    # Bottone Avanti
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -191,7 +189,12 @@ else:
                 rows.append(parts)
         for cat, kws_str, intent in rows:
             kws=[k.strip(" `") for k in kws_str.split(",") if k.strip()]
-            st.multiselect(label=f"{cat}  _(Intento: {intent})_", options=kws, default=kws, key=f"ms_{cat}")
+            st.multiselect(
+                label=f"{cat}  _(Intento: {intent})_",
+                options=kws,
+                default=kws,
+                key=f"ms_{cat}"
+            )
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
         st.warning("⚠️ Non ho trovato la tabella di Keyword Mining.")
