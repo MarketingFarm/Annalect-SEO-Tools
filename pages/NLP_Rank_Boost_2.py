@@ -116,7 +116,7 @@ if st.session_state.step == 1:
   padding: 0.75rem 1.5rem;
   border: 1px solid rgb(255 166 166);
   border-radius: 0.5rem;
-  background-color: rgb(255, 246, 246);
+  background-color: rgb(247 248 249);
   margin-bottom: 0.5rem;
 ">
   <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
@@ -144,7 +144,7 @@ if st.session_state.step == 1:
   padding: 0.75rem 1.5rem;
   border: 1px solid rgb(255 166 166);
   border-radius: 0.5rem;
-  background-color: rgb(255, 246, 246);
+  background-color: rgb(247 248 249);
 ">
   <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
   <div style="font-size:1.15rem; color:#202124; font-weight:500; line-height: 1.4rem;">{v}</div>
