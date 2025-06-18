@@ -2,15 +2,6 @@
 
 import streamlit as st
 
-st.markdown("""
-<style>
-.stMultiSelect [data-baseweb=select] span{
-            max-width: 250px;
-            font-size: 0.6rem;
-        }
-</style>
-""")
-
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
     page_icon="🔧",
