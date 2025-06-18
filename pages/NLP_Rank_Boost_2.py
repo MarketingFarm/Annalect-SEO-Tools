@@ -90,7 +90,7 @@ with col_org:
     organic = data.get("organic", [])
     if organic:
         # costruiamo l'HTML per i risultati
-        html = '<div style="background-color:#F8F9FB;border:1px solid #ECEDEE;border-radius:0.5rem;padding:1.5rem;">'
+        html = '<div style="padding-right:1.5rem;">'
         for item in organic[:10]:
             anchor = item.get("URL", "")
             m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
