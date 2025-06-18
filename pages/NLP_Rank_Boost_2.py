@@ -114,7 +114,7 @@ if st.session_state.step == 1:
         col.markdown(f"""
 <div style="
   padding: 0.75rem 1.5rem;
-  border: 1px solid rgb(255 166 166);
+  border: 1px solid rgb(223 223 223);
   border-radius: 0.5rem;
   background-color: rgb(247 248 249);
   margin-bottom: 0.5rem;
@@ -142,7 +142,7 @@ if st.session_state.step == 1:
         c.markdown(f"""
 <div style="
   padding: 0.75rem 1.5rem;
-  border: 1px solid rgb(255 166 166);
+  border: 1px solid rgb(223 223 223);
   border-radius: 0.5rem;
   background-color: rgb(247 248 249);
 ">
