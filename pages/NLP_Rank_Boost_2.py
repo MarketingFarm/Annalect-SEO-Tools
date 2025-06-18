@@ -62,9 +62,7 @@ with col_right:
         # 2) Risultati Organici (Top 10) in stile SERP
         organic = data.get("organic", [])
         if organic:
-            st.subheader("Risultati Organici (Top 10)")
-
-            # contenitore grigio per i risultati
+            # costruisco il blocco HTML completo, inclusa la heading
             html = """
   <div style="
     background-color: #FFFFFF;
@@ -72,7 +70,15 @@ with col_right:
     border-radius: 0.5rem;
     padding: 2rem;
   ">
-  """
+    <h3 style="
+      margin-top: 0px;
+      margin-bottom: 1rem;
+      font-family: Arial, sans-serif;
+      color: #202124;
+      font-size: 18px;
+      line-height: 24px;
+    ">Risultati Organici (Top 10)</h3>
+"""
             for item in organic[:10]:
                 # Estrazione URL
                 anchor = item.get("URL", "")
@@ -136,8 +142,8 @@ with col_right:
         margin-top: 4px;
       ">{desc}</div>
     </div>
-  """
-            html += "</div>"
+"""
+            html += "  </div>"
 
             # Render del blocco risultati
             st.markdown(html, unsafe_allow_html=True)
