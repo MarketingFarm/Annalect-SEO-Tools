@@ -26,7 +26,7 @@ st.markdown(
             line-height: 1.3 !important;
         }
         .st-c5 {
-    padding: 16px;
+    padding: 12px;
     }
     </style>
     """,
