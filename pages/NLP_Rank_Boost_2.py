@@ -270,33 +270,34 @@ elif st.session_state.step == 3:
 
     import pandas as pd
 
-    # prendo dal JSON le due liste di dict
+    # recupero dalle sessioni i due blocchi
     common = data.get("common_ground", [])
     gap    = data.get("content_gap", [])
 
-    # Common Ground: DataFrame con colonna "Seleziona"
+    # --- Common Ground ---
     df_common = pd.DataFrame(common)
+    # inserisco colonna per selezione
     df_common.insert(0, "Seleziona", False)
 
     st.subheader("Common Ground Analysis")
-    edited_common = st.experimental_data_editor(
+    edited_common = st.data_editor(
         df_common,
         num_rows="dynamic",
         use_container_width=True,
     )
 
-    # Content Gap: DataFrame con colonna "Seleziona"
+    # --- Content Gap ---
     df_gap = pd.DataFrame(gap)
     df_gap.insert(0, "Seleziona", False)
 
     st.subheader("Content Gap Opportunity")
-    edited_gap = st.experimental_data_editor(
+    edited_gap = st.data_editor(
         df_gap,
         num_rows="dynamic",
         use_container_width=True,
     )
 
-    # bottone Indietro
+    # bottone per tornare indietro
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_3")
     st.markdown("</div>", unsafe_allow_html=True)
