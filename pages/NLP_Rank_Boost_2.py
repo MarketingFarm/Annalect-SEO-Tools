@@ -166,7 +166,7 @@ if st.session_state.step == 1:
     st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
-  margin: 1rem 0px 2rem 0rem;
+  margin: 1.5rem 0px 2rem 0rem;
   padding-top:1rem;
 "></div>""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
