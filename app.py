@@ -10,8 +10,6 @@ st.html(
     background-color: red;
 }
 </style>
-"""
-)
 
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
