@@ -212,7 +212,7 @@ else:
         for cat, kws_str, intent in rows:
             label = cat.replace("*","").strip()
             st.markdown(
-                f'<p style="font-size:1.5rem; font-weight:600; margin-bottom:0.25rem;">'
+                f'<p style="font-size:1.5rem; font-weight:600; margin-bottom:0.75rem;margin-top: 1rem;">'
                 f'{label} (Intento: {intent})'
                 f'</p>',
                 unsafe_allow_html=True
