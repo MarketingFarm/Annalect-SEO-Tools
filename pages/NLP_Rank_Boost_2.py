@@ -47,8 +47,11 @@ with col_right:
             unsafe_allow_html=True,
         )
 
-        # 1) Dettagli della Query
-        st.subheader("Dettagli della Query")
+        # 1) Dettagli della Query con margin-top:0
+        st.markdown(
+            '<h3 style="margin-top:0px;">Dettagli della Query</h3>',
+            unsafe_allow_html=True
+        )
         df_details = pd.DataFrame([{
             "Query":    data.get("query", ""),
             "Country":  data.get("country", ""),
