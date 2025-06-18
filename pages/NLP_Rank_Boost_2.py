@@ -1,7 +1,7 @@
 import streamlit as st
 import json
-import pandas as pd
 import re
+import pandas as pd
 from urllib.parse import urlparse
 
 # Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
@@ -45,19 +45,42 @@ except json.JSONDecodeError as e:
 st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
-  margin: 1rem 0;
+  margin: 1.5rem 0;
   padding-top:1rem;
 "></div>
 """, unsafe_allow_html=True)
 
-# --- Dettagli della Query ---
-st.markdown('<h3 style="margin-top:0px;">Dettagli della Query</h3>', unsafe_allow_html=True)
-df_details = pd.DataFrame([{
-    "Query":    data.get("query", ""),
-    "Country":  data.get("country", ""),
-    "Language": data.get("language", "")
-}])
-st.dataframe(df_details, hide_index=True)
+# --- Dettagli della Query come card ---
+query   = data.get("query", "")
+country = data.get("country", "")
+lang    = data.get("language", "")
+
+st.markdown("### Dettagli della Query")
+cols = st.columns(3, gap="large")
+labels = ["Query", "Country", "Language"]
+values = [query, country, lang]
+
+for col, label, val in zip(cols, labels, values):
+    col.markdown(f"""
+      <div style="
+        padding: 0.75rem 1rem;
+        border: 1px solid #ECEDEE;
+        border-radius: 0.5rem;
+        background-color: #FCFCFD;
+      ">
+        <div style="font-size:0.9rem;color:#6F6F6F;">{label}</div>
+        <div style="font-size:1.25rem;color:#202124;font-weight:500;">{val}</div>
+      </div>
+    """, unsafe_allow_html=True)
+
+# --- Delimitatore tra dettagli e risultati ---
+st.markdown("""
+<div style="
+  border-top:1px solid #ECEDEE;
+  margin: 1.5rem 0;
+  padding-top:1rem;
+"></div>
+""", unsafe_allow_html=True)
 
 # --- Risultati Organici (Top 10) in stile SERP ---
 organic = data.get("organic", [])
@@ -65,18 +88,17 @@ if organic:
     # container grigio con bordo arrotondato e padding
     html = """
 <div style="
-  background-color: #FFFFFF;
+  background-color: #F8F9FB;
   border: 1px solid #ECEDEE;
   border-radius: 0.5rem;
-  padding: 3rem;
+  padding: 1.5rem;
 ">
   <h3 style="
     margin-top:0px;
-    padding-top:0px;
     margin-bottom:1rem;
-    font-family: Source Sans Pro, sans-serif;
+    font-family: Arial, sans-serif;
     color: #202124;
-    font-size: 28px;
+    font-size: 18px;
     line-height: 24px;
   ">Risultati Organici (Top 10)</h3>
 """
