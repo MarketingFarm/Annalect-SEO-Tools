@@ -112,7 +112,8 @@ if st.session_state.step == 1:
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
     # 1b) Nuova riga di card da analysis_strategica
-    analysis_strategica = data.get("analysis_strategica", [])
+    analysis_strategica = data.get("analysis_strategica", "")
+    # predispongo i campi
     fields = {
         "Search Intent Primario": "",
         "Search Intent Secondario": "",
@@ -120,24 +121,13 @@ if st.session_state.step == 1:
         "Tone of Voice (ToV)": "",
         "Segnali E-E-A-T": ""
     }
-
-    # Se è lista strutturata
-    if isinstance(analysis_strategica, list):
-        for entry in analysis_strategica:
-            key = entry.get("Caratteristica SEO", "")
-            val = entry.get("Analisi Sintetica", "")
-            if key in fields and isinstance(val, str):
-                clean_val = re.sub(r"\*\*(.*?)\*\*", r"\1", val)
-                fields[key] = clean_val.strip()
-    else:
-        # Fallback parse Markdown
-        for line in analysis_strategica.split("\n"):
-            if line.startswith("|**"):
-                parts = line.split("|")
-                if len(parts) > 2:
-                    label = parts[1].strip("* ").strip()
-                    if label in fields:
-                        fields[label] = parts[2].strip()
+    # regex per catturare | **Label** | **Valore** |
+    pattern = re.compile(r"\|\s*\*\*(?P<label>.*?)\*\*\s*\|\s*\*\*(?P<val>.*?)\*\*")
+    for m in pattern.finditer(analysis_strategica):
+        lbl = m.group("label").strip()
+        val = m.group("val").strip()
+        if lbl in fields:
+            fields[lbl] = val
 
     cols2 = st.columns(5, gap="small")
     for col, label in zip(cols2, fields.keys()):
@@ -266,9 +256,7 @@ else:
             raw_cat = entry.get("Categoria Keyword", "")
             label = raw_cat.replace("*","").strip()
             kws_str = entry.get("Keywords / Concetti / Domande", "")
-            # split e pulizia dei backtick
             options = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
-            # titolo senza (Intento)
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
                 f'{label}'
@@ -279,7 +267,7 @@ else:
                 label="",
                 options=options,
                 default=options,
-                key=f"ms_{label.replace(" ", "_")}"
+                key=f"ms_{label.replace(' ', '_')}"
             )
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
