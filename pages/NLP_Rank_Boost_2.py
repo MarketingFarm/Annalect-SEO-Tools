@@ -6,51 +6,53 @@ from urllib.parse import urlparse
 
 # Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
 
-# Sidebar per il caricamento del file JSON
-st.sidebar.title("Importazione JSON")
-uploaded_file = st.sidebar.file_uploader(
-    "Carica il file JSON di export SEO",
-    type="json",
-    help="Carica qui il file JSON generato dalla pagina precedente"
-)
-
-# Main area
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
     """
-    In questa pagina puoi visualizzare i dettagli della query, i primi 10 risultati organici
-    in stile SERP, e selezionare le singole keywords per l'analisi.
+    In questa pagina puoi caricare il JSON generato dalla pagina di raccolta dati SEO,
+    visualizzare i dettagli della query, i primi 10 risultati organici in stile SERP,
+    e selezionare le singole keywords per l'analisi.
     """
 )
 
-if uploaded_file is not None:
-    # Parsing del JSON
-    try:
-        data = json.load(uploaded_file)
-    except json.JSONDecodeError as e:
-        st.error(f"❌ Errore nel parsing del JSON: {e}")
-        st.stop()
+# dividiamo la pagina in due colonne: la prima più stretta per l'upload,
+# la seconda più larga per i risultati
+col_left, col_right = st.columns([1, 3])
 
-    # Accordion con JSON completo
-    with st.expander("📂 Espandi per visualizzare il JSON completo"):
-        st.json(data)
+with col_left:
+    uploaded_file = st.file_uploader(
+        "Carica il file JSON",
+        type="json",
+        help="Carica qui il file JSON generato dalla pagina precedente"
+    )
 
-    # --- 1) Dettagli della Query ---
-    st.subheader("Dettagli della Query")
-    df_details = pd.DataFrame([{
-        "Query":    data.get("query", ""),
-        "Country":  data.get("country", ""),
-        "Language": data.get("language", "")
-    }])
-    st.dataframe(df_details, hide_index=True)
+with col_right:
+    if uploaded_file is not None:
+        try:
+            data = json.load(uploaded_file)
+        except json.JSONDecodeError as e:
+            st.error(f"❌ Errore nel parsing del JSON: {e}")
+            st.stop()
 
-    # --- 2) Risultati Organici (Top 10) in stile SERP ---
-    organic = data.get("organic", [])
-    if organic:
-        st.subheader("Risultati Organici (Top 10)")
+        # opzionale: expander JSON completo
+        with st.expander("📂 Espandi per visualizzare il JSON completo"):
+            st.json(data)
 
-        # div contenitore per tutti i risultati
-        html = """
+        # 1) Dettagli della query
+        st.subheader("Dettagli della Query")
+        df_details = pd.DataFrame([{
+            "Query":    data.get("query", ""),
+            "Country":  data.get("country", ""),
+            "Language": data.get("language", "")
+        }])
+        st.dataframe(df_details, hide_index=True)
+
+        # 2) Risultati organici
+        organic = data.get("organic", [])
+        if organic:
+            st.subheader("Risultati Organici (Top 10)")
+            # contenitore grigio
+            html = """
 <div style="
   background-color: #F8F9FB;
   border: 1px solid #ECEDEE;
@@ -58,31 +60,29 @@ if uploaded_file is not None:
   padding: 1rem;
 ">
 """
-        for item in organic[:10]:
-            # estraggo l'URL
-            anchor = item.get("URL", "")
-            m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
-            url = m.group(1) if m else anchor
+            for item in organic[:10]:
+                anchor = item.get("URL", "")
+                m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
+                url = m.group(1) if m else anchor
 
-            # formatto l'URL in segmenti separati da " › "
-            parsed = urlparse(url)
-            base = f"{parsed.scheme}://{parsed.netloc}"
-            path_segments = [seg for seg in parsed.path.split("/") if seg]
-            pretty_url = base
-            if path_segments:
-                pretty_url += " › " + " › ".join(path_segments)
+                # pretty URL
+                parsed = urlparse(url)
+                base = f"{parsed.scheme}://{parsed.netloc}"
+                segments = [seg for seg in parsed.path.split("/") if seg]
+                pretty_url = base
+                if segments:
+                    pretty_url += " › " + " › ".join(segments)
 
-            # ricavo il nome del sito da www.xxx.yyy → xxx
-            host = parsed.netloc
-            parts = host.split('.')
-            site_raw = parts[1] if len(parts) > 2 else parts[0]
-            site_name = site_raw.replace('-', ' ').title()
+                # site name
+                host = parsed.netloc
+                parts = host.split('.')
+                raw = parts[1] if len(parts) > 2 else parts[0]
+                site_name = raw.replace('-', ' ').title()
 
-            title = item.get("Meta Title", "")
-            desc  = item.get("Meta Description", "")
+                title = item.get("Meta Title", "")
+                desc  = item.get("Meta Description", "")
 
-            # aggiungo il singolo risultato all'HTML
-            html += f"""
+                html += f"""
   <div style="margin-bottom:30px;">
     <div style="display:flex; align-items:center; margin-bottom:6px;">
       <img src="https://www.google.com/favicon.ico" style="
@@ -104,7 +104,6 @@ if uploaded_file is not None:
           color: #4d5156;
           font-size: 12px;
           line-height: 18px;
-          font-weight: 400;
         ">{pretty_url}</div>
       </div>
     </div>
@@ -118,46 +117,44 @@ if uploaded_file is not None:
     <div style="
       font-family: Arial, sans-serif;
       font-size: 14px;
-      font-weight: 400;
       line-height: 22px;
       color: #474747;
-      margin-top: 0px;
+      margin-top: 4px;
     ">{desc}</div>
   </div>
 """
-        html += "</div>"
+            html += "</div>"
+            st.markdown(html, unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
-        st.markdown(html, unsafe_allow_html=True)
+        # 3) Selezione keywords
+        st.subheader("🔍 Seleziona le singole keywords per l'analisi")
+        table_str = data.get("keyword_mining", "")
+        lines = [l for l in table_str.split("\n") if l.strip()]
+        if len(lines) >= 3:
+            rows = []
+            for line in lines[2:]:
+                parts = [c.strip() for c in line.split("|") if c.strip()]
+                if len(parts) == 3:
+                    rows.append(parts)
+
+            selected = {}
+            for cat, kw_str, intent in rows:
+                kws = [k.strip(" `") for k in kw_str.split(",") if k.strip()]
+                st.markdown(f"**{cat}** _(Intento: {intent})_")
+                cols = st.columns([1, 9])
+                chosen = []
+                for kw in kws:
+                    chk = cols[0].checkbox("", value=True, key=f"chk_{cat}_{kw}")
+                    cols[1].write(kw)
+                    if chk:
+                        chosen.append(kw)
+                selected[cat] = chosen
+
+            st.subheader("✅ Keywords selezionate")
+            st.json(selected)
+        else:
+            st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
     else:
-        st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
-
-    # --- 3) Selezione singole keywords dalla tabella di Keyword Mining ---
-    st.subheader("🔍 Seleziona le singole keywords per l'analisi")
-    table_str = data.get("keyword_mining", "")
-    lines = [line for line in table_str.split("\n") if line.strip()]
-    if len(lines) >= 3:
-        rows = []
-        for line in lines[2:]:
-            parts = [cell.strip() for cell in line.split("|") if cell.strip()]
-            if len(parts) == 3:
-                rows.append(parts)
-
-        selected_keywords = {}
-        for categoria, keywords_str, intento in rows:
-            keywords_list = [kw.strip(" `") for kw in keywords_str.split(",") if kw.strip()]
-            st.markdown(f"**{categoria}**  _(Intento: {intento})_")
-            cols = st.columns([1, 9])
-            chosen = []
-            for kw in keywords_list:
-                checked = cols[0].checkbox("", value=True, key=f"chk_{categoria}_{kw}")
-                cols[1].write(kw)
-                if checked:
-                    chosen.append(kw)
-            selected_keywords[categoria] = chosen
-
-        st.subheader("✅ Keywords selezionate")
-        st.json(selected_keywords)
-    else:
-        st.warning("⚠️ Non ho trovato una tabella di Keyword Mining nel JSON.")
-else:
-    st.sidebar.info("⏳ Carica un file JSON per procedere con l'analisi.")
+        col_right.info("⏳ Carica un file JSON per procedere con l'analisi.")
