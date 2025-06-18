@@ -56,24 +56,21 @@ if uploaded_file is not None:
             # ricavo il nome del sito da www.xxx.yyy → xxx
             parsed = urlparse(url)
             host = parsed.netloc
-            # rimuovo eventuale www.
-            site = host[4:] if host.startswith("www.") else host
-            site_name = site.split(".")[0]
-            # trasforma "olio-clemente" in "Olio Clemente"
-            site_name = " ".join(site_name.replace("-", " ").split()).title()
+            parts = host.split('.')
+            site_raw = parts[1] if len(parts) > 2 else parts[0]
+            site_name = site_raw.replace('-', ' ').title()
 
             title = item.get("Meta Title", "")
             desc  = item.get("Meta Description", "")
 
-            # markup con i nuovi stili
+            # Markup in stile Google SERP con 30px separazione
             st.markdown(f"""
-<div style="margin-bottom:20px;">
+<div style="margin-bottom:30px;">
   <div style="
     font-family: Arial, sans-serif;
     color: #202124;
     font-size: 14px;
     line-height: 20px;
-    margin-bottom: 4px;
   ">{site_name}</div>
   <div style="
     font-family: Arial, sans-serif;
