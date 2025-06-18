@@ -132,7 +132,7 @@ with col_org:
 
 with col_paa:
     # People Also Ask come pillole
-    st.subheader("💡 People Also Ask")
+    st.subheader("People Also Ask")
     paa = data.get("people_also_ask", [])
     if paa:
         st.markdown(
@@ -148,7 +148,7 @@ with col_paa:
         st.write("_Nessuna PAA trovata_")
 
     # Ricerche Correlate: evidenziamo la parte eccedente alla keyword principale in grassetto
-    st.subheader("🔎 Ricerche Correlate")
+    st.subheader("Ricerche Correlate")
     related = data.get("related_searches", [])
     if related:
         # Precompiliamo pattern regex per keyword principale, IGNORECASE
