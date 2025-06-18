@@ -10,8 +10,8 @@ st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
     """
     In questa pagina puoi caricare il JSON generato dalla pagina di raccolta dati SEO,
-    visualizzare i dettagli della query, i primi 10 risultati organici in stile SERP,
-    e selezionare le singole keywords per l'analisi.
+    visualizzare i dettagli della query, le People Also Ask, le Ricerche Correlate,
+    e i primi 10 risultati organici in stile SERP, quindi selezionare le singole keywords.
     """
 )
 
@@ -50,7 +50,7 @@ st.markdown("""
 "></div>
 """, unsafe_allow_html=True)
 
-# --- Dettagli della Query come card con gap small e nuovi stili ---
+# --- Dettagli della Query come card ---
 query   = data.get("query", "")
 country = data.get("country", "")
 lang    = data.get("language", "")
@@ -73,7 +73,7 @@ for col, label, val in zip(cols, labels, values):
       </div>
     """, unsafe_allow_html=True)
 
-# --- Delimitatore tra dettagli e risultati ---
+# --- Delimitatore tra dettagli e sezioni PAA/Organic ---
 st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
@@ -82,10 +82,33 @@ st.markdown("""
 "></div>
 """, unsafe_allow_html=True)
 
-# --- Risultati Organici (Top 10) in stile SERP con favicon dinamica ---
-organic = data.get("organic", [])
-if organic:
-    html = """
+# --- Due colonne: sinistra PAA e correlate, destra Top 10 organici ---
+col_paa, col_org = st.columns([1, 2], gap="small")
+
+with col_paa:
+    # People Also Ask
+    paa = data.get("people_also_ask", [])
+    st.subheader("💡 People Also Ask")
+    if paa:
+        for q in paa:
+            st.markdown(f"- {q}")
+    else:
+        st.write("_Nessuna PAA trovata_")
+
+    # Ricerche Correlate
+    related = data.get("related_searches", [])
+    st.subheader("🔎 Ricerche Correlate")
+    if related:
+        for r in related:
+            st.markdown(f"- {r}")
+    else:
+        st.write("_Nessuna ricerca correlata trovata_")
+
+with col_org:
+    # Top 10 organici in un container grigio
+    organic = data.get("organic", [])
+    if organic:
+        html = """
 <div style="
   background-color: #F8F9FB;
   border: 1px solid #ECEDEE;
@@ -101,30 +124,27 @@ if organic:
     line-height: 24px;
   ">Risultati Organici (Top 10)</h3>
 """
-    for item in organic[:10]:
-        # Estrazione URL
-        anchor = item.get("URL", "")
-        m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
-        url = m.group(1) if m else anchor
+        for item in organic[:10]:
+            anchor = item.get("URL", "")
+            m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
+            url = m.group(1) if m else anchor
 
-        # Pretty URL
-        parsed = urlparse(url)
-        base = f"{parsed.scheme}://{parsed.netloc}"
-        segments = [seg for seg in parsed.path.split("/") if seg]
-        pretty_url = base
-        if segments:
-            pretty_url += " › " + " › ".join(segments)
+            parsed = urlparse(url)
+            base = f"{parsed.scheme}://{parsed.netloc}"
+            segments = [seg for seg in parsed.path.split("/") if seg]
+            pretty_url = base
+            if segments:
+                pretty_url += " › " + " › ".join(segments)
 
-        # Site name
-        host = parsed.netloc
-        parts = host.split('.')
-        raw = parts[1] if len(parts) > 2 else parts[0]
-        site_name = raw.replace('-', ' ').title()
+            host = parsed.netloc
+            parts = host.split('.')
+            raw = parts[1] if len(parts) > 2 else parts[0]
+            site_name = raw.replace('-', ' ').title()
 
-        title = item.get("Meta Title", "")
-        desc  = item.get("Meta Description", "")
+            title = item.get("Meta Title", "")
+            desc  = item.get("Meta Description", "")
 
-        html += f"""
+            html += f"""
   <div style="margin-bottom:2rem;">
     <div style="display:flex; align-items:center; margin-bottom:0.5rem;">
       <img
@@ -169,12 +189,12 @@ if organic:
     ">{desc}</div>
   </div>
 """
-    html += "</div>"
-    st.markdown(html, unsafe_allow_html=True)
-else:
-    st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
+        html += "</div>"
+        st.markdown(html, unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
-# --- Delimitatore tra risultati e keyword mining ---
+# --- Delimitatore tra sezioni e keyword mining ---
 st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
