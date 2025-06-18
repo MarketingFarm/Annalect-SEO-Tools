@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 # --- Assumo st.set_page_config già invocato nel file principale ---
 
+# Titolo e descrizione
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
     """
@@ -72,15 +73,6 @@ except json.JSONDecodeError as e:
     st.error(f"❌ Errore nel parsing del JSON: {e}")
     st.stop()
 
-# Prepara la mappa di Analisi Strategica
-analysis_list = data.get("analysis_strategica", [])
-analysis_map = {}
-for item in analysis_list:
-    raw_label = item.get("Caratteristica SEO", "")
-    clean_label = re.sub(r"\*+", "", raw_label).strip()
-    clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
-    analysis_map[clean_label] = clean_value
-
 # Inizializzo lo step
 if 'step' not in st.session_state:
     st.session_state.step = 1
@@ -93,63 +85,81 @@ def go_back():
 
 # === STEP 1 ===
 if st.session_state.step == 1:
+    # primo separatore
     st.markdown(separator, unsafe_allow_html=True)
 
-    # Dettagli della Query + Segnali E-E-A-T
+    # Dettagli della Query + Segnali E-E-A-T spostati qui
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
-    segnali = analysis_map.get("Segnali E-E-A-T", "")
-
     st.markdown(
         '<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>',
         unsafe_allow_html=True
     )
-    cols = st.columns(4, gap="small")
-    for col, label, val in zip(
-        cols,
-        ["Query", "Country", "Language", "Segnali E-E-A-T"],
-        [query, country, lang, segnali]
-    ):
+
+    # preparo mappa di Analysis Strategica
+    analysis_list = data.get("analysis_strategica", [])
+    analysis_map = {}
+    for item in analysis_list:
+        raw_label = item.get("Caratteristica SEO", "")
+        clean_label = re.sub(r"\*+", "", raw_label).strip()
+        clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
+        analysis_map[clean_label] = clean_value
+
+    # estraggo il solo valore "Segnali E-E-A-T" senza parentesi
+    raw_signals = analysis_map.get("Segnali E-E-A-T", "")
+    signals_val = re.sub(r"\s*\([^)]*\)", "", raw_signals).strip()
+
+    # colonne: Query, Country, Language, Segnali E-E-A-T
+    cols_main = st.columns(4, gap="small")
+    labels_main = ["Query", "Country", "Language", "Segnali E-E-A-T"]
+    vals_main   = [query, country, lang, signals_val]
+
+    for col, lbl, val in zip(cols_main, labels_main, vals_main):
         col.markdown(f"""
 <div style="
-  padding: 0.75rem 1.5rem 0.95rem 1.5rem;
-  border: 1px solid rgb(223 223 223);
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(255 166 166);
   border-radius: 0.5rem;
-  background-color: rgb(247 248 249);
+  background-color: rgb(255, 246, 246);
   margin-bottom: 0.5rem;
 ">
-  <div style="font-size:0.8rem; color: rgb(143 143 143);">{label}</div>
-  <div style="font-size:1.1rem; color:#202124; font-weight:500; line-height: 1.4rem;">{val}</div>
+  <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
+  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
 </div>
-        """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
+
+    # margine inferiore
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # Titolo e 4 card rimanenti di Analisi Strategica
+    # Titolo Analisi Strategica
     st.markdown(
         '<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>',
         unsafe_allow_html=True
     )
+
+    # cards di Analisi Strategica (4 card, senza segnali)
     labels_analysis = [
         "Search Intent Primario",
         "Search Intent Secondario",
         "Target Audience & Leggibilità",
         "Tone of Voice (ToV)"
     ]
-    cols2 = st.columns(4, gap="small")
+    cols2 = st.columns(len(labels_analysis), gap="small")
     for c, lbl in zip(cols2, labels_analysis):
-        v = analysis_map.get(lbl, "")
+        raw = analysis_map.get(lbl, "")
+        v = re.sub(r"\s*\([^)]*\)", "", raw).strip()
         c.markdown(f"""
 <div style="
-  padding: 0.75rem 1.5rem 0.95rem 1.5rem;
-  border: 1px solid rgb(223 223 223);
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(255 166 166);
   border-radius: 0.5rem;
-  background-color: rgb(247 248 249);
+  background-color: rgb(255, 246, 246);
 ">
-  <div style="font-size:0.8rem; color: rgb(143 143 143);">{lbl}</div>
-  <div style="font-size:1.1rem; color:#202124; font-weight:500; line-height: 1.4rem;">{v}</div>
+  <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
+  <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
 </div>
-        """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
     # Separatore e colonne organici / PAA
@@ -170,14 +180,14 @@ if st.session_state.step == 1:
         if organic:
             html = '<div style="padding-right:3.5rem;">'
             for it in organic[:10]:
-                m = re.search(r"href=[\'\"]([^\'\"]+)[\'\"]", it.get("URL",""))
+                m   = re.search(r"href=[\'\"]([^\'\"]+)[\'\"]", it.get("URL",""))
                 url = m.group(1) if m else it.get("URL","")
-                p = urlparse(url)
+                p   = urlparse(url)
                 base = f"{p.scheme}://{p.netloc}"
-                seg = [s for s in p.path.split("/") if s]
-                pretty = base + (" › " + " › ".join(seg) if seg else "")
-                hn = p.netloc.split('.')
-                name = (hn[1] if len(hn)>2 else hn[0]).replace('-',' ').title()
+                segs = [s for s in p.path.split("/") if s]
+                pretty = base + (" › " + " › ".join(segs) if segs else "")
+                hn   = p.netloc.split('.')
+                name = (hn[1] if len(hn)>2 else hn[0]).replace('-', ' ').title()
                 title = it.get("Meta Title","")
                 desc  = it.get("Meta Description","")
                 html += (
@@ -258,7 +268,8 @@ else:
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            label = re.sub(r"\s*\(.*\)", "", raw_cat.strip("* ").strip())
+            # rimuovo tutto da "(" in poi
+            label = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
             kws_str = entry.get("Keywords / Concetti / Domande", "")
             kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
 
@@ -268,14 +279,12 @@ else:
                 f'</p>',
                 unsafe_allow_html=True
             )
-
             st.multiselect(
                 label="",
                 options=kws,
                 default=kws,
                 key=f"ms_{label.replace(" ", "_")}"
             )
-
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
