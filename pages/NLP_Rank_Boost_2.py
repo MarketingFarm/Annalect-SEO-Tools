@@ -84,9 +84,10 @@ def go_back():
 
 # === STEP 1 ===
 if st.session_state.step == 1:
+    # singolo separatore all'inizio
     st.markdown(separator, unsafe_allow_html=True)
 
-    # Dettagli della Query
+    # 1) Dettagli della Query
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
@@ -97,67 +98,72 @@ if st.session_state.step == 1:
     cols = st.columns(3, gap="small")
     for col, label, val in zip(cols, ["Query","Country","Language"], [query,country,lang]):
         col.markdown(f"""
-  <div style="
-    padding: 0.75rem 1.5rem;
-    border: 1px solid rgb(254, 212, 212);
-    border-radius: 0.5rem;
-    background-color: rgb(255, 246, 246);
-    margin-bottom: 0.5rem;
-  ">
-    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
-    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
-  </div>
-        """, unsafe_allow_html=True)
+<div style="
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(254, 212, 212);
+  border-radius: 0.5rem;
+  background-color: rgb(255, 246, 246);
+  margin-bottom: 0.5rem;
+">
+  <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
+  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
+</div>
+""", unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # --- nuove card da "analysis_strategica" ---
-    analysis_md = data.get("analysis_strategica", "")
-    # estraggo i valori sintetici per i campi richiesti
-    keys = {
+    # 1b) Nuova riga di card da analysis_strategica
+    analysis_strategica = data.get("analysis_strategica", [])
+    fields = {
         "Search Intent Primario": "",
         "Search Intent Secondario": "",
         "Target Audience & Leggibilità": "",
         "Tone of Voice (ToV)": "",
         "Segnali E-E-A-T": ""
     }
-    for line in analysis_md.split("\n"):
-        if line.startswith("|**"):
-            parts = line.split("|")
-            label = parts[1].strip("* ").strip()
-            if label in keys and len(parts) > 2:
-                keys[label] = parts[2].strip()
+
+    # Se è lista strutturata
+    if isinstance(analysis_strategica, list):
+        for entry in analysis_strategica:
+            key = entry.get("Caratteristica SEO", "")
+            val = entry.get("Analisi Sintetica", "")
+            if key in fields and isinstance(val, str):
+                clean_val = re.sub(r"\*\*(.*?)\*\*", r"\1", val)
+                fields[key] = clean_val.strip()
+    else:
+        # Fallback parse Markdown
+        for line in analysis_strategica.split("\n"):
+            if line.startswith("|**"):
+                parts = line.split("|")
+                if len(parts) > 2:
+                    label = parts[1].strip("* ").strip()
+                    if label in fields:
+                        fields[label] = parts[2].strip()
 
     cols2 = st.columns(5, gap="small")
-    labels2 = [
-        "Search Intent Primario",
-        "Search Intent Secondario",
-        "Target Audience & Leggibilità",
-        "Tone of Voice (ToV)",
-        "Segnali E-E-A-T"
-    ]
-    for col, label in zip(cols2, labels2):
-        val = keys.get(label, "")
+    for col, label in zip(cols2, fields.keys()):
+        val = fields[label]
         col.markdown(f"""
-  <div style="
-    padding: 0.75rem 1.5rem;
-    border: 1px solid rgb(254, 212, 212);
-    border-radius: 0.5rem;
-    background-color: rgb(255, 246, 246);
-    margin-bottom: 0.5rem;
-  ">
-    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
-    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
-  </div>
-        """, unsafe_allow_html=True)
+<div style="
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(254, 212, 212);
+  border-radius: 0.5rem;
+  background-color: rgb(255, 246, 246);
+  margin-bottom: 0.5rem;
+">
+  <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
+  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
+</div>
+""", unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # Separatore e colonne organici / PAA
+    # 2) Separatore e colonne Organici / PAA+Correlate
     st.markdown("""
-  <div style="
-    border-top:1px solid #ECEDEE;
-    margin: 1rem 0px 2rem 0rem;
-    padding-top:1rem;
-  "></div>""", unsafe_allow_html=True)
+<div style="
+  border-top:1px solid #ECEDEE;
+  margin: 1rem 0px 2rem 0rem;
+  padding-top:1rem;
+"></div>
+""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
 
     with col_org:
@@ -241,6 +247,7 @@ if st.session_state.step == 1:
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
+    # pulsante avanti
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -257,25 +264,23 @@ else:
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            # rimuovo i backtick e i placeholder di intento dal titolo
-            label = raw_cat.strip("* ").strip()
+            label = raw_cat.replace("*","").strip()
             kws_str = entry.get("Keywords / Concetti / Domande", "")
-            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
-
+            # split e pulizia dei backtick
+            options = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
+            # titolo senza (Intento)
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
                 f'{label}'
                 f'</p>',
                 unsafe_allow_html=True
             )
-
             st.multiselect(
                 label="",
-                options=kws,
-                default=kws,
+                options=options,
+                default=options,
                 key=f"ms_{label.replace(" ", "_")}"
             )
-
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
