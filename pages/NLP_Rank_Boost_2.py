@@ -47,6 +47,17 @@ if uploaded_file is not None:
     organic = data.get("organic", [])
     if organic:
         st.subheader("Risultati Organici (Top 10)")
+
+        # apertura del div contenitore
+        st.markdown("""
+<div style="
+  background-color: #F8F9FB;
+  border: 1px solid #ECEDEE;
+  border-radius: 0.5rem;
+  padding: 1rem;
+">
+""", unsafe_allow_html=True)
+
         for item in organic[:10]:
             # estraggo l'URL
             anchor = item.get("URL", "")
@@ -72,48 +83,52 @@ if uploaded_file is not None:
 
             # Markup in stile Google SERP con logo Google tondo, bordo e 30px separazione
             st.markdown(f"""
-<div style="margin-bottom:30px;">
-  <div style="display:flex; align-items:center; margin-bottom:6px;">
-    <img src="https://www.google.com/favicon.ico" style="
-      width:26px;
-      height:26px;
-      border-radius:50%;
-      border:1px solid #d2d2d2;
-      margin-right:8px;
-    "/>
-    <div>
-      <div style="
-        font-family: Arial, sans-serif;
-        color: #202124;
-        font-size: 14px;
-        line-height: 20px;
-      ">{site_name}</div>
-      <div style="
-        font-family: Arial, sans-serif;
-        color: #4d5156;
-        font-size: 12px;
-        line-height: 18px;
-        font-weight: 400;
-      ">{pretty_url}</div>
+  <div style="margin-bottom:30px;">
+    <div style="display:flex; align-items:center; margin-bottom:6px;">
+      <img src="https://www.google.com/favicon.ico" style="
+        width:26px;
+        height:26px;
+        border-radius:50%;
+        border:1px solid #d2d2d2;
+        margin-right:8px;
+      "/>
+      <div>
+        <div style="
+          font-family: Arial, sans-serif;
+          color: #202124;
+          font-size: 14px;
+          line-height: 20px;
+        ">{site_name}</div>
+        <div style="
+          font-family: Arial, sans-serif;
+          color: #4d5156;
+          font-size: 12px;
+          line-height: 18px;
+          font-weight: 400;
+        ">{pretty_url}</div>
+      </div>
     </div>
+    <a href="{url}" style="
+      color: #1a0dab;
+      text-decoration: none;
+      font-family: Arial, sans-serif;
+      font-size: 20px;
+      font-weight: 400;
+    ">{title}</a>
+    <div style="
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 22px;
+      color: #474747;
+      margin-top: 0px;
+    ">{desc}</div>
   </div>
-  <a href="{url}" style="
-    color: #1a0dab;
-    text-decoration: none;
-    font-family: Arial, sans-serif;
-    font-size: 20px;
-    font-weight: 400;
-  ">{title}</a>
-  <div style="
-    font-family: Arial, sans-serif;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 22px;
-    color: #474747;
-    margin-top: 0px;
-  ">{desc}</div>
-</div>
 """, unsafe_allow_html=True)
+
+        # chiusura del div contenitore
+        st.markdown("</div>", unsafe_allow_html=True)
+
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
