@@ -15,14 +15,15 @@ st.markdown(
     """
 )
 
-# --- Delimitatore sotto alla descrizione della pagina ---
-st.markdown("""
+# --- Separator standardizzato sotto alla descrizione della pagina ---
+separator = """
 <div style="
   border-top:1px solid #ECEDEE;
   margin: 1rem 0;
   padding-top:1rem;
 "></div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(separator, unsafe_allow_html=True)
 
 # --- Caricamento file JSON ---
 uploaded_file = st.file_uploader(
@@ -41,21 +42,17 @@ except json.JSONDecodeError as e:
     st.error(f"❌ Errore nel parsing del JSON: {e}")
     st.stop()
 
-# --- Delimitatore sopra a "Dettagli della Query" ---
-st.markdown("""
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1.5rem 0;
-  padding: 0rem 0px 1.5rem;
-"></div>
-""", unsafe_allow_html=True)
+# --- Separator prima di Dettagli della Query ---
+st.markdown(separator, unsafe_allow_html=True)
 
 # --- Dettagli della Query come card ---
 query   = data.get("query", "").strip()
 country = data.get("country", "").strip()
 lang    = data.get("language", "").strip()
 
-st.markdown("### Dettagli della Query")
+# Usare h3 con margin/padding top 0
+st.markdown('<h3 style="margin-top:0; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
+
 cols = st.columns(3, gap="small")
 labels = ["Query", "Country", "Language"]
 values = [query, country, lang]
@@ -73,23 +70,16 @@ for col, label, val in zip(cols, labels, values):
 </div>
 """, unsafe_allow_html=True)
 
-# --- Delimitatore tra dettagli e sezioni PAA/Organic ---
-st.markdown("""
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1.5rem 0;
-  padding: 0rem 0px 1.5rem;
-"></div>
-""", unsafe_allow_html=True)
+# --- Separator prima di sezioni PAA/Organic ---
+st.markdown(separator, unsafe_allow_html=True)
 
 # --- Due colonne: sinistra risultati organici, destra PAA+related ---
 col_org, col_paa = st.columns([2, 1], gap="small")
 
 with col_org:
-    st.subheader("Risultati Organici (Top 10)")
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
     organic = data.get("organic", [])
     if organic:
-        # costruiamo l'HTML per i risultati organici, visibili tutti senza scroll aggiuntivo
         html = '<div style="padding-right:3.5rem;">'
         for item in organic[:10]:
             anchor = item.get("URL", "")
@@ -125,14 +115,12 @@ with col_org:
                 '</div>'
             )
         html += '</div>'
-
         st.markdown(html, unsafe_allow_html=True)
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
 with col_paa:
-    # People Also Ask come pillole
-    st.subheader("People Also Ask")
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
     paa = data.get("people_also_ask", [])
     if paa:
         st.markdown(
@@ -147,48 +135,31 @@ with col_paa:
     else:
         st.write("_Nessuna PAA trovata_")
 
-    # Ricerche Correlate: evidenziamo la parte eccedente alla keyword principale in grassetto
-    st.subheader("Ricerche Correlate")
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
     related = data.get("related_searches", [])
     if related:
-        # Precompiliamo pattern regex per keyword principale, IGNORECASE
         q = query.strip()
-        if q:
-            pattern = re.compile(re.escape(q), re.IGNORECASE)
-        else:
-            pattern = None
+        pattern = re.compile(re.escape(q), re.IGNORECASE) if q else None
 
         spans = []
         for r in related:
             text = r.strip()
-            highlighted = ""
+            highlighted = text
             if pattern:
                 m = pattern.search(text)
                 if m:
-                    # Manteniamo esattamente il testo originale fino a m.end(), poi bold il resto
                     prefix = text[:m.end()]
                     suffix = text[m.end():]
                     if suffix:
-                        # escape HTML in prefix/suffix? Qui assumiamo che i testi non contengano HTML pericoloso
                         highlighted = f"{prefix}<strong>{suffix}</strong>"
                     else:
-                        # se non c'è suffisso, non boldare nulla
                         highlighted = prefix
-                else:
-                    highlighted = text
-            else:
-                highlighted = text
-
-            # wrap in pill-style span
-            span_html = (
-                f'<span style="background-color:#f7f8f9;'
-                f'padding:8px 12px; border-radius:4px; '
-                f'font-size:16px; margin-bottom:8px;">'
+            # pill-style
+            spans.append(
+                f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
                 f'{highlighted}</span>'
             )
-            spans.append(span_html)
 
-        # Disporre le pillole con flex-wrap
         st.markdown(
             '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
             + ''.join(spans)
@@ -198,17 +169,11 @@ with col_paa:
     else:
         st.write("_Nessuna ricerca correlata trovata_")
 
-# --- Delimitatore tra sezioni e keyword mining ---
-st.markdown("""
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1.5rem 0;
-  padding: 0rem 0px 1.5rem;
-"></div>
-""", unsafe_allow_html=True)
+# --- Separator prima di keyword mining ---
+st.markdown(separator, unsafe_allow_html=True)
 
 # --- Selezione delle keywords ---
-st.subheader("🔍 Seleziona le singole keywords per l'analisi")
+st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 table_str = data.get("keyword_mining", "")
 lines = [l for l in table_str.split("\n") if l.strip()]
 if len(lines) >= 3:
@@ -225,13 +190,14 @@ if len(lines) >= 3:
         cols = st.columns([1, 9])
         chosen = []
         for kw in kws:
-            chk = cols[0].checkbox("", value=True, key=f"chk_{cat}_{kw}")
+            key = f"chk_{cat}_{kw}".replace(" ", "_")
+            chk = cols[0].checkbox("", value=True, key=key)
             cols[1].write(kw)
             if chk:
                 chosen.append(kw)
         selected[cat] = chosen
 
-    st.subheader("✅ Keywords selezionate")
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">✅ Keywords selezionate</h3>', unsafe_allow_html=True)
     st.json(selected)
 else:
     st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
