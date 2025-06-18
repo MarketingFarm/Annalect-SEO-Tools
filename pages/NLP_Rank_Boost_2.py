@@ -67,10 +67,10 @@ with col_right:
             # contenitore grigio per i risultati
             html = """
   <div style="
-    background-color: #F8F9FB;
+    background-color: #FFFFFF;
     border: 1px solid #ECEDEE;
     border-radius: 0.5rem;
-    padding: 1rem;
+    padding: 2rem;
   ">
   """
             for item in organic[:10]:
