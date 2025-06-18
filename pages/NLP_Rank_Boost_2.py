@@ -119,12 +119,13 @@ if st.session_state.step == 1:
   "></div>""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
 
+    # ==== colonna risultati organici ====
     with col_org:
         st.markdown(
             '<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>',
             unsafe_allow_html=True
         )
-        organic = data.get("organic", [])
+        organic = data.get("organic",[])
         if organic:
             html = '<div style="padding-right:3.5rem;">'
             for it in organic[:10]:
@@ -158,6 +159,7 @@ if st.session_state.step == 1:
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
 
+    # ==== colonna PAA + correlate ====
     with col_paa:
         st.markdown(
             '<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>',
@@ -166,10 +168,15 @@ if st.session_state.step == 1:
         paa = data.get("people_also_ask",[])
         if paa:
             pills = ''.join(
-              f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{q}</span>'
+              f'<span style="background-color:#f7f8f9;'
+              f'padding:8px 12px; border-radius:4px; font-size:16px;">'
+              f'{q}</span>'
               for q in paa
             )
-            st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>',
+                unsafe_allow_html=True
+            )
         else:
             st.write("_Nessuna PAA trovata_")
 
@@ -180,21 +187,29 @@ if st.session_state.step == 1:
         related = data.get("related_searches",[])
         if related:
             pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
-            spans=[]
+            spans = []
             for r in related:
-                txt=r.strip()
+                txt = r.strip()
                 if pat:
-                    m=pat.search(txt)
+                    m = pat.search(txt)
                     if m:
                         pre, suf = txt[:m.end()], txt[m.end():]
                         txt = pre + (f"<strong>{suf}</strong>" if suf else "")
                 spans.append(
-                  f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>'
+                  f'<span style="background-color:#f7f8f9;'
+                  f'padding:8px 12px; border-radius:4px; font-size:16px;">'
+                  f'{txt}</span>'
                 )
-            st.markdown('<div style="display:flex;flex-wrap:wrap;gap:4px;">'+''.join(spans)+'</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
+                + ''.join(spans)
+                + '</div>',
+                unsafe_allow_html=True
+            )
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
+    # ==== Pulsante avanti ====
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -207,27 +222,35 @@ else:
         unsafe_allow_html=True
     )
 
-    keyword_mining = data.get("keyword_mining", [])
-    if isinstance(keyword_mining, list) and keyword_mining:
-        for item in keyword_mining:
-            # estraggo categoria, keywords e intento
-            cat = item.get("Categoria Keyword", "")
-            label = cat.replace("*", "").strip()
-            intent = item.get("Intento Prevalente", "")
-            kws_str = item.get("Keywords / Concetti / Domande", "")
-            # split e rimozione backtick
-            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
+    table_str = data.get("keyword_mining","")
+    lines = [l for l in table_str.split("\n") if l.strip()]
+    if len(lines) >= 3:
+        rows = []
+        for line in lines[2:]:
+            parts = [c.strip() for c in line.split("|") if c.strip()]
+            if len(parts) == 3:
+                rows.append(parts)
 
-            # titolo grande
+        for cat, kws_str, intent in rows:
+            label = cat.replace("*","").strip()
+            # titolo con Intento in italic, senza underscore
             st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin-bottom:0.75rem; margin-top:1rem;">'
-                f'{label} _(Intento: {intent})_'
-                f'</p>',
+                f'''
+                <p style="
+                  font-size:1.25rem;
+                  font-weight:600;
+                  margin-bottom:0.75rem;
+                  margin-top:1rem;
+                ">
+                  {label} <em>(Intento: {intent})</em>
+                </p>
+                ''',
                 unsafe_allow_html=True
             )
-            # multiselect senza troncamento
+            # rimuovo eventuali backtick nelle keyword
+            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
             st.multiselect(
-                label="",
+                label="",  # etichetta vuota, spaziatura gestita dal CSS hack
                 options=kws,
                 default=kws,
                 key=f"ms_{label}"
@@ -235,4 +258,4 @@ else:
 
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
-        st.warning("⚠️ Non ho trovato la lista di Keyword Mining nel JSON.")
+        st.warning("⚠️ Non ho trovato la tabella di Keyword Mining.")
