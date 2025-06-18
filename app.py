@@ -10,8 +10,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
     page_icon="🔧",
