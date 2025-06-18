@@ -33,14 +33,15 @@ if uploaded_file is not None:
     with st.expander("📂 Espandi per visualizzare il JSON completo"):
         st.json(data)
 
-    # --- 1) Tabella con Query, Country, Language ---
+    # --- 1) Tabella con Query, Country, Language (senza index) ---
     st.subheader("🔎 Dettagli della Query")
     df_details = pd.DataFrame([{
         "Query": data.get("query", ""),
         "Country": data.get("country", ""),
         "Language": data.get("language", "")
     }])
-    st.table(df_details)
+    # Usa st.dataframe con hide_index=True per nascondere la colonna degli indici
+    st.dataframe(df_details, hide_index=True)
 
     # --- 2) Visualizzazione Top 10 Risultati Organici in stile SERP ---
     organic = data.get("organic", [])
