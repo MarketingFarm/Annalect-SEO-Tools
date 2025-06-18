@@ -63,23 +63,32 @@ if uploaded_file is not None:
             title = item.get("Meta Title", "")
             desc  = item.get("Meta Description", "")
 
-            # Markup in stile Google SERP con 30px separazione
+            # Markup in stile Google SERP con logo Google tondo e 30px separazione
             st.markdown(f"""
 <div style="margin-bottom:30px;">
-  <div style="
-    font-family: Arial, sans-serif;
-    color: #202124;
-    font-size: 14px;
-    line-height: 20px;
-  ">{site_name}</div>
-  <div style="
-    font-family: Arial, sans-serif;
-    color: #4d5156;
-    font-size: 12px;
-    line-height: 18px;
-    font-weight: 400;
-    margin-bottom: 6px;
-  ">{url}</div>
+  <div style="display:flex; align-items:center; margin-bottom:6px;">
+    <img src="https://www.google.com/favicon.ico" style="
+      width:20px;
+      height:20px;
+      border-radius:50%;
+      margin-right:8px;
+    "/>
+    <div>
+      <div style="
+        font-family: Arial, sans-serif;
+        color: #202124;
+        font-size: 14px;
+        line-height: 20px;
+      ">{site_name}</div>
+      <div style="
+        font-family: Arial, sans-serif;
+        color: #4d5156;
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 400;
+      ">{url}</div>
+    </div>
+  </div>
   <a href="{url}" style="
     color: #1a0dab;
     text-decoration: none;
