@@ -15,9 +15,8 @@ st.markdown(
     """
 )
 
-# dividiamo la pagina in due colonne: la prima più stretta per l'upload,
-# la seconda più larga per i risultati
-col_left, col_right = st.columns([1, 3])
+# Dividiamo in tre colonne: sinistra stretta, centrale separator, destra larga
+col_left, col_sep, col_right = st.columns([1, 0.02, 3])
 
 with col_left:
     uploaded_file = st.file_uploader(
@@ -28,6 +27,19 @@ with col_left:
     if uploaded_file is None:
         st.info("⏳ Carica un file JSON per procedere con l'analisi.")
 
+with col_sep:
+    st.markdown(
+        """
+        <div style="
+          border-left:1px solid #ECEDEE;
+          height: 100%;
+          margin-left: auto;
+          margin-right: auto;
+        "></div>
+        """,
+        unsafe_allow_html=True
+    )
+
 with col_right:
     if uploaded_file is not None:
         # parsing del JSON
@@ -37,7 +49,7 @@ with col_right:
             st.error(f"❌ Errore nel parsing del JSON: {e}")
             st.stop()
 
-        # opzionale: expander JSON completo
+        # expander JSON completo
         with st.expander("📂 Espandi per visualizzare il JSON completo"):
             st.json(data)
 
@@ -54,7 +66,7 @@ with col_right:
         organic = data.get("organic", [])
         if organic:
             st.subheader("Risultati Organici (Top 10)")
-            # contenitore grigio
+            # contenitore grigio con bordo arrotondato e padding
             html = """
 <div style="
   background-color: #F8F9FB;
@@ -159,3 +171,6 @@ with col_right:
             st.json(selected)
         else:
             st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
+    else:
+        # quando non c'è file caricato, la colonna di destra rimane vuota
+        pass
