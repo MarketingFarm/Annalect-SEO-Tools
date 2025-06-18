@@ -78,7 +78,7 @@ st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 separator_organic = """
 <div style="
   border-top:1px solid #ECEDEE;
-  margin: 1rem 0px 1.75rem 0rem;
+  margin: 1rem 0px 2rem 0rem;
   padding-top:1rem;
 "></div>
 """
