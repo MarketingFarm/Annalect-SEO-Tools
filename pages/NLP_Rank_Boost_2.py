@@ -23,7 +23,6 @@ separator = """
   padding-top:1rem;
 "></div>
 """
-
 st.markdown(separator, unsafe_allow_html=True)  # sotto descrizione
 
 # --- Caricamento file JSON ---
@@ -133,7 +132,6 @@ with col_paa:
     st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
     paa = data.get("people_also_ask", [])
     if paa:
-        # pillole identiche alle correlazioni
         pills = ''.join(
             f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
             f'{q}</span>'
@@ -143,7 +141,7 @@ with col_paa:
     else:
         st.write("_Nessuna PAA trovata_")
 
-    st.markdown('<h3 style="margin-top:0; padding-top:0; margin-top:1rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
     related = data.get("related_searches", [])
     if related:
         q = query.strip()
@@ -179,29 +177,33 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords (più semplice con multiselect) ---
+# --- Selezione delle keywords con data_editor per evitare troncamenti ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
 lines = [l for l in table_str.split("\n") if l.strip()]
 selected = {}
 if len(lines) >= 3:
-    rows = []
     for line in lines[2:]:
-        parts = [c.strip() for c in line.split("|") if c.strip()]
-        if len(parts) == 3:
-            rows.append(parts)
-
-    for cat, kw_str, intent in rows:
+        cat, kw_str, intent = [c.strip() for c in line.split("|") if c.strip()]
         kws = [k.strip(" `") for k in kw_str.split(",") if k.strip()]
-        # multiselect per categoria
-        sel = st.multiselect(
-            f"{cat}  _(Intento: {intent})_",
-            options=kws,
-            default=kws,
-            format_func=lambda x: x
+        # costruisco il dataframe con checkbox column
+        df = pd.DataFrame({
+            "Keyword": kws,
+            "Includi": [True]*len(kws)
+        })
+        edited = st.data_editor(
+            df,
+            column_config={
+                "Includi": st.column_config.CheckboxColumn(
+                    "Includi",
+                    help="Spunta per includere questa keyword"
+                )
+            },
+            hide_index=True
         )
-        selected[cat] = sel
+        # recupero solo quelle spuntate
+        selected[cat] = edited.loc[edited["Includi"], "Keyword"].tolist()
 
     st.markdown('<h3 style="margin-top:0; padding-top:0;">✅ Keywords selezionate</h3>', unsafe_allow_html=True)
     st.json(selected)
