@@ -1,29 +1,9 @@
 import streamlit as st
 import json
 import re
-import pandas as pd
 from urllib.parse import urlparse
 
-# --- CSS personalizzato per padding delle colonne Streamlit ---
-st.markdown("""
-<style>
-.st-cf { padding-right: 0px !important; }
-.st-ce { padding-left: 0.5rem !important; }
-.st-cd { padding-bottom: 0px !important; }
-.st-cc { padding-top: 0px !important; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- Hack CSS per pillole multiselect non troncanti ---
-st.markdown("""
-<style>
-.stMultiSelect [data-baseweb="select"] span {
-    white-space: normal !important;
-    line-height: 1.3 !important;
-    padding: 0.5rem 0.75rem !important;
-}
-</style>
-""", unsafe_allow_html=True)
+# --- Assumo st.set_page_config già invocato nel file principale ---
 
 # Titolo e descrizione
 st.title("📝 Analisi e Scrittura Contenuti SEO")
@@ -35,6 +15,21 @@ st.markdown(
     """
 )
 
+# --- Hack CSS per evitare il troncamento nel multiselect ---
+st.markdown(
+    """
+    <style>
+        /* Rimuove il max-width sulle pillole del multiselect e consente il wrap */
+        .stMultiSelect [data-baseweb="select"] span {
+            max-width: none !important;
+            white-space: normal !important;
+            line-height: 1.3 !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # --- Separator standardizzato ---
 separator = """
 <div style="
@@ -43,7 +38,7 @@ separator = """
   padding-top:1rem;
 "></div>
 """
-st.markdown(separator, unsafe_allow_html=True)
+st.markdown(separator, unsafe_allow_html=True)  # dopo descrizione
 
 # --- Caricamento file JSON ---
 uploaded_file = st.file_uploader(
@@ -154,7 +149,7 @@ with col_paa:
     paa = data.get("people_also_ask", [])
     if paa:
         pills = ''.join(
-            f'<span style="background-color:#f7f8f9;padding:10px 16px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
+            f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
             f'{q}</span>'
             for q in paa
         )
@@ -182,7 +177,7 @@ with col_paa:
                     else:
                         highlighted = prefix
             spans.append(
-                f'<span style="background-color:#f7f8f9;padding:10px 16px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
+                f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
                 f'{highlighted}</span>'
             )
 
@@ -198,16 +193,7 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Contenitore grigio attorno al multiselect delle keywords ---
-st.markdown("""
-<div style="
-  background-color:#f7f8f9;
-  border:1px solid #ECEDEE;
-  border-radius:0.5rem;
-  padding:2rem;
-">
-""", unsafe_allow_html=True)
-
+# --- Selezione delle keywords con multiselect senza troncamento ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
@@ -234,6 +220,3 @@ if len(lines) >= 3:
     st.json(selected)
 else:
     st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
-
-# chiude il contenitore
-st.markdown("</div>", unsafe_allow_html=True)
