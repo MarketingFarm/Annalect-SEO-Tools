@@ -266,14 +266,12 @@ else:
     common = data.get("common_ground", [])
     if common:
         df_common = pd.DataFrame(common)
-        df_common.insert(0, "Seleziona", [False] * len(df_common))
-        st.markdown("**Common Ground Analysis**")
-        if hasattr(st, "data_editor"):
-            edited_common = st.data_editor(df_common, num_rows="dynamic", use_container_width=True)
-        else:
-            edited_common = st.experimental_data_editor(df_common, num_rows="dynamic", use_container_width=True)
-    else:
-        st.write("_Nessuna sezione Common Ground trovata_")
+        df_common.insert= st.data_editor(
+    df_common,
+    num_rows="dynamic",
+    use_container_width=True,
+    row_config={"selectable": True}  # abilita la selezione riga nativa
+)
 
     st.markdown("---")
 
