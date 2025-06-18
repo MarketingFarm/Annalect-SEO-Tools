@@ -144,7 +144,7 @@ with col_paa:
     else:
         st.write("_Nessuna PAA trovata_")
 
-    st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:2rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
     related = data.get("related_searches", [])
     if related:
         q = query.strip()
