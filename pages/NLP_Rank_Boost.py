@@ -421,9 +421,11 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
 
     st.subheader("Semantic Keyword Mining with NLP")
     if table_mining:
-        st.markdown(table_mining, unsafe_allow_html=True)
+        # qui table_mining è già una stringa con vere newline 
+        st.markdown(table_mining)
     else:
-        st.markdown(resp3_text, unsafe_allow_html=True)
+        # se non trova la tabella, mostriamo comunque il testo grezzo
+        st.markdown(resp3_text)
 
     # --- Costruzione export JSON strutturato ---
     analisi_struct = parse_md_table(resp1_text)
