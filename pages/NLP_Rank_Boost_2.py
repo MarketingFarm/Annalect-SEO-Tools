@@ -36,6 +36,11 @@ st.markdown(
     .st-cg {
     color: rgb(255 255 255) !important;
     }
+    .stMultiSelect > label,
+      div[data-testid="stMultiSelect"] label {
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
