@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import re
+import pandas as pd
 from urllib.parse import urlparse
 
 # --- Assumo st.set_page_config già invocato nel file principale ---
@@ -11,7 +12,8 @@ st.markdown(
     """
     In questa pagina puoi caricare il JSON generato dalla pagina di raccolta dati SEO,
     visualizzare i dettagli della query, le People Also Ask, le Ricerche Correlate,
-    e i primi 10 risultati organici in stile SERP, quindi selezionare le singole keywords.
+    i primi 10 risultati organici in stile SERP, selezionare le singole keywords,
+    e infine scegliere righe da common_ground e content_gap.
     """
 )
 
@@ -78,24 +80,24 @@ if 'step' not in st.session_state:
     st.session_state.step = 1
 
 def go_next():
-    st.session_state.step = 2
+    # Avanza di uno step fino a 3
+    st.session_state.step = min(st.session_state.step + 1, 3)
 
 def go_back():
-    st.session_state.step = 1
+    # Torna indietro di uno step fino a 1
+    st.session_state.step = max(st.session_state.step - 1, 1)
 
 # === STEP 1 ===
 if st.session_state.step == 1:
-    # primo separatore
+    # separatore iniziale
     st.markdown(separator, unsafe_allow_html=True)
 
     # Dettagli della Query + Segnali E-E-A-T spostati qui
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
-    st.markdown(
-        '<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>',
-        unsafe_allow_html=True
-    )
+
+    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
     # preparo mappa di Analysis Strategica
     analysis_list = data.get("analysis_strategica", [])
@@ -129,14 +131,10 @@ if st.session_state.step == 1:
 </div>
 """, unsafe_allow_html=True)
 
-    # margine inferiore
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
     # Titolo Analisi Strategica
-    st.markdown(
-        '<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>', unsafe_allow_html=True)
 
     # cards di Analisi Strategica (4 card, senza segnali)
     labels_analysis = [
@@ -172,10 +170,7 @@ if st.session_state.step == 1:
     col_org, col_paa = st.columns([2,1], gap="small")
 
     with col_org:
-        st.markdown(
-            '<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
         organic = data.get("organic", [])
         if organic:
             html = '<div style="padding-right:3.5rem;">'
@@ -211,10 +206,7 @@ if st.session_state.step == 1:
             st.warning("⚠️ Nessun risultato organico trovato.")
 
     with col_paa:
-        st.markdown(
-            '<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
         paa = data.get("people_also_ask", [])
         if paa:
             pills = ''.join(
@@ -225,10 +217,7 @@ if st.session_state.step == 1:
         else:
             st.write("_Nessuna PAA trovata_")
 
-        st.markdown(
-            '<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
         related = data.get("related_searches", [])
         if related:
             pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
@@ -243,48 +232,74 @@ if st.session_state.step == 1:
                 spans.append(
                   f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>'
                 )
-            st.markdown(
-                '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
-                ''.join(spans) +
-                '</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown('<div style="display:flex;flex-wrap:wrap;gap:4px;">' + ''.join(spans) + '</div>', unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
+    # pulsante avanti
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
 
+
 # === STEP 2 ===
-else:
+elif st.session_state.step == 2:
     st.markdown(separator, unsafe_allow_html=True)
-    st.markdown(
-        '<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            # rimuovo tutto da "(" in poi
             label = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
             kws_str = entry.get("Keywords / Concetti / Domande", "")
             kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
 
-            st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
-                f'{label}'
-                f'</p>',
-                unsafe_allow_html=True
-            )
-            st.multiselect(
-                label="",
-                options=kws,
-                default=kws,
-                key=f"ms_{label.replace(" ", "_")}"
-            )
+            st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>', unsafe_allow_html=True)
+            st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(" ", "_")}")
+        st.markdown("<div style='margin-top:1rem; text-align:left;'>", unsafe_allow_html=True)
         st.button("Indietro", on_click=go_back, key="back_btn")
+        st.button("Avanti", on_click=go_next, key="next2_btn")
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
+
+
+# === STEP 3 ===
+else:  # st.session_state.step == 3
+    st.markdown(separator, unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">Common Ground & Content Gap</h3>', unsafe_allow_html=True)
+
+    # tabella Common Ground
+    common = data.get("common_ground", [])
+    if common:
+        df_common = pd.DataFrame(common)
+        df_common.insert(0, "Seleziona", [False]*len(df_common))
+        st.markdown("**Common Ground Analysis**")
+        edited_common = st.experimental_data_editor(
+            df_common,
+            num_rows="dynamic",
+            use_container_width=True
+        )
+    else:
+        st.write("_Nessuna sezione Common Ground trovata_")
+
+    st.markdown("---")
+
+    # tabella Content Gap
+    gap = data.get("content_gap", [])
+    if gap:
+        df_gap = pd.DataFrame(gap)
+        df_gap.insert(0, "Seleziona", [False]*len(df_gap))
+        st.markdown("**Content Gap Opportunity**")
+        edited_gap = st.experimental_data_editor(
+            df_gap,
+            num_rows="dynamic",
+            use_container_width=True
+        )
+    else:
+        st.write("_Nessuna sezione Content Gap trovata_")
+
+    st.markdown("<div style='margin-top:1rem; text-align:left;'>", unsafe_allow_html=True)
+    st.button("Indietro", on_click=go_back, key="back3_btn")
+    st.markdown("</div>", unsafe_allow_html=True)
