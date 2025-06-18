@@ -270,31 +270,37 @@ elif st.session_state.step == 3:
         unsafe_allow_html=True
     )
 
-    # recupero i dati
+    # carico i dati dal JSON
     common = data.get("common_ground", [])
     gap    = data.get("content_gap", [])
 
     # --- Common Ground ---
     df_common = pd.DataFrame(common)
+    # aggiungo colonna di selezione
+    df_common.insert(0, "Seleziona", False)
     st.subheader("Common Ground Analysis")
     edited_common = st.data_editor(
         df_common,
-        num_rows=len(df_common),           # fisso il numero di righe, niente + per aggiungerne
+        num_rows=len(df_common),        # fissa le righe, niente "+" per aggiungerne
         use_container_width=True,
-        hide_index=True                    # facoltativo, se non vuoi mostrare l'indice
+        hide_index=True,
+        key="editor_common"
     )
 
     # --- Content Gap ---
     df_gap = pd.DataFrame(gap)
+    df_gap.insert(0, "Seleziona", False)
     st.subheader("Content Gap Opportunity")
     edited_gap = st.data_editor(
         df_gap,
-        num_rows=len(df_gap),              # stesso trucco qui
+        num_rows=len(df_gap),
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        key="editor_gap"
     )
 
     # bottone Indietro
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_3")
     st.markdown("</div>", unsafe_allow_html=True)
+
