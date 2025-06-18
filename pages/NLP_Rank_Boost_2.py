@@ -27,6 +27,9 @@ st.markdown(
         font-size: 1.25rem !important;
         font-weight: 500 !important;
       }
+      .st-c6 {
+        padding: 0.5rem;
+      }
     </style>
     """,
     unsafe_allow_html=True,
