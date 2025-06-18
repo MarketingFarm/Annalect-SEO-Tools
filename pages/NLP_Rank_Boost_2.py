@@ -2,8 +2,9 @@ import streamlit as st
 import json
 import pandas as pd
 import re
+from urllib.parse import urlparse
 
-# Questa pagina assume che st.set_page_config sia già stato chiamato nel file principale
+# Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
 
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
@@ -33,14 +34,13 @@ if uploaded_file is not None:
     with st.expander("📂 Espandi per visualizzare il JSON completo"):
         st.json(data)
 
-    # --- 1) Tabella con Query, Country, Language (senza index) ---
+    # --- 1) Tabella con Query, Country, Language (senza indice) ---
     st.subheader("🔎 Dettagli della Query")
     df_details = pd.DataFrame([{
-        "Query": data.get("query", ""),
-        "Country": data.get("country", ""),
+        "Query":    data.get("query", ""),
+        "Country":  data.get("country", ""),
         "Language": data.get("language", "")
     }])
-    # Usa st.dataframe con hide_index=True per nascondere la colonna degli indici
     st.dataframe(df_details, hide_index=True)
 
     # --- 2) Visualizzazione Top 10 Risultati Organici in stile SERP ---
@@ -48,18 +48,56 @@ if uploaded_file is not None:
     if organic:
         st.subheader("🖥️ Risultati Organici (Top 10)")
         for item in organic[:10]:
-            # Estrazione URL dal tag <a>
+            # estraggo l'URL
             anchor = item.get("URL", "")
             m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
             url = m.group(1) if m else anchor
+
+            # ricavo il nome del sito da www.xxx.yyy → xxx
+            parsed = urlparse(url)
+            host = parsed.netloc
+            # rimuovo eventuale www.
+            site = host[4:] if host.startswith("www.") else host
+            site_name = site.split(".")[0]
+            # trasforma "olio-clemente" in "Olio Clemente"
+            site_name = " ".join(site_name.replace("-", " ").split()).title()
+
             title = item.get("Meta Title", "")
-            desc = item.get("Meta Description", "")
-            # Markup in stile Google SERP
+            desc  = item.get("Meta Description", "")
+
+            # markup con i nuovi stili
             st.markdown(f"""
-<div style="margin-bottom:20px; line-height:1.2;">
-  <div style="font-size:14px; color:#006621;">{url}</div>
-  <a href="{url}" style="font-size:18px; color:#1a0dab; text-decoration:none;">{title}</a>
-  <div style="font-size:14px; color:#545454; margin-top:4px;">{desc}</div>
+<div style="margin-bottom:20px;">
+  <div style="
+    font-family: Arial, sans-serif;
+    color: #202124;
+    font-size: 14px;
+    line-height: 20px;
+    margin-bottom: 4px;
+  ">{site_name}</div>
+  <div style="
+    font-family: Arial, sans-serif;
+    color: #4d5156;
+    font-size: 12px;
+    line-height: 18px;
+    font-weight: 400;
+    margin-bottom: 6px;
+  ">{url}</div>
+  <a href="{url}" style="
+    color: #1a0dab;
+    text-decoration: none;
+    font-family: Arial, sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+  ">{title}</a>
+  <div style="
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 22px;
+    color: #474747;
+    margin-top: 4px;
+  ">{desc}</div>
 </div>
 """, unsafe_allow_html=True)
     else:
@@ -71,7 +109,7 @@ if uploaded_file is not None:
     lines = [line for line in table_str.split("\n") if line.strip()]
     if len(lines) >= 3:
         rows = []
-        # Skip header (0) and alignment (1), process from line 2 onward
+        # salto header e riga di allineamento
         for line in lines[2:]:
             parts = [cell.strip() for cell in line.split("|") if cell.strip()]
             if len(parts) == 3:
@@ -85,7 +123,7 @@ if uploaded_file is not None:
             chosen = []
             for kw in keywords_list:
                 checked = cols[0].checkbox("", value=True, key=f"chk_{categoria}_{kw}")
-                cols[1].write(kw)  # senza elenco puntato
+                cols[1].write(kw)  # mostro la keyword senza elenco puntato
                 if checked:
                     chosen.append(kw)
             selected_keywords[categoria] = chosen
