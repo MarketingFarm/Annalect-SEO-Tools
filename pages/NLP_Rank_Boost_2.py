@@ -111,7 +111,7 @@ with col_org:
 
             html += (
                 '<div style="margin-bottom:2rem;">'
-                  '<div style="display:flex;align-items:center;margin-bottom:0.5rem;">'
+                  '<div style="display:flex;align-items:center;margin-bottom:0.2rem;">'
                     f'<img src="https://www.google.com/s2/favicons?domain={parsed.netloc}&sz=64" '
                        'onerror="this.src=\'https://www.google.com/favicon.ico\';" '
                        'style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/>'
