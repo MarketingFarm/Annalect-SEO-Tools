@@ -48,16 +48,15 @@ if uploaded_file is not None:
     if organic:
         st.subheader("Risultati Organici (Top 10)")
 
-        # apertura del div contenitore che racchiude tutti i risultati
-        st.markdown("""
+        # Costruisco tutto l'HTML in una stringa, così il div contenitore include i 10 risultati
+        html = """
 <div style="
   background-color: #F8F9FB;
   border: 1px solid #ECEDEE;
   border-radius: 0.5rem;
   padding: 1rem;
 ">
-""", unsafe_allow_html=True)
-
+"""
         for item in organic[:10]:
             # estraggo l'URL
             anchor = item.get("URL", "")
@@ -81,8 +80,8 @@ if uploaded_file is not None:
             title = item.get("Meta Title", "")
             desc  = item.get("Meta Description", "")
 
-            # Markup in stile Google SERP con logo Google tondo, bordo e 30px separazione
-            st.markdown(f"""
+            # Aggiungo il singolo risultato all'HTML
+            html += f"""
   <div style="margin-bottom:30px;">
     <div style="display:flex; align-items:center; margin-bottom:6px;">
       <img src="https://www.google.com/favicon.ico" style="
@@ -124,10 +123,11 @@ if uploaded_file is not None:
       margin-top: 0px;
     ">{desc}</div>
   </div>
-""", unsafe_allow_html=True)
+"""
+        html += "</div>"
 
-        # chiusura del div contenitore
-        st.markdown("</div>", unsafe_allow_html=True)
+        # Mostro il blocco HTML completo
+        st.markdown(html, unsafe_allow_html=True)
 
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
