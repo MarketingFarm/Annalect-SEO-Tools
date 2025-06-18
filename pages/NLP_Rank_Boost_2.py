@@ -103,7 +103,7 @@ if uploaded_file is not None:
     font-weight: 400;
     line-height: 22px;
     color: #474747;
-    margin-top: 4px;
+    margin-top: 0px;
   ">{desc}</div>
 </div>
 """, unsafe_allow_html=True)
