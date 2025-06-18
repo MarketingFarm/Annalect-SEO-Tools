@@ -15,8 +15,8 @@ st.markdown(
     """
 )
 
-# Dividiamo in tre colonne: sinistra stretta, centrale separator, destra larga
-col_left, col_sep, col_right = st.columns([1, 0.02, 3])
+# dividiamo la pagina in tre colonne: sinistra (upload), separator, destra (risultati)
+col_left, col_sep, col_right = st.columns([1, 0.1, 4])
 
 with col_left:
     uploaded_file = st.file_uploader(
@@ -28,15 +28,9 @@ with col_left:
         st.info("⏳ Carica un file JSON per procedere con l'analisi.")
 
 with col_sep:
+    # separatore verticale
     st.markdown(
-        """
-        <div style="
-          border-left:1px solid #ECEDEE;
-          height: 100%;
-          margin-left: auto;
-          margin-right: auto;
-        "></div>
-        """,
+        '<div style="border-left:1px solid #ECEDEE; height:100vh; margin:0 auto;"></div>',
         unsafe_allow_html=True
     )
 
@@ -172,5 +166,5 @@ with col_right:
         else:
             st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
     else:
-        # quando non c'è file caricato, la colonna di destra rimane vuota
+        # col_right vuota quando non c'è file
         pass
