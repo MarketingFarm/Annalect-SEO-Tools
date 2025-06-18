@@ -14,14 +14,30 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per multiselect senza troncamento ---
+# --- Hack CSS per multiselect senza troncamento e label più grandi ---
 st.markdown(
     """
     <style>
+      /* Multiselect pill wrap */
       .stMultiSelect [data-baseweb="select"] span {
         max-width: none !important;
         white-space: normal !important;
         line-height: 1.3 !important;
+      }
+      /* Increase multiselect label font */
+      .stMultiSelect > label {
+        font-size: 1.25rem !important;
+        font-weight: 500 !important;
+      }
+      /* Button styling overrides if needed */
+      .st-c6 {
+        padding: 0.5rem;
+      }
+      .st-ch {
+        background-color: rgb(93, 93, 93) !important;
+      }
+      .st-cg {
+        color: rgb(255, 255, 255) !important;
       }
     </style>
     """,
@@ -65,13 +81,17 @@ def go_back():
 
 # === STEP 1 ===
 if st.session_state.step == 1:
+    # un solo separatore qui
     st.markdown(separator, unsafe_allow_html=True)
 
     # Dettagli della Query
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
-    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
+    st.markdown(
+        '<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>',
+        unsafe_allow_html=True
+    )
     cols = st.columns(3, gap="small")
     for col, label, val in zip(cols, ["Query","Country","Language"], [query,country,lang]):
         col.markdown(f"""
@@ -98,7 +118,10 @@ if st.session_state.step == 1:
     col_org, col_paa = st.columns([2,1], gap="small")
 
     with col_org:
-        st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
+        st.markdown(
+            '<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>',
+            unsafe_allow_html=True
+        )
         organic = data.get("organic", [])
         if organic:
             html = '<div style="padding-right:3.5rem;">'
@@ -134,7 +157,10 @@ if st.session_state.step == 1:
             st.warning("⚠️ Nessun risultato organico trovato.")
 
     with col_paa:
-        st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
+        st.markdown(
+            '<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>',
+            unsafe_allow_html=True
+        )
         paa = data.get("people_also_ask",[])
         if paa:
             pills = ''.join(
@@ -145,7 +171,10 @@ if st.session_state.step == 1:
         else:
             st.write("_Nessuna PAA trovata_")
 
-        st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+        st.markdown(
+            '<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>',
+            unsafe_allow_html=True
+        )
         related = data.get("related_searches",[])
         if related:
             pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
@@ -160,7 +189,12 @@ if st.session_state.step == 1:
                 spans.append(
                   f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>'
                 )
-            st.markdown('<div style="display:flex;flex-wrap:wrap;gap:4px;">'+''.join(spans)+'</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
+                + ''.join(spans) +
+                '</div>',
+                unsafe_allow_html=True
+            )
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
@@ -168,10 +202,14 @@ if st.session_state.step == 1:
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
 
+
 # === STEP 2 ===
 else:
     st.markdown(separator, unsafe_allow_html=True)
-    st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
+    st.markdown(
+        '<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>',
+        unsafe_allow_html=True
+    )
 
     table_str = data.get("keyword_mining","")
     lines = [l for l in table_str.split("\n") if l.strip()]
@@ -182,15 +220,16 @@ else:
             if len(parts)==3:
                 rows.append(parts)
         for cat, kws_str, intent in rows:
-            kws=[k.strip(" `") for k in kws_str.split(",") if k.strip()]
-            # qui gestiamo manualmente il titolo con font grande
+            kws=[k.strip(" ") for k in kws_str.split(",") if k.strip()]
+            # renderizzo titolo con font più grande
             st.markdown(
                 f'<p style="font-size:1.5rem; font-weight:600; margin-bottom:0.25rem;">'
-                f'{cat}  _(Intento: {intent})_</p>',
+                f'{cat} _(Intento: {intent})_'
+                f'</p>',
                 unsafe_allow_html=True
             )
             st.multiselect(
-                label="",  # vuoto: il titolo l’abbiamo già  
+                label="",  # etichetta vuota
                 options=kws,
                 default=kws,
                 key=f"ms_{cat}"
