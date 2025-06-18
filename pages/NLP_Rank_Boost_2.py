@@ -13,7 +13,8 @@ st.markdown(
     In questa pagina puoi caricare il JSON generato dalla pagina di raccolta dati SEO,
     visualizzare i dettagli della query, le People Also Ask, le Ricerche Correlate,
     i primi 10 risultati organici in stile SERP, selezionare le singole keywords,
-    e infine scegliere righe da Common Ground e Content Gap.
+    e infine scegliere righe da Common Ground e Content Gap,
+    e contestualizzare il contenuto.
     """
 )
 
@@ -60,7 +61,7 @@ separator = """
 """
 
 # --- Persistenza del JSON in session_state ---
-if 'data' not in st.session_state:
+if "data" not in st.session_state:
     st.session_state.data = None
 
 # --- Caricamento JSON (solo se non già caricato) ---
@@ -70,7 +71,7 @@ if st.session_state.data is None:
         type="json",
         help="Carica qui il file JSON generato dalla pagina precedente"
     )
-    if uploaded_file is not None:
+    if uploaded_file:
         try:
             st.session_state.data = json.load(uploaded_file)
         except json.JSONDecodeError as e:
@@ -80,15 +81,14 @@ if st.session_state.data is None:
         st.info("⏳ Carica un file JSON per procedere con l'analisi.")
         st.stop()
 
-# Ora ho il JSON
 data = st.session_state.data
 
 # --- Session state per multi-step ---
-if 'step' not in st.session_state:
+if "step" not in st.session_state:
     st.session_state.step = 1
 
 def go_next():
-    st.session_state.step = min(st.session_state.step + 1, 3)
+    st.session_state.step = min(st.session_state.step + 1, 4)
 
 def go_back():
     st.session_state.step = max(st.session_state.step - 1, 1)
@@ -100,14 +100,13 @@ st.markdown(f"## Step {st.session_state.step}", unsafe_allow_html=True)
 if st.session_state.step == 1:
     st.markdown(separator, unsafe_allow_html=True)
 
-    # Dettagli della Query + Segnali E-E-A-T
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
 
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
-    # Preparo mappa di Analysis Strategica
+    # Analisi strategica mappata
     analysis_list = data.get("analysis_strategica", [])
     analysis_map = {
         re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
@@ -115,7 +114,7 @@ if st.session_state.step == 1:
         for item in analysis_list
     }
 
-    # Estraggo solo "Segnali E-E-A-T" senza testo tra parentesi
+    # Segnali E-E-A-T no parentesi
     raw_signals = analysis_map.get("Segnali E-E-A-T", "")
     signals_val = re.sub(r"\s*\([^)]*\)", "", raw_signals).strip()
 
@@ -135,13 +134,10 @@ if st.session_state.step == 1:
   <div style="font-size:1.1rem; color:#202124; font-weight:500;">{val}</div>
 </div>
 """, unsafe_allow_html=True)
-
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # Titolo Analisi Strategica
     st.markdown('<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>', unsafe_allow_html=True)
 
-    # 4 card (escludo i segnali già spostati)
     labels_analysis = [
         "Search Intent Primario",
         "Search Intent Secondario",
@@ -163,10 +159,9 @@ if st.session_state.step == 1:
   <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
 </div>
 """, unsafe_allow_html=True)
-
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # --- SERP ORGANICI + PAA + RICERCHE CORRELATE ---
+    # SERP + PAA + Correlate
     st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
@@ -174,7 +169,6 @@ if st.session_state.step == 1:
   padding-top:1rem;
 "></div>""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
-
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
         organic = data.get("organic", [])
@@ -210,7 +204,6 @@ if st.session_state.step == 1:
             st.markdown(html, unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
-
     with col_paa:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
         paa = data.get("people_also_ask", [])
@@ -222,7 +215,6 @@ if st.session_state.step == 1:
             st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>', unsafe_allow_html=True)
         else:
             st.write("_Nessuna PAA trovata_")
-
         st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
         related = data.get("related_searches", [])
         if related:
@@ -256,7 +248,10 @@ elif st.session_state.step == 2:
             raw_cat = entry.get("Categoria Keyword", "")
             label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
             kws     = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
-            st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>', unsafe_allow_html=True)
+            st.markdown(
+                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>',
+                unsafe_allow_html=True
+            )
             st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(" ", "_")}")
         c1, c2 = st.columns(2)
         with c1:
@@ -268,26 +263,24 @@ elif st.session_state.step == 2:
 
 
 # === STEP 3: Common Ground & Content Gap ===
-else:
+elif st.session_state.step == 3:
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>', unsafe_allow_html=True)
 
     common = data.get("common_ground", [])
     gap    = data.get("content_gap", [])
 
-    # --- Common Ground ---
     df_common = pd.DataFrame(common)
     df_common.insert(0, "Seleziona", False)
     st.subheader("Common Ground Analysis")
     edited_common = st.data_editor(
         df_common,
-        num_rows=len(df_common),        # fissa le righe, niente "+" per aggiungerne
+        num_rows=len(df_common),
         use_container_width=True,
         hide_index=True,
         key="editor_common"
     )
 
-    # --- Content Gap ---
     df_gap = pd.DataFrame(gap)
     df_gap.insert(0, "Seleziona", False)
     st.subheader("Content Gap Opportunity")
@@ -299,4 +292,53 @@ else:
         key="editor_gap"
     )
 
-    st.button("Indietro", on_click=go_back, key="back_btn_3")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button("Indietro", on_click=go_back, key="back_btn_3")
+    with c2:
+        st.button("Avanti", on_click=go_next, key="next3_btn")
+
+
+# === STEP 4: Contestualizzazione e keyword personalizzate ===
+else:
+    st.markdown(separator, unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizza il Contenuto</h3>', unsafe_allow_html=True)
+
+    # tre controlli su una riga
+    c1, c2, c3 = st.columns(3, gap="small")
+    with c1:
+        context = st.selectbox(
+            "Contesto",
+            options=["", "E-commerce", "Sito Vetrina", "Blog / Testata Giornalistica"],
+            key="context_select"
+        )
+    with c2:
+        dest_options = {
+            "": [""],
+            "E-commerce": ["", "Product Listing Page (PLP)", "Product Detail Page (PDP)",
+                           "Guida all'Acquisto", "Pagina Informativa", "Articolo del Blog"],
+            "Sito Vetrina": ["", "Pagina", "Articolo del Blog"],
+            "Blog / Testata Giornalistica": ["", "Articolo del Blog"]
+        }
+        destino = st.selectbox(
+            "Destinazione Contenuto",
+            options=dest_options.get(context, [""]),
+            key="dest_select"
+        )
+    with c3:
+        custom_toggle = st.checkbox("Keyword Personalizzate", value=False, key="custom_kw_toggle")
+
+    if st.session_state.custom_kw_toggle:
+        st.text_area(
+            "Inserisci Keyword Personalizzate (una per riga o separate da virgola)",
+            key="custom_keywords",
+            height=100
+        )
+
+    st.text_area(
+        "Informazioni aggiuntive",
+        key="additional_info",
+        height=100
+    )
+
+    st.button("Indietro", on_click=go_back, key="back_btn_4")
