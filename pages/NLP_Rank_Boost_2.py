@@ -36,6 +36,12 @@ st.markdown(
         padding: 0;
         height: 0;
       }
+      .st-c6 {
+      padding: 10px;
+      }
+      .st-ch {
+        background-color: rgb(84 87 101);
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -212,7 +218,7 @@ else:
         for cat, kws_str, intent in rows:
             label = cat.replace("*","").strip()
             st.markdown(
-                f'<p style="font-size:1.5rem; font-weight:600; margin-bottom:0.75rem;margin-top: 1rem;">'
+                f'<p style="font-size:1.25rem; font-weight:600; margin-bottom:0.75rem;margin-top: 1rem;">'
                 f'{label} (Intento: {intent})'
                 f'</p>',
                 unsafe_allow_html=True
