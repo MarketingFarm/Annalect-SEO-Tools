@@ -50,7 +50,6 @@ query   = data.get("query", "").strip()
 country = data.get("country", "").strip()
 lang    = data.get("language", "").strip()
 
-# Usare h3 con margin/padding top 0
 st.markdown('<h3 style="margin-top:0; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
 cols = st.columns(3, gap="small")
@@ -69,6 +68,9 @@ for col, label, val in zip(cols, labels, values):
   <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
 </div>
 """, unsafe_allow_html=True)
+
+# margine inferiore di 1rem sotto la riga delle card
+st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
 # --- Separator prima di sezioni PAA/Organic ---
 st.markdown(separator, unsafe_allow_html=True)
@@ -123,15 +125,13 @@ with col_paa:
     st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
     paa = data.get("people_also_ask", [])
     if paa:
-        st.markdown(
-            '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
-            + ''.join(
-                f'<span style="background-color:#E8F4FD;padding:4px 8px;border-radius:4px;font-family:Arial,sans-serif;font-size:14px;">{q}</span>'
-                for q in paa
-            )
-            + '</div>',
-            unsafe_allow_html=True
+        # pillole identiche a quelle di "Ricerche Correlate" (stesso stile)
+        pills = ''.join(
+            f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
+            f'{q}</span>'
+            for q in paa
         )
+        st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>', unsafe_allow_html=True)
     else:
         st.write("_Nessuna PAA trovata_")
 
@@ -154,7 +154,6 @@ with col_paa:
                         highlighted = f"{prefix}<strong>{suffix}</strong>"
                     else:
                         highlighted = prefix
-            # pill-style
             spans.append(
                 f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
                 f'{highlighted}</span>'
