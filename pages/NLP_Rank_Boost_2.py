@@ -119,7 +119,7 @@ if st.session_state.step == 1:
   background-color: rgb(247 248 249);
   margin-bottom: 0.5rem;
 ">
-  <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
+  <div style="font-size:0.8rem; color: rgb(143 143 143);">{label}</div>
   <div style="font-size:1.1rem; color:#202124; font-weight:500; line-height: 1.4rem;">{val}</div>
 </div>
         """, unsafe_allow_html=True)
@@ -146,7 +146,7 @@ if st.session_state.step == 1:
   border-radius: 0.5rem;
   background-color: rgb(247 248 249);
 ">
-  <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
+  <div style="font-size:0.8rem; color: rgb(143 143 143);">{lbl}</div>
   <div style="font-size:1.1rem; color:#202124; font-weight:500; line-height: 1.4rem;">{v}</div>
 </div>
         """, unsafe_allow_html=True)
