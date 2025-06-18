@@ -30,6 +30,12 @@ st.markdown(
       .st-c6 {
         padding: 0.5rem;
       }
+      .st-ch {
+    background-color: rgb(93 93 93) !important;
+    }
+    .st-cg {
+    color: rgb(255 255 255) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
