@@ -318,7 +318,7 @@ elif st.session_state.step == 4:
           }
           /* Contenitore con padding sopra e sotto */
           .toggle-container {
-            padding: 1rem 0;
+            padding: 0.5rem 0;
           }
         </style>
         """,
