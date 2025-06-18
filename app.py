@@ -4,7 +4,7 @@ import streamlit as st
 
 st.markdown("""
 <style>
-    [data-testid=stSidebar] {
+    [data-testid=stSidebarContent] {
         background-color: #ff000050;
     }
 </style>
