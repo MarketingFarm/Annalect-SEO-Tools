@@ -20,7 +20,7 @@ st.markdown(
     """
     <style>
     /* Consente alle "pillole" del multiselect di andare a capo anziché troncare */
-    div[data-baseweb="multi-select"] div[class*="multiValue"] {
+    div[data-baseweb="multi-select"] div[class*="multiValue"] span {
       white-space: normal !important;
       line-height: 1.3 !important;
       max-width: 500px;
