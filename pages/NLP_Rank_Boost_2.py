@@ -50,13 +50,13 @@ st.markdown("""
 "></div>
 """, unsafe_allow_html=True)
 
-# --- Dettagli della Query come card ---
+# --- Dettagli della Query come card con gap small e nuovi stili ---
 query   = data.get("query", "")
 country = data.get("country", "")
 lang    = data.get("language", "")
 
 st.markdown("### Dettagli della Query")
-cols = st.columns(3, gap="large")
+cols = st.columns(3, gap="small")
 labels = ["Query", "Country", "Language"]
 values = [query, country, lang]
 
@@ -64,12 +64,12 @@ for col, label, val in zip(cols, labels, values):
     col.markdown(f"""
       <div style="
         padding: 0.75rem 1rem;
-        border: 1px solid #ECEDEE;
+        border: 1px solid rgb(254, 212, 212);
         border-radius: 0.5rem;
-        background-color: #FCFCFD;
+        background-color: rgb(255, 246, 246);
       ">
-        <div style="font-size:0.9rem;color:#6F6F6F;">{label}</div>
-        <div style="font-size:1.25rem;color:#202124;font-weight:500;">{val}</div>
+        <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
+        <div style="font-size:1.15rem; color: #202124; font-weight:500;">{val}</div>
       </div>
     """, unsafe_allow_html=True)
 
@@ -85,7 +85,6 @@ st.markdown("""
 # --- Risultati Organici (Top 10) in stile SERP ---
 organic = data.get("organic", [])
 if organic:
-    # container grigio con bordo arrotondato e padding
     html = """
 <div style="
   background-color: #F8F9FB;
@@ -103,20 +102,15 @@ if organic:
   ">Risultati Organici (Top 10)</h3>
 """
     for item in organic[:10]:
-        # Estrazione URL
         anchor = item.get("URL", "")
         m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
         url = m.group(1) if m else anchor
 
-        # Pretty URL
         parsed = urlparse(url)
         base = f"{parsed.scheme}://{parsed.netloc}"
         segments = [seg for seg in parsed.path.split("/") if seg]
-        pretty_url = base
-        if segments:
-            pretty_url += " › " + " › ".join(segments)
+        pretty_url = base + (" › " + " › ".join(segments) if segments else "")
 
-        # Site name
         host = parsed.netloc
         parts = host.split('.')
         raw = parts[1] if len(parts) > 2 else parts[0]
