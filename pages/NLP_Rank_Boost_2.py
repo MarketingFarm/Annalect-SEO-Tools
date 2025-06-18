@@ -337,7 +337,7 @@ elif st.session_state.step == 4:
         )
 
     # Toggle con wrapper che aggiunge padding e applica lo scale
-    st.markdown('<div class="toggle-container">', unsafe_allow_html=True)
+    st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
     custom_toggle = st.toggle(
         "Keyword Personalizzate",
         value=False,
@@ -345,19 +345,17 @@ elif st.session_state.step == 4:
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Area per le keyword custom solo se toggle è attivo
+    # Campo di input per le keyword custom solo se toggle è attivo
     if custom_toggle:
-        st.text_area(
+        st.text_input(
             "Inserisci Keyword Personalizzate (una per riga o separate da virgola)",
-            key="custom_keywords",
-            height=100
+            key="custom_keywords"
         )
 
     # Informazioni aggiuntive
-    st.text_area(
+    st.text_input(
         "Informazioni aggiuntive",
-        key="additional_info",
-        height=100
+        key="additional_info"
     )
 
     # Pulsanti di navigazione
