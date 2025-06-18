@@ -2,15 +2,6 @@
 
 import streamlit as st
 
-st.html(
-    """
-<style>
-[data-testid="stSidebarContent"] {
-    color: white;
-    background-color: red;
-}
-</style>
-
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
     page_icon="🔧",
