@@ -15,6 +15,15 @@ st.markdown(
     """
 )
 
+# --- Delimitatore sotto alla descrizione della pagina ---
+st.markdown("""
+<div style="
+  border-top:1px solid #ECEDEE;
+  margin: 1rem 0;
+  padding-top:1rem;
+"></div>
+""", unsafe_allow_html=True)
+
 # --- Caricamento file JSON ---
 uploaded_file = st.file_uploader(
     "Carica il file JSON",
@@ -32,6 +41,15 @@ except json.JSONDecodeError as e:
     st.error(f"❌ Errore nel parsing del JSON: {e}")
     st.stop()
 
+# --- Delimitatore sopra a "Dettagli della Query" ---
+st.markdown("""
+<div style="
+  border-top:1px solid #ECEDEE;
+  margin: 1rem 0;
+  padding-top:1rem;
+"></div>
+""", unsafe_allow_html=True)
+
 # --- Dettagli della Query ---
 st.markdown('<h3 style="margin-top:0px;">Dettagli della Query</h3>', unsafe_allow_html=True)
 df_details = pd.DataFrame([{
@@ -41,25 +59,16 @@ df_details = pd.DataFrame([{
 }])
 st.dataframe(df_details, hide_index=True)
 
-# --- Delimitatore tra sezione dettagli e risultati ---
-st.markdown("""
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1.5rem 0;
-  padding-top:1rem;
-"></div>
-""", unsafe_allow_html=True)
-
 # --- Risultati Organici (Top 10) in stile SERP ---
 organic = data.get("organic", [])
 if organic:
-    # container dei risultati con sfondo e padding
+    # container grigio con bordo arrotondato e padding
     html = """
 <div style="
-  background-color: #F8F9FB;
+  background-color: #FFFFFF;
   border: 1px solid #ECEDEE;
   border-radius: 0.5rem;
-  padding: 1.5rem;
+  padding: 3rem;
 ">
   <h3 style="
     margin-top:0px;
