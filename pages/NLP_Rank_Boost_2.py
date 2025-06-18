@@ -72,6 +72,15 @@ except json.JSONDecodeError as e:
     st.error(f"❌ Errore nel parsing del JSON: {e}")
     st.stop()
 
+# Prepara la mappa di Analisi Strategica
+analysis_list = data.get("analysis_strategica", [])
+analysis_map = {}
+for item in analysis_list:
+    raw_label = item.get("Caratteristica SEO", "")
+    clean_label = re.sub(r"\*+", "", raw_label).strip()
+    clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
+    analysis_map[clean_label] = clean_value
+
 # Inizializzo lo step
 if 'step' not in st.session_state:
     st.session_state.step = 1
@@ -86,78 +95,70 @@ def go_back():
 if st.session_state.step == 1:
     st.markdown(separator, unsafe_allow_html=True)
 
-    # Dettagli della Query
+    # Dettagli della Query + Segnali E-E-A-T
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
+    segnali = analysis_map.get("Segnali E-E-A-T", "")
+
     st.markdown(
         '<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>',
         unsafe_allow_html=True
     )
-    cols = st.columns(3, gap="small")
-    for col, label, val in zip(cols, ["Query", "Country", "Language"], [query, country, lang]):
+    cols = st.columns(4, gap="small")
+    for col, label, val in zip(
+        cols,
+        ["Query", "Country", "Language", "Segnali E-E-A-T"],
+        [query, country, lang, segnali]
+    ):
         col.markdown(f"""
-  <div style="
-    padding: 0.75rem 1.5rem;
-    border: 1px solid rgb(255 166 166);
-    border-radius: 0.5rem;
-    background-color: rgb(255, 246, 246);
-    margin-bottom: 0.5rem;
-  ">
-    <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
-    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
-  </div>
+<div style="
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(255 166 166);
+  border-radius: 0.5rem;
+  background-color: rgb(255, 246, 246);
+  margin-bottom: 0.5rem;
+">
+  <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
+  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
+</div>
         """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # **Nuovo titolo sopra le card di Analisi Strategica**
+    # Titolo e 4 card rimanenti di Analisi Strategica
     st.markdown(
         '<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>',
         unsafe_allow_html=True
     )
-
-    # --- NUOVA RIGA: Analysis Strategica come 5 card uguali ---
-    analysis_list = data.get("analysis_strategica", [])
-    if analysis_list:
-        labels_analysis = [
-            "Search Intent Primario",
-            "Search Intent Secondario",
-            "Target Audience & Leggibilità",
-            "Tone of Voice (ToV)",
-            "Segnali E-E-A-T"
-        ]
-        # Map dei valori
-        analysis_map = {}
-        for item in analysis_list:
-            raw_label = item.get("Caratteristica SEO", "")
-            clean_label = re.sub(r"\*+", "", raw_label).strip()
-            clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
-            analysis_map[clean_label] = clean_value
-
-        # 5 colonne a pari larghezza
-        cols2 = st.columns(5, gap="small")
-        for c, lbl in zip(cols2, labels_analysis):
-            v = analysis_map.get(lbl, "")
-            c.markdown(f"""
-  <div style="
-    padding: 0.75rem 1.5rem;
-    border: 1px solid rgb(255 166 166);
-    border-radius: 0.5rem;
-    background-color: rgb(255, 246, 246);
-  ">
-    <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
-    <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
-  </div>
-            """, unsafe_allow_html=True)
-        st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
+    labels_analysis = [
+        "Search Intent Primario",
+        "Search Intent Secondario",
+        "Target Audience & Leggibilità",
+        "Tone of Voice (ToV)"
+    ]
+    cols2 = st.columns(4, gap="small")
+    for c, lbl in zip(cols2, labels_analysis):
+        v = analysis_map.get(lbl, "")
+        c.markdown(f"""
+<div style="
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgb(255 166 166);
+  border-radius: 0.5rem;
+  background-color: rgb(255, 246, 246);
+">
+  <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
+  <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
+</div>
+        """, unsafe_allow_html=True)
+    st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
     # Separatore e colonne organici / PAA
     st.markdown("""
-  <div style="
-    border-top:1px solid #ECEDEE;
-    margin: 1rem 0px 2rem 0rem;
-    padding-top:1rem;
-  "></div>""", unsafe_allow_html=True)
+<div style="
+  border-top:1px solid #ECEDEE;
+  margin: 1rem 0px 2rem 0rem;
+  padding-top:1rem;
+"></div>""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
 
     with col_org:
@@ -272,7 +273,7 @@ else:
                 label="",
                 options=kws,
                 default=kws,
-                key=f"ms_{label.replace(' ', '_')}"
+                key=f"ms_{label.replace(" ", "_")}"
             )
 
         st.button("Indietro", on_click=go_back, key="back_btn")
