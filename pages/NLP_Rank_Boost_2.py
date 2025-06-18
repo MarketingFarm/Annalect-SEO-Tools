@@ -14,7 +14,7 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per multiselect senza troncamento e label più grandi ---
+# --- Hack CSS per multiselect senza troncamento ---
 st.markdown(
     """
     <style>
@@ -22,24 +22,6 @@ st.markdown(
         max-width: none !important;
         white-space: normal !important;
         line-height: 1.3 !important;
-      }
-      .stMultiSelect > label {
-        font-size: 1.25rem !important;
-        font-weight: 500 !important;
-      }
-      .st-c6 {
-        padding: 0.5rem;
-      }
-      .st-ch {
-    background-color: rgb(93 93 93) !important;
-    }
-    .st-cg {
-    color: rgb(255 255 255) !important;
-    }
-    .stMultiSelect > p,
-      div[data-testid="stMultiSelect"] label {
-        font-size: 1.5rem !important;
-        font-weight: 600 !important;
       }
     </style>
     """,
@@ -83,7 +65,6 @@ def go_back():
 
 # === STEP 1 ===
 if st.session_state.step == 1:
-    # un solo separatore qui
     st.markdown(separator, unsafe_allow_html=True)
 
     # Dettagli della Query
@@ -187,7 +168,6 @@ if st.session_state.step == 1:
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 # === STEP 2 ===
 else:
     st.markdown(separator, unsafe_allow_html=True)
@@ -203,8 +183,14 @@ else:
                 rows.append(parts)
         for cat, kws_str, intent in rows:
             kws=[k.strip(" `") for k in kws_str.split(",") if k.strip()]
+            # qui gestiamo manualmente il titolo con font grande
+            st.markdown(
+                f'<p style="font-size:1.5rem; font-weight:600; margin-bottom:0.25rem;">'
+                f'{cat}  _(Intento: {intent})_</p>',
+                unsafe_allow_html=True
+            )
             st.multiselect(
-                label=f"{cat}  _(Intento: {intent})_",
+                label="",  # vuoto: il titolo l’abbiamo già  
                 options=kws,
                 default=kws,
                 key=f"ms_{cat}"
