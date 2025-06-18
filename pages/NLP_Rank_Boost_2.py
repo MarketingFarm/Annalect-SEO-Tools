@@ -38,7 +38,7 @@ separator = """
   padding-top:1rem;
 "></div>
 """
-st.markdown(separator, unsafe_allow_html=True)  # dopo descrizione
+st.markdown(separator, unsafe_allow_html=True)
 
 # --- Caricamento file JSON ---
 uploaded_file = st.file_uploader(
@@ -193,7 +193,16 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords con multiselect senza troncamento e pillole più larghe ---
+# --- Contenitore grigio attorno al multiselect delle keywords ---
+st.markdown("""
+<div style="
+  background-color:#f7f8f9;
+  border:1px solid #ECEDEE;
+  border-radius:0.5rem;
+  padding:2rem;
+">
+""", unsafe_allow_html=True)
+
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
@@ -220,3 +229,6 @@ if len(lines) >= 3:
     st.json(selected)
 else:
     st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
+
+# chiude il contenitore grigio
+st.markdown("</div>", unsafe_allow_html=True)
