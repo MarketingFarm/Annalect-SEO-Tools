@@ -37,7 +37,7 @@ st.markdown(
         height: 0;
       }
       .st-c6 {
-      padding: 10px;
+        padding: 10px;
       }
       .st-ch {
         background-color: rgb(84 87 101);
@@ -207,30 +207,32 @@ else:
         unsafe_allow_html=True
     )
 
-    table_str = data.get("keyword_mining","")
-    lines = [l for l in table_str.split("\n") if l.strip()]
-    if len(lines)>=3:
-        rows=[]
-        for line in lines[2:]:
-            parts=[c.strip() for c in line.split("|") if c.strip()]
-            if len(parts)==3:
-                rows.append(parts)
-        for cat, kws_str, intent in rows:
-            label = cat.replace("*","").strip()
+    keyword_mining = data.get("keyword_mining", [])
+    if isinstance(keyword_mining, list) and keyword_mining:
+        for item in keyword_mining:
+            # estraggo categoria, keywords e intento
+            cat = item.get("Categoria Keyword", "")
+            label = cat.replace("*", "").strip()
+            intent = item.get("Intento Prevalente", "")
+            kws_str = item.get("Keywords / Concetti / Domande", "")
+            # split e rimozione backtick
+            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
+
+            # titolo grande
             st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin-bottom:0.75rem;margin-top: 1rem;">'
-                f'{label} (Intento: {intent})'
+                f'<p style="font-size:1.25rem; font-weight:600; margin-bottom:0.75rem; margin-top:1rem;">'
+                f'{label} _(Intento: {intent})_'
                 f'</p>',
                 unsafe_allow_html=True
             )
-            # rimuovo backtick attorno alle keywords
-            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
+            # multiselect senza troncamento
             st.multiselect(
-                label="",  # etichetta vuota
+                label="",
                 options=kws,
                 default=kws,
                 key=f"ms_{label}"
             )
+
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
-        st.warning("⚠️ Non ho trovato la tabella di Keyword Mining.")
+        st.warning("⚠️ Non ho trovato la lista di Keyword Mining nel JSON.")
