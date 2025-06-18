@@ -35,7 +35,7 @@ if uploaded_file is not None:
         st.json(data)
 
     # --- 1) Tabella con Query, Country, Language (senza indice) ---
-    st.subheader("🔎 Dettagli della Query")
+    st.subheader("Dettagli della Query")
     df_details = pd.DataFrame([{
         "Query":    data.get("query", ""),
         "Country":  data.get("country", ""),
@@ -46,7 +46,7 @@ if uploaded_file is not None:
     # --- 2) Visualizzazione Top 10 Risultati Organici in stile SERP ---
     organic = data.get("organic", [])
     if organic:
-        st.subheader("🖥️ Risultati Organici (Top 10)")
+        st.subheader("Risultati Organici (Top 10)")
         for item in organic[:10]:
             # estraggo l'URL
             anchor = item.get("URL", "")
@@ -63,7 +63,7 @@ if uploaded_file is not None:
             title = item.get("Meta Title", "")
             desc  = item.get("Meta Description", "")
 
-            # Markup in stile Google SERP con logo Google tondo e 30px separazione
+            # Markup in stile Google SERP con logo Google tondo, bordo e 30px separazione
             st.markdown(f"""
 <div style="margin-bottom:30px;">
   <div style="display:flex; align-items:center; margin-bottom:6px;">
@@ -71,6 +71,7 @@ if uploaded_file is not None:
       width:20px;
       height:20px;
       border-radius:50%;
+      border:1px solid #d2d2d2;
       margin-right:8px;
     "/>
     <div>
