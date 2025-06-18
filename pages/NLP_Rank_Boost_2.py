@@ -71,7 +71,8 @@ if organic:
   padding: 3rem;
 ">
   <h3 style="
-    margin-top:0px !important;
+    margin-top:0px;
+    padding-top:0px;
     margin-bottom:1rem;
     font-family: Source Sans Pro, sans-serif;
     color: #202124;
