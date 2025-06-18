@@ -90,7 +90,7 @@ with col_org:
     organic = data.get("organic", [])
     if organic:
         # costruiamo l'HTML per i risultati organici, visibili tutti senza scroll aggiuntivo
-        html = '<div style="padding-right:1.5rem;">'
+        html = '<div style="padding-right:3.5rem;">'
         for item in organic[:10]:
             anchor = item.get("URL", "")
             m = re.search(r"href=['\"]([^'\"]+)['\"]", anchor)
@@ -121,7 +121,7 @@ with col_org:
                     '</div>'
                   '</div>'
                   f'<a href="{url}" style="color:#1a0dab;text-decoration:none;font-size:23px;font-weight:500;">{title}</a>'
-                  f'<div style="font-size:15px;line-height:22px;color:#474747;">{desc}</div>'
+                  f'<div style="font-size:16px;line-height:22px;color:#474747;">{desc}</div>'
                 '</div>'
             )
         html += '</div>'
