@@ -222,40 +222,35 @@ else:
         unsafe_allow_html=True
     )
 
-    table_str = data.get("keyword_mining","")
-    lines = [l for l in table_str.split("\n") if l.strip()]
-    if len(lines) >= 3:
-        rows = []
-        for line in lines[2:]:
-            parts = [c.strip() for c in line.split("|") if c.strip()]
-            if len(parts) == 3:
-                rows.append(parts)
+    keyword_mining = data.get("keyword_mining", [])
+    if keyword_mining:
+        for entry in keyword_mining:
+            # strip the surrounding ** from the category name
+            raw_cat = entry.get("Categoria Keyword", "")
+            label = raw_cat.strip("* ").strip()
+            intent = entry.get("Intento Prevalente", "")
 
-        for cat, kws_str, intent in rows:
-            label = cat.replace("*","").strip()
-            # titolo con Intento in italic, senza underscore
+            # remove backticks and split on comma
+            kws_str = entry.get("Keywords / Concetti / Domande", "")
+            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
+
+            # render the heading
             st.markdown(
-                f'''
-                <p style="
-                  font-size:1.25rem;
-                  font-weight:600;
-                  margin-bottom:0.75rem;
-                  margin-top:1rem;
-                ">
-                  {label} <em>(Intento: {intent})</em>
-                </p>
-                ''',
+                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
+                f'{label} (Intento: {intent})'
+                f'</p>',
                 unsafe_allow_html=True
             )
-            # rimuovo eventuali backtick nelle keyword
-            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
+
+            # render as multiselect with all options selected by default
             st.multiselect(
-                label="",  # etichetta vuota, spaziatura gestita dal CSS hack
+                label="",
                 options=kws,
                 default=kws,
-                key=f"ms_{label}"
+                key=f"ms_{label.replace(' ','_')}"
             )
 
+        # back-button
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
-        st.warning("⚠️ Non ho trovato la tabella di Keyword Mining.")
+        st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
