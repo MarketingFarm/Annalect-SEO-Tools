@@ -39,7 +39,7 @@ st.markdown(
       .st-c6 {
         padding: 10px;
       }
-      .st-ch {
+      .stMultiSelect [data-baseweb="select"] span {
         background-color: rgb(84 87 101);
       }
     </style>
