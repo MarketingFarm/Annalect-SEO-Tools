@@ -78,7 +78,7 @@ st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
   margin: 1.5rem 0;
-  padding-top:1rem;
+  padding: 0rem 0px 1.5rem;
 "></div>
 """, unsafe_allow_html=True)
 
