@@ -39,7 +39,7 @@ st.markdown(
       .st-c6 {
         padding: 10px;
       }
-      .stMultiSelect [data-baseweb="select"] span {
+      .st-ch {
         background-color: rgb(84 87 101);
       }
     </style>
@@ -119,7 +119,6 @@ if st.session_state.step == 1:
   "></div>""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
 
-    # ==== colonna risultati organici ====
     with col_org:
         st.markdown(
             '<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>',
@@ -159,7 +158,6 @@ if st.session_state.step == 1:
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
 
-    # ==== colonna PAA + correlate ====
     with col_paa:
         st.markdown(
             '<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>',
@@ -168,15 +166,10 @@ if st.session_state.step == 1:
         paa = data.get("people_also_ask",[])
         if paa:
             pills = ''.join(
-              f'<span style="background-color:#f7f8f9;'
-              f'padding:8px 12px; border-radius:4px; font-size:16px;">'
-              f'{q}</span>'
+              f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{q}</span>'
               for q in paa
             )
-            st.markdown(
-                f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>', unsafe_allow_html=True)
         else:
             st.write("_Nessuna PAA trovata_")
 
@@ -196,20 +189,17 @@ if st.session_state.step == 1:
                         pre, suf = txt[:m.end()], txt[m.end():]
                         txt = pre + (f"<strong>{suf}</strong>" if suf else "")
                 spans.append(
-                  f'<span style="background-color:#f7f8f9;'
-                  f'padding:8px 12px; border-radius:4px; font-size:16px;">'
-                  f'{txt}</span>'
+                  f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>'
                 )
             st.markdown(
-                '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
-                + ''.join(spans)
-                + '</div>',
+                '<div style="display:flex;flex-wrap:wrap;gap:4px;">' +
+                ''.join(spans) +
+                '</div>',
                 unsafe_allow_html=True
             )
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
-    # ==== Pulsante avanti ====
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -225,16 +215,12 @@ else:
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
         for entry in keyword_mining:
-            # strip the surrounding ** from the category name
             raw_cat = entry.get("Categoria Keyword", "")
             label = raw_cat.strip("* ").strip()
             intent = entry.get("Intento Prevalente", "")
-
-            # remove backticks and split on comma
             kws_str = entry.get("Keywords / Concetti / Domande", "")
             kws = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
 
-            # render the heading
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
                 f'{label} (Intento: {intent})'
@@ -242,7 +228,6 @@ else:
                 unsafe_allow_html=True
             )
 
-            # render as multiselect with all options selected by default
             st.multiselect(
                 label="",
                 options=kws,
@@ -250,7 +235,6 @@ else:
                 key=f"ms_{label.replace(' ','_')}"
             )
 
-        # back-button
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
