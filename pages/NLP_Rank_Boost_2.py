@@ -6,24 +6,25 @@ from urllib.parse import urlparse
 
 # Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
 
-st.title("📝 Analisi e Scrittura Contenuti SEO")
-st.markdown(
-    """
-    In questa pagina puoi caricare il JSON generato dalla pagina di raccolta dati SEO,
-    visualizzare i dettagli della query, i primi 10 risultati organici in stile SERP,
-    e selezionare le singole keywords per l'analisi.
-    """
-)
-
-# Step 1: caricamento del file JSON
-uploaded_file = st.file_uploader(
-    "1. Carica il file JSON di export SEO",
+# Sidebar per il caricamento del file JSON
+st.sidebar.title("Importazione JSON")
+uploaded_file = st.sidebar.file_uploader(
+    "Carica il file JSON di export SEO",
     type="json",
     help="Carica qui il file JSON generato dalla pagina precedente"
 )
 
+# Main area
+st.title("📝 Analisi e Scrittura Contenuti SEO")
+st.markdown(
+    """
+    In questa pagina puoi visualizzare i dettagli della query, i primi 10 risultati organici
+    in stile SERP, e selezionare le singole keywords per l'analisi.
+    """
+)
+
 if uploaded_file is not None:
-    # Step 2: parsing del JSON
+    # Parsing del JSON
     try:
         data = json.load(uploaded_file)
     except json.JSONDecodeError as e:
@@ -34,7 +35,7 @@ if uploaded_file is not None:
     with st.expander("📂 Espandi per visualizzare il JSON completo"):
         st.json(data)
 
-    # --- 1) Tabella con Query, Country, Language (senza indice) ---
+    # --- 1) Dettagli della Query ---
     st.subheader("Dettagli della Query")
     df_details = pd.DataFrame([{
         "Query":    data.get("query", ""),
@@ -43,12 +44,12 @@ if uploaded_file is not None:
     }])
     st.dataframe(df_details, hide_index=True)
 
-    # --- 2) Visualizzazione Top 10 Risultati Organici in stile SERP ---
+    # --- 2) Risultati Organici (Top 10) in stile SERP ---
     organic = data.get("organic", [])
     if organic:
         st.subheader("Risultati Organici (Top 10)")
 
-        # Costruisco tutto l'HTML in una stringa, così il div contenitore include i 10 risultati
+        # div contenitore per tutti i risultati
         html = """
 <div style="
   background-color: #F8F9FB;
@@ -80,7 +81,7 @@ if uploaded_file is not None:
             title = item.get("Meta Title", "")
             desc  = item.get("Meta Description", "")
 
-            # Aggiungo il singolo risultato all'HTML
+            # aggiungo il singolo risultato all'HTML
             html += f"""
   <div style="margin-bottom:30px;">
     <div style="display:flex; align-items:center; margin-bottom:6px;">
@@ -126,9 +127,7 @@ if uploaded_file is not None:
 """
         html += "</div>"
 
-        # Mostro il blocco HTML completo
         st.markdown(html, unsafe_allow_html=True)
-
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
@@ -138,11 +137,10 @@ if uploaded_file is not None:
     lines = [line for line in table_str.split("\n") if line.strip()]
     if len(lines) >= 3:
         rows = []
-        # salto header e riga di allineamento
         for line in lines[2:]:
             parts = [cell.strip() for cell in line.split("|") if cell.strip()]
             if len(parts) == 3:
-                rows.append(parts)  # [Categoria, Keywords stringa, Intento]
+                rows.append(parts)
 
         selected_keywords = {}
         for categoria, keywords_str, intento in rows:
@@ -152,7 +150,7 @@ if uploaded_file is not None:
             chosen = []
             for kw in keywords_list:
                 checked = cols[0].checkbox("", value=True, key=f"chk_{categoria}_{kw}")
-                cols[1].write(kw)  # mostro la keyword senza elenco puntato
+                cols[1].write(kw)
                 if checked:
                     chosen.append(kw)
             selected_keywords[categoria] = chosen
@@ -161,6 +159,5 @@ if uploaded_file is not None:
         st.json(selected_keywords)
     else:
         st.warning("⚠️ Non ho trovato una tabella di Keyword Mining nel JSON.")
-
 else:
-    st.info("⏳ Carica un file JSON per procedere con l'analisi.")
+    st.sidebar.info("⏳ Carica un file JSON per procedere con l'analisi.")
