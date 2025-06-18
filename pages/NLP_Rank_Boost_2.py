@@ -78,7 +78,7 @@ if organic:
     color: #202124;
     font-size: 28px;
     line-height: 24px;
-  ">Risultati Organici (Top 10)</h3>
+  ">Risultati Organici (Top 10) 👇</h3>
 """
     for item in organic[:10]:
         # Estrazione URL
