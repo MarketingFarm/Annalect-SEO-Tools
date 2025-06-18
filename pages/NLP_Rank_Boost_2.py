@@ -1,11 +1,11 @@
 import streamlit as st
 import json
 import re
-import pandas as pd
 from urllib.parse import urlparse
 
-# Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
+# --- Assumo st.set_page_config già invocato nel file principale ---
 
+# Titolo e descrizione
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
     """
@@ -13,6 +13,20 @@ st.markdown(
     visualizzare i dettagli della query, le People Also Ask, le Ricerche Correlate,
     e i primi 10 risultati organici in stile SERP, quindi selezionare le singole keywords.
     """
+)
+
+# --- Hack CSS per multiselect non troncanti ---
+st.markdown(
+    """
+    <style>
+    /* Consente alle "pillole" del multiselect di andare a capo anziché troncare */
+    div[data-baseweb="multi-select"] div[class*="multiValue"] {
+      white-space: normal !important;
+      line-height: 1.3 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 # --- Separator standardizzato ---
@@ -23,7 +37,7 @@ separator = """
   padding-top:1rem;
 "></div>
 """
-st.markdown(separator, unsafe_allow_html=True)  # sotto descrizione
+st.markdown(separator, unsafe_allow_html=True)  # dopo descrizione
 
 # --- Caricamento file JSON ---
 uploaded_file = st.file_uploader(
@@ -63,16 +77,14 @@ for col, label, val in zip(cols, labels, values):
   border: 1px solid rgb(254, 212, 212);
   border-radius: 0.5rem;
   background-color: rgb(255, 246, 246);
+  margin-bottom: 0.5rem;
 ">
   <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
   <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
 </div>
 """, unsafe_allow_html=True)
 
-# margine inferiore di 1rem sotto alla riga delle card
-st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
-
-# --- Separator specifico prima di Risultati Organici ---
+# --- Separator prima di Risultati Organici ---
 separator_organic = """
 <div style="
   border-top:1px solid #ECEDEE;
@@ -177,33 +189,28 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords con data_editor per evitare troncamenti ---
+# --- Selezione delle keywords con st.multiselect senza troncamento ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
 lines = [l for l in table_str.split("\n") if l.strip()]
 selected = {}
 if len(lines) >= 3:
+    rows = []
     for line in lines[2:]:
-        cat, kw_str, intent = [c.strip() for c in line.split("|") if c.strip()]
+        parts = [c.strip() for c in line.split("|") if c.strip()]
+        if len(parts) == 3:
+            rows.append(parts)
+
+    for cat, kw_str, intent in rows:
         kws = [k.strip(" `") for k in kw_str.split(",") if k.strip()]
-        # costruisco il dataframe con checkbox column
-        df = pd.DataFrame({
-            "Keyword": kws,
-            "Includi": [True]*len(kws)
-        })
-        edited = st.data_editor(
-            df,
-            column_config={
-                "Includi": st.column_config.CheckboxColumn(
-                    "Includi",
-                    help="Spunta per includere questa keyword"
-                )
-            },
-            hide_index=True
+        sel = st.multiselect(
+            label=f"{cat}  _(Intento: {intent})_",
+            options=kws,
+            default=kws,
+            key=f"ms_{cat}"
         )
-        # recupero solo quelle spuntate
-        selected[cat] = edited.loc[edited["Includi"], "Keyword"].tolist()
+        selected[cat] = sel
 
     st.markdown('<h3 style="margin-top:0; padding-top:0;">✅ Keywords selezionate</h3>', unsafe_allow_html=True)
     st.json(selected)
