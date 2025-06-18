@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 
+# Deve essere la primissima chiamata Streamlit in questo file
 st.set_page_config(page_title="Analisi e Scrittura Contenuti SEO", layout="wide")
 
 # Titolo della pagina
