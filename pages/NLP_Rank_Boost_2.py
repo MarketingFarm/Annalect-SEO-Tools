@@ -15,16 +15,6 @@ st.markdown(
     """
 )
 
-# --- CSS per nascondere il titolo dell'expander solo quando è aperto ---
-st.markdown("""
-<style>
-/* Nasconde solo il testo (primo span) quando l'expander è aperto */
-div.streamlit-expanderHeader[aria-expanded="true"] > span:first-child {
-    display: none;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # --- Separator standardizzato ---
 separator = """
 <div style="
@@ -34,28 +24,17 @@ separator = """
 "></div>
 """
 
-# sotto descrizione
-st.markdown(separator, unsafe_allow_html=True)
+st.markdown(separator, unsafe_allow_html=True)  # sotto descrizione
 
-# --- Accordion per il caricamento del file JSON ---
-file_key = "json_uploader"
-with st.expander("Carica il file JSON", expanded=True):
-    st.file_uploader(
-        "Carica il file JSON",
-        type="json",
-        help="Carica qui il file JSON generato dalla pagina precedente",
-        key=file_key
-    )
-
-# Recupera il file da session_state
-uploaded_file = st.session_state.get(file_key)
-# Se non è stato caricato niente, mostro il messaggio e fermo
+# --- Caricamento file JSON ---
+uploaded_file = st.file_uploader(
+    "Carica il file JSON",
+    type="json",
+    help="Carica qui il file JSON generato dalla pagina precedente"
+)
 if uploaded_file is None:
     st.info("⏳ Carica un file JSON per procedere con l'analisi.")
     st.stop()
-
-# Una volta caricato, l'expander si richiude automaticamente al rerun
-# (perché expanded=True ma ora session_state[file_key] non è None)
 
 # --- Parsing JSON ---
 try:
@@ -154,6 +133,7 @@ with col_paa:
     st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
     paa = data.get("people_also_ask", [])
     if paa:
+        # pillole identiche alle correlazioni
         pills = ''.join(
             f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
             f'{q}</span>'
@@ -163,7 +143,7 @@ with col_paa:
     else:
         st.write("_Nessuna PAA trovata_")
 
-    st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:0; padding-top:0; margin-top:1rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
     related = data.get("related_searches", [])
     if related:
         q = query.strip()
@@ -199,10 +179,12 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords ---
+# --- Selezione delle keywords (più semplice con multiselect) ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
+
 table_str = data.get("keyword_mining", "")
 lines = [l for l in table_str.split("\n") if l.strip()]
+selected = {}
 if len(lines) >= 3:
     rows = []
     for line in lines[2:]:
@@ -210,19 +192,16 @@ if len(lines) >= 3:
         if len(parts) == 3:
             rows.append(parts)
 
-    selected = {}
     for cat, kw_str, intent in rows:
         kws = [k.strip(" `") for k in kw_str.split(",") if k.strip()]
-        st.markdown(f"**{cat}** _(Intento: {intent})_")
-        cols = st.columns([1, 9])
-        chosen = []
-        for kw in kws:
-            key = f"chk_{cat}_{kw}".replace(" ", "_")
-            chk = cols[0].checkbox("", value=True, key=key)
-            cols[1].write(kw)
-            if chk:
-                chosen.append(kw)
-        selected[cat] = chosen
+        # multiselect per categoria
+        sel = st.multiselect(
+            f"{cat}  _(Intento: {intent})_",
+            options=kws,
+            default=kws,
+            format_func=lambda x: x
+        )
+        selected[cat] = sel
 
     st.markdown('<h3 style="margin-top:0; padding-top:0;">✅ Keywords selezionate</h3>', unsafe_allow_html=True)
     st.json(selected)
