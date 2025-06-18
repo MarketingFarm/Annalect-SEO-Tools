@@ -110,6 +110,47 @@ if st.session_state.step == 1:
         """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
+    # --- nuove card da "analysis_strategica" ---
+    analysis_md = data.get("analysis_strategica", "")
+    # estraggo i valori sintetici per i campi richiesti
+    keys = {
+        "Search Intent Primario": "",
+        "Search Intent Secondario": "",
+        "Target Audience & Leggibilità": "",
+        "Tone of Voice (ToV)": "",
+        "Segnali E-E-A-T": ""
+    }
+    for line in analysis_md.split("\n"):
+        if line.startswith("|**"):
+            parts = line.split("|")
+            label = parts[1].strip("* ").strip()
+            if label in keys and len(parts) > 2:
+                keys[label] = parts[2].strip()
+
+    cols2 = st.columns(5, gap="small")
+    labels2 = [
+        "Search Intent Primario",
+        "Search Intent Secondario",
+        "Target Audience & Leggibilità",
+        "Tone of Voice (ToV)",
+        "Segnali E-E-A-T"
+    ]
+    for col, label in zip(cols2, labels2):
+        val = keys.get(label, "")
+        col.markdown(f"""
+  <div style="
+    padding: 0.75rem 1.5rem;
+    border: 1px solid rgb(254, 212, 212);
+    border-radius: 0.5rem;
+    background-color: rgb(255, 246, 246);
+    margin-bottom: 0.5rem;
+  ">
+    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
+    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
+  </div>
+        """, unsafe_allow_html=True)
+    st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
+
     # Separatore e colonne organici / PAA
     st.markdown("""
   <div style="
@@ -216,14 +257,14 @@ else:
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
+            # rimuovo i backtick e i placeholder di intento dal titolo
             label = raw_cat.strip("* ").strip()
-            intent = entry.get("Intento Prevalente", "")
             kws_str = entry.get("Keywords / Concetti / Domande", "")
             kws = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
 
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
-                f'{label} (Intento: {intent})'
+                f'{label}'
                 f'</p>',
                 unsafe_allow_html=True
             )
@@ -232,7 +273,7 @@ else:
                 label="",
                 options=kws,
                 default=kws,
-                key=f"ms_{label.replace(' ','_')}"
+                key=f"ms_{label.replace(" ", "_")}"
             )
 
         st.button("Indietro", on_click=go_back, key="back_btn")
