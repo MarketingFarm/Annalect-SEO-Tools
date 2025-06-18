@@ -15,7 +15,7 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per evitare il troncamento nel multiselect e ingrandire le label ---
+# --- Hack CSS per evitare il troncamento nel multiselect ---
 st.markdown(
     """
     <style>
@@ -25,11 +25,9 @@ st.markdown(
             white-space: normal !important;
             line-height: 1.3 !important;
         }
-        /* Ingrandisce i label dei multiselect */
-        .stMultiSelect > label {
-            font-size: 1.25rem !important;
-            font-weight: 500 !important;
-        }
+        .st-c5 {
+    padding: 16px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -198,7 +196,7 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords con multiselect senza troncamento e label ingrandite ---
+# --- Selezione delle keywords con multiselect senza troncamento ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
