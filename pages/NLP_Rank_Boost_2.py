@@ -261,40 +261,42 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     # separatore
     st.markdown(separator, unsafe_allow_html=True)
+
     # titolo
     st.markdown(
         '<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>',
         unsafe_allow_html=True
     )
 
-    # estrazione da JSON
-    common = data.get("common_ground", [])      # lista di dict
-    gap    = data.get("content_gap", [])        # lista di dict
-
-    # trasformazione in DataFrame
     import pandas as pd
-    df_common = pd.DataFrame(common)
-    df_gap    = pd.DataFrame(gap)
 
-    # Common Ground
+    # prendo dal JSON le due liste di dict
+    common = data.get("common_ground", [])
+    gap    = data.get("content_gap", [])
+
+    # Common Ground: DataFrame con colonna "Seleziona"
+    df_common = pd.DataFrame(common)
+    df_common.insert(0, "Seleziona", False)
+
     st.subheader("Common Ground Analysis")
-    edited_common = st.data_editor(
+    edited_common = st.experimental_data_editor(
         df_common,
         num_rows="dynamic",
         use_container_width=True,
-        row_config={"selectable": True}   # abilita checkbox riga nativa
     )
 
-    # Content Gap
+    # Content Gap: DataFrame con colonna "Seleziona"
+    df_gap = pd.DataFrame(gap)
+    df_gap.insert(0, "Seleziona", False)
+
     st.subheader("Content Gap Opportunity")
-    edited_gap = st.data_editor(
+    edited_gap = st.experimental_data_editor(
         df_gap,
         num_rows="dynamic",
         use_container_width=True,
-        row_config={"selectable": True}
     )
 
-    # navigazione indietro
+    # bottone Indietro
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_3")
     st.markdown("</div>", unsafe_allow_html=True)
