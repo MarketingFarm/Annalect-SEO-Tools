@@ -300,39 +300,62 @@ elif st.session_state.step == 3:
 
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
-else:
+elif st.session_state.step == 4:
     st.markdown(separator, unsafe_allow_html=True)
-    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizza il Contenuto</h3>', unsafe_allow_html=True)
+    st.markdown(
+        '<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizza il Contenuto</h3>',
+        unsafe_allow_html=True
+    )
 
-    # tre controlli su una riga
-    c1, c2, c3 = st.columns(3, gap="small")
+    # Due dropdown affiancati
+    col1, col2 = st.columns(2, gap="small")
 
-    with c1:
+    with col1:
+        context_opts = [
+            "-- Seleziona --",
+            "E-commerce",
+            "Sito Vetrina",
+            "Blog / Testata Giornalistica"
+        ]
+        prev_ctx = st.session_state.get("context_select", "-- Seleziona --")
+        idx_ctx = context_opts.index(prev_ctx) if prev_ctx in context_opts else 0
         context = st.selectbox(
             "Contesto",
-            options=["-- Seleziona --", "E-commerce", "Sito Vetrina", "Blog / Testata Giornalistica"],
+            options=context_opts,
+            index=idx_ctx,
             key="context_select"
         )
-    with c2:
+
+    with col2:
         dest_options = {
             "-- Seleziona --": ["-- Seleziona --"],
-            "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)",
-                           "Guida all'Acquisto", "Pagina Informativa", "Articolo del Blog"],
+            "E-commerce": [
+                "-- Seleziona --",
+                "Product Listing Page (PLP)",
+                "Product Detail Page (PDP)",
+                "Guida all'Acquisto",
+                "Pagina Informativa",
+                "Articolo del Blog"
+            ],
             "Sito Vetrina": ["-- Seleziona --", "Pagina", "Articolo del Blog"],
             "Blog / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
+        opts = dest_options.get(context, ["-- Seleziona --"])
+        prev_dest = st.session_state.get("dest_select", "-- Seleziona --")
+        idx_dest = opts.index(prev_dest) if prev_dest in opts else 0
         destino = st.selectbox(
             "Destinazione Contenuto",
-            options=dest_options.get(context, ["-- Seleziona --"]),
+            options=opts,
+            index=idx_dest,
             key="dest_select"
         )
-    with c3:
-        custom_toggle = st.toggle(
-            "Keyword Personalizzate",
-            value=False,
-            key="custom_kw_toggle"
-        )
 
+    # Toggle e aree di testo sotto i dropdown
+    custom_toggle = st.toggle(
+        "Keyword Personalizzate",
+        value=st.session_state.get("custom_kw_toggle", False),
+        key="custom_kw_toggle"
+    )
     if custom_toggle:
         st.text_area(
             "Inserisci Keyword Personalizzate (una per riga o separate da virgola)",
