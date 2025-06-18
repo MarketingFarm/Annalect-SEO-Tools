@@ -4,7 +4,7 @@ import pandas as pd
 import re
 from urllib.parse import urlparse
 
-# Assume st.set_page_config has already been called in the main app
+# Questa pagina assume che st.set_page_config sia già stata chiamata nel file principale
 
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
@@ -15,7 +15,7 @@ st.markdown(
     """
 )
 
-# Dividiamo la pagina in due colonne, sinistra stretta e destra larga
+# Dividiamo la pagina in due colonne: sinistra stretta e destra larga
 col_left, col_right = st.columns([1, 4])
 
 with col_left:
@@ -47,11 +47,7 @@ with col_right:
             unsafe_allow_html=True,
         )
 
-        # 1) Expander con JSON completo
-        with st.expander("📂 Espandi per visualizzare il JSON completo"):
-            st.json(data)
-
-        # 2) Dettagli della Query
+        # 1) Dettagli della Query
         st.subheader("Dettagli della Query")
         df_details = pd.DataFrame([{
             "Query":    data.get("query", ""),
@@ -60,7 +56,7 @@ with col_right:
         }])
         st.dataframe(df_details, hide_index=True)
 
-        # 3) Risultati Organici (Top 10) in stile SERP
+        # 2) Risultati Organici (Top 10) in stile SERP
         organic = data.get("organic", [])
         if organic:
             st.subheader("Risultati Organici (Top 10)")
@@ -145,7 +141,7 @@ with col_right:
         else:
             st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
-        # 4) Selezione delle keywords
+        # 3) Selezione delle keywords
         st.subheader("🔍 Seleziona le singole keywords per l'analisi")
         table_str = data.get("keyword_mining", "")
         lines = [l for l in table_str.split("\n") if l.strip()]
@@ -176,4 +172,4 @@ with col_right:
 
         # Fine del contenitore con bordo a sinistra
         st.markdown("</div>", unsafe_allow_html=True)
-    # if no file, col_right rimane vuota
+    # col_right rimane vuota se non c'è file caricato
