@@ -15,15 +15,15 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per evitare il troncamento nel multiselect ---
+# --- Hack CSS per multiselect non troncanti e pillole più larghe ---
 st.markdown(
     """
     <style>
-        /* Rimuove il max-width sulle pillole del multiselect e consente il wrap */
+        /* Consente il wrap e padding esteso alle pillole del multiselect */
         .stMultiSelect [data-baseweb="select"] span {
-            max-width: none !important;
             white-space: normal !important;
             line-height: 1.3 !important;
+            padding: 0.5rem 0.75rem !important;
         }
     </style>
     """,
@@ -149,7 +149,7 @@ with col_paa:
     paa = data.get("people_also_ask", [])
     if paa:
         pills = ''.join(
-            f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
+            f'<span style="background-color:#f7f8f9;padding:10px 16px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
             f'{q}</span>'
             for q in paa
         )
@@ -177,7 +177,7 @@ with col_paa:
                     else:
                         highlighted = prefix
             spans.append(
-                f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
+                f'<span style="background-color:#f7f8f9;padding:10px 16px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
                 f'{highlighted}</span>'
             )
 
@@ -193,7 +193,7 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords con multiselect senza troncamento ---
+# --- Selezione delle keywords con multiselect senza troncamento e pillole più larghe ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
