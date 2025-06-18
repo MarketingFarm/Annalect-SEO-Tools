@@ -276,9 +276,6 @@ elif st.session_state.step == 3:
 
     # --- Common Ground ---
     df_common = pd.DataFrame(common)
-    # inserisco colonna per selezione
-    df_common.insert(0, "Seleziona", False)
-
     st.subheader("Common Ground Analysis")
     edited_common = st.data_editor(
         df_common,
@@ -288,8 +285,6 @@ elif st.session_state.step == 3:
 
     # --- Content Gap ---
     df_gap = pd.DataFrame(gap)
-    df_gap.insert(0, "Seleziona", False)
-
     st.subheader("Content Gap Opportunity")
     edited_gap = st.data_editor(
         df_gap,
