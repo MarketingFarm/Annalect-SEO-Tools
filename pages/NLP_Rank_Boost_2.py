@@ -48,7 +48,7 @@ if uploaded_file is not None:
     if organic:
         st.subheader("Risultati Organici (Top 10)")
 
-        # apertura del div contenitore
+        # apertura del div contenitore che racchiude tutti i risultati
         st.markdown("""
 <div style="
   background-color: #F8F9FB;
