@@ -182,7 +182,7 @@ with col_paa:
             # wrap in pill-style span
             span_html = (
                 f'<span style="background-color:#f7f8f9;'
-                f'padding:4px 8px; border-radius:8px 12px; '
+                f'padding:8px 12px; border-radius:4px; '
                 f'font-size:16px; margin-bottom:8px;">'
                 f'{highlighted}</span>'
             )
