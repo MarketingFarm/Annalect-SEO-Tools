@@ -52,7 +52,7 @@ query   = data.get("query", "").strip()
 country = data.get("country", "").strip()
 lang    = data.get("language", "").strip()
 
-st.markdown('<h3 style="margin-top:0; padding-top:0.5rem;">Dettagli della Query</h3>', unsafe_allow_html=True)
+st.markdown('<h3 style="margin-top:0.5rem; padding-top:0rem;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
 cols = st.columns(3, gap="small")
 labels = ["Query", "Country", "Language"]
