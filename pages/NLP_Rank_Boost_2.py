@@ -259,6 +259,8 @@ elif st.session_state.step == 2:
 
 # === STEP 3: Common Ground & Content Gap ===
 elif st.session_state.step == 3:
+    import pandas as pd
+
     # separatore
     st.markdown(separator, unsafe_allow_html=True)
 
@@ -268,9 +270,7 @@ elif st.session_state.step == 3:
         unsafe_allow_html=True
     )
 
-    import pandas as pd
-
-    # recupero dalle sessioni i due blocchi
+    # recupero i dati
     common = data.get("common_ground", [])
     gap    = data.get("content_gap", [])
 
@@ -279,8 +279,9 @@ elif st.session_state.step == 3:
     st.subheader("Common Ground Analysis")
     edited_common = st.data_editor(
         df_common,
-        num_rows="dynamic",
+        num_rows=len(df_common),           # fisso il numero di righe, niente + per aggiungerne
         use_container_width=True,
+        hide_index=True                    # facoltativo, se non vuoi mostrare l'indice
     )
 
     # --- Content Gap ---
@@ -288,11 +289,12 @@ elif st.session_state.step == 3:
     st.subheader("Content Gap Opportunity")
     edited_gap = st.data_editor(
         df_gap,
-        num_rows="dynamic",
+        num_rows=len(df_gap),              # stesso trucco qui
         use_container_width=True,
+        hide_index=True
     )
 
-    # bottone per tornare indietro
+    # bottone Indietro
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_3")
     st.markdown("</div>", unsafe_allow_html=True)
