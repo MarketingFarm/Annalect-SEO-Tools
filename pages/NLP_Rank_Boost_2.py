@@ -307,35 +307,6 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # Inietta un po’ di CSS per ingrandire lo switch e aggiungere padding
-    st.markdown(
-        """
-        <style>
-          /* Aumenta la dimensione dello switch del toggle */
-          .st-er {
-            min-height: 1.6rem;
-          }
-          .st-eq {
-            min-width: calc(3rem);
-          }
-          .st-ep {
-            padding-right: 0.355rem;
-          }
-          .st-eo {
-            padding-left: 0.35rem;
-          }
-          /* Contenitore con padding sopra e sotto */
-          .toggle-container {
-            padding: 0.5rem 0;
-          }
-          .st-ce {
-            margin-top: 0.25rem;
-          }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
     # Due dropdown affiancati
     col1, col2 = st.columns(2, gap="small")
     with col1:
