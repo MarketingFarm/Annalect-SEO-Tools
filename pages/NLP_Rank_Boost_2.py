@@ -307,7 +307,25 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # Due dropdown affiancati, la selezione viene memorizzata nel session_state
+    # Inietta un po’ di CSS per ingrandire lo switch e aggiungere padding
+    st.markdown(
+        """
+        <style>
+          /* Aumenta la dimensione dello switch del toggle */
+          div[data-testid="stToggle"] > label > div {
+            transform: scale(1.3);
+            transform-origin: left top;
+          }
+          /* Contenitore con padding sopra e sotto */
+          .toggle-container {
+            padding: 1rem 0;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Due dropdown affiancati
     col1, col2 = st.columns(2, gap="small")
     with col1:
         context = st.selectbox(
@@ -336,12 +354,16 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # Toggle sotto i dropdown
+    # Toggle con wrapper che aggiunge padding e applica lo scale
+    st.markdown('<div class="toggle-container">', unsafe_allow_html=True)
     custom_toggle = st.toggle(
         "Keyword Personalizzate",
         value=False,
         key="custom_kw_toggle"
     )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Area per le keyword custom solo se toggle è attivo
     if custom_toggle:
         st.text_area(
             "Inserisci Keyword Personalizzate (una per riga o separate da virgola)",
