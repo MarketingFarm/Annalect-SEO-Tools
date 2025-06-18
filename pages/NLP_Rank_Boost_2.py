@@ -1,9 +1,29 @@
 import streamlit as st
 import json
 import re
+import pandas as pd
 from urllib.parse import urlparse
 
-# --- Assumo st.set_page_config già invocato nel file principale ---
+# --- CSS personalizzato per padding delle colonne Streamlit ---
+st.markdown("""
+<style>
+.st-cf { padding-right: 0px !important; }
+.st-ce { padding-left: 0.5rem !important; }
+.st-cd { padding-bottom: 0px !important; }
+.st-cc { padding-top: 0px !important; }
+</style>
+""", unsafe_allow_html=True)
+
+# --- Hack CSS per pillole multiselect non troncanti ---
+st.markdown("""
+<style>
+.stMultiSelect [data-baseweb="select"] span {
+    white-space: normal !important;
+    line-height: 1.3 !important;
+    padding: 0.5rem 0.75rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Titolo e descrizione
 st.title("📝 Analisi e Scrittura Contenuti SEO")
@@ -13,21 +33,6 @@ st.markdown(
     visualizzare i dettagli della query, le People Also Ask, le Ricerche Correlate,
     e i primi 10 risultati organici in stile SERP, quindi selezionare le singole keywords.
     """
-)
-
-# --- Hack CSS per multiselect non troncanti e pillole più larghe ---
-st.markdown(
-    """
-    <style>
-        /* Consente il wrap e padding esteso alle pillole del multiselect */
-        .stMultiSelect [data-baseweb="select"] span {
-            white-space: normal !important;
-            line-height: 1.3 !important;
-            padding: 0.5rem 0.75rem !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
 )
 
 # --- Separator standardizzato ---
@@ -230,5 +235,5 @@ if len(lines) >= 3:
 else:
     st.warning("⚠️ Non ho trovato la tabella di Keyword Mining nel JSON.")
 
-# chiude il contenitore grigio
+# chiude il contenitore
 st.markdown("</div>", unsafe_allow_html=True)
