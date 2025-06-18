@@ -125,7 +125,7 @@ if st.session_state.step == 1:
   margin-bottom: 0.5rem;
 ">
   <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
-  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
+  <div style="font-size:1.1rem; color:#202124; font-weight:500;">{val}</div>
 </div>
 """, unsafe_allow_html=True)
 
