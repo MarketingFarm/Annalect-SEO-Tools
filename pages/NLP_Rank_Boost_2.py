@@ -312,13 +312,24 @@ elif st.session_state.step == 4:
         """
         <style>
           /* Aumenta la dimensione dello switch del toggle */
-          div[data-testid="stToggle"] > label > div {
-            transform: scale(1.8);
-            transform-origin: left top;
+          .st-er {
+            min-height: 1.6rem;
+          }
+          .st-eq {
+            min-width: calc(3rem);
+          }
+          .st-ep {
+            padding-right: 0.355rem;
+          }
+          .st-eo {
+            padding-left: 0.35rem;
           }
           /* Contenitore con padding sopra e sotto */
           .toggle-container {
             padding: 0.5rem 0;
+          }
+          .st-ce {
+            margin-top: 0.25rem;
           }
         </style>
         """,
