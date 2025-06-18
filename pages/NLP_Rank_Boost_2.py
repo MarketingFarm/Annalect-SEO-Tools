@@ -135,14 +135,14 @@ if st.session_state.step == 1:
         for c, lbl, v in zip(cols2, labels_analysis, vals):
             c.markdown(f"""
   <div style="
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 1rem;
     border: 1px solid rgb(254, 212, 212);
     border-radius: 0.5rem;
     background-color: rgb(255, 246, 246);
     margin-bottom: 0.5rem;
   ">
     <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{lbl}</div>
-    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{v}</div>
+    <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
   </div>
             """, unsafe_allow_html=True)
         st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
