@@ -2,14 +2,6 @@
 
 import streamlit as st
 
-st.markdown("""
-<style>
-    [data-testid=stSidebarContent] {
-        background-color: #ff000050;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
     page_icon="🔧",
