@@ -112,8 +112,14 @@ if st.session_state.step == 1:
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
     # 1b) Nuova riga di card da analysis_strategica
-    analysis_strategica = data.get("analysis_strategica", "")
-    # predispongo i campi
+    raw_analysis = data.get("analysis_strategica", "")
+    # se arriva come lista, lo converto in testo
+    if isinstance(raw_analysis, list):
+        analysis_strategica = "\n".join(raw_analysis)
+    else:
+        analysis_strategica = raw_analysis
+
+    # predispongo i campi da estrarre
     fields = {
         "Search Intent Primario": "",
         "Search Intent Secondario": "",
@@ -121,6 +127,7 @@ if st.session_state.step == 1:
         "Tone of Voice (ToV)": "",
         "Segnali E-E-A-T": ""
     }
+
     # regex per catturare | **Label** | **Valore** |
     pattern = re.compile(r"\|\s*\*\*(?P<label>.*?)\*\*\s*\|\s*\*\*(?P<val>.*?)\*\*")
     for m in pattern.finditer(analysis_strategica):
@@ -267,7 +274,7 @@ else:
                 label="",
                 options=options,
                 default=options,
-                key=f"ms_{label.replace(' ', '_')}"
+                key=f"ms_{label.replace(" ","_")}"
             )
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
