@@ -15,16 +15,16 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per multiselect non troncanti ---
+# --- Hack CSS per evitare il troncamento nel multiselect ---
 st.markdown(
     """
     <style>
-    /* Consente alle "pillole" del multiselect di andare a capo anziché troncare */
-    div[data-baseweb="multi-select"] div[class*="multiValue"]{
-      white-space: normal !important;
-      line-height: 1.3 !important;
-      max-width: 500px !important;
-    }
+        /* Rimuove il max-width sulle pillole del multiselect e consente il wrap */
+        .stMultiSelect [data-baseweb="select"] span {
+            max-width: none !important;
+            white-space: normal !important;
+            line-height: 1.3 !important;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -85,7 +85,10 @@ for col, label, val in zip(cols, labels, values):
 </div>
 """, unsafe_allow_html=True)
 
-# --- Separator prima di Risultati Organici ---
+# margine inferiore di 1rem sotto alla riga delle card
+st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
+
+# --- Separator specifico prima di Risultati Organici ---
 separator_organic = """
 <div style="
   border-top:1px solid #ECEDEE;
@@ -190,7 +193,7 @@ with col_paa:
 # --- Separator prima di keyword mining ---
 st.markdown(separator, unsafe_allow_html=True)
 
-# --- Selezione delle keywords con st.multiselect senza troncamento ---
+# --- Selezione delle keywords con multiselect senza troncamento ---
 st.markdown('<h3 style="margin-top:0; padding-top:0;">🔍 Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
 
 table_str = data.get("keyword_mining", "")
