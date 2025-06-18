@@ -181,6 +181,19 @@ with st.expander(
 # Bottone di avvio, usa on_click per chiudere l’expander immediatamente
 st.button("🚀 Avvia l'Analisi", on_click=start_analysis)
 
+# funzione di parsing Markdown→lista di dict
+def parse_md_table(md: str) -> list[dict]:
+    lines = [l for l in md.splitlines() if l.strip()]
+    if len(lines) < 2:
+        return []
+    header = [h.strip().strip('* ') for h in lines[0].split('|')[1:-1]]
+    rows = []
+    for line in lines[2:]:
+        cells = [c.strip() for c in line.split('|')[1:-1]]
+        if len(cells) == len(header):
+            rows.append(dict(zip(header, cells)))
+    return rows
+
 # --- dopo il click, eseguo l’analisi ---
 if st.session_state['analysis_started']:
     if not (query and country and language):
@@ -196,19 +209,19 @@ if st.session_state['analysis_started']:
 
     # ORGANIC TOP 10
     organic = [it for it in items if it.get('type') == 'organic'][:10]
-    data = []
+    data_org = []
     for it in organic:
         title = it.get('title') or it.get('link_title', '')
         desc = it.get('description') or it.get('snippet', '')
         clean = clean_url(it.get('link') or it.get('url',''))
-        data.append({
+        data_org.append({
             'URL': f"<a href='{clean}' target='_blank'>{clean}</a>",
             'Meta Title': title,
             'Lunghezza Title': len(title),
             'Meta Description': desc,
             'Lunghezza Description': len(desc)
         })
-    df_org = pd.DataFrame(data)
+    df_org = pd.DataFrame(data_org)
 
     def style_title(val):
         return 'background-color: #d4edda' if 50 <= val <= 60 else 'background-color: #f8d7da'
@@ -250,8 +263,8 @@ if st.session_state['analysis_started']:
             st.write("Nessuna sezione Ricerche correlate trovata.")
 
     # --- STEP NLU: analisi strategica e gap di contenuto ---
-    separator = "\n\n--- SEPARATORE TESTO ---\n\n"
-    joined_texts = separator.join(competitor_texts)
+    separator_text = "\n\n--- SEPARATORE TESTO ---\n\n"
+    joined_texts = separator_text.join(competitor_texts)
 
     prompt_strategica = f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
@@ -299,6 +312,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
 **COMPITO:** Analizza i testi competitor:
 ---
 {joined_texts}
+
 1. Identifica l'**Entità Centrale** condivisa da tutti i testi.
 2. Definisci il **Search Intent Primario** a cui i competitor rispondono.
 3. Crea DUE tabelle Markdown separate:
@@ -411,20 +425,25 @@ OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui s
     else:
         st.markdown(resp3_text, unsafe_allow_html=True)
 
-    # --- Pulsanti Reset e Download JSON affiancati ---
+    # --- Costruzione export JSON strutturato ---
+    analisi_struct = parse_md_table(resp1_text)
+    common_ground_struct = parse_md_table(table1_entities)
+    content_gap_struct = parse_md_table(table2_gaps)
+    keyword_mining_struct = parse_md_table(table_mining or resp3_text)
+
     export_data = {
         "query": query,
         "country": country,
         "language": language,
         "num_competitor": count,
         "competitor_texts": competitor_texts,
-        "organic": data,
+        "organic": data_org,
         "people_also_ask": paa_list,
         "related_searches": related,
-        "analysis_strategica": resp1_text,
-        "common_ground": table1_entities,
-        "content_gap": table2_gaps,
-        "keyword_mining": table_mining or resp3_text
+        "analysis_strategica": analisi_struct,
+        "common_ground": common_ground_struct,
+        "content_gap": content_gap_struct,
+        "keyword_mining": keyword_mining_struct
     }
     export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
 
