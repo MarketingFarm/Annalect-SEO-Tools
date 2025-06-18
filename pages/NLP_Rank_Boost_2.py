@@ -307,25 +307,14 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # Due dropdown affiancati
+    # Due dropdown affiancati, la selezione viene memorizzata nel session_state
     col1, col2 = st.columns(2, gap="small")
-
     with col1:
-        context_opts = [
-            "-- Seleziona --",
-            "E-commerce",
-            "Sito Vetrina",
-            "Blog / Testata Giornalistica"
-        ]
-        prev_ctx = st.session_state.get("context_select", "-- Seleziona --")
-        idx_ctx = context_opts.index(prev_ctx) if prev_ctx in context_opts else 0
         context = st.selectbox(
             "Contesto",
-            options=context_opts,
-            index=idx_ctx,
+            ["-- Seleziona --", "E-commerce", "Sito Vetrina", "Blog / Testata Giornalistica"],
             key="context_select"
         )
-
     with col2:
         dest_options = {
             "-- Seleziona --": ["-- Seleziona --"],
@@ -341,19 +330,16 @@ elif st.session_state.step == 4:
             "Blog / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
         opts = dest_options.get(context, ["-- Seleziona --"])
-        prev_dest = st.session_state.get("dest_select", "-- Seleziona --")
-        idx_dest = opts.index(prev_dest) if prev_dest in opts else 0
         destino = st.selectbox(
             "Destinazione Contenuto",
-            options=opts,
-            index=idx_dest,
+            opts,
             key="dest_select"
         )
 
-    # Toggle e aree di testo sotto i dropdown
+    # Toggle sotto i dropdown
     custom_toggle = st.toggle(
         "Keyword Personalizzate",
-        value=st.session_state.get("custom_kw_toggle", False),
+        value=False,
         key="custom_kw_toggle"
     )
     if custom_toggle:
@@ -363,12 +349,14 @@ elif st.session_state.step == 4:
             height=100
         )
 
+    # Informazioni aggiuntive
     st.text_area(
         "Informazioni aggiuntive",
         key="additional_info",
         height=100
     )
 
+    # Pulsanti di navigazione
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
     st.markdown("</div>", unsafe_allow_html=True)
