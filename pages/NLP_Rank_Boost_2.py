@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import json
 import re
 import pandas as pd
@@ -90,7 +89,7 @@ with col_org:
     st.subheader("Risultati Organici (Top 10)")
     organic = data.get("organic", [])
     if organic:
-        # costruiamo l'HTML senza spazi di indentazione
+        # costruiamo l'HTML per i risultati
         html = '<div style="background-color:#F8F9FB;border:1px solid #ECEDEE;border-radius:0.5rem;padding:1.5rem;">'
         for item in organic[:10]:
             anchor = item.get("URL", "")
@@ -127,8 +126,8 @@ with col_org:
             )
         html += '</div>'
 
-        # render HTML tramite components.html
-        components.html(html, height=600, scrolling=True)
+        # render HTML direttamente, senza scroll
+        st.markdown(html, unsafe_allow_html=True)
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
 
