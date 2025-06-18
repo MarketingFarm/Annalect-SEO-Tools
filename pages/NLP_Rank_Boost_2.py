@@ -13,7 +13,7 @@ st.markdown(
     In questa pagina puoi caricare il JSON generato dalla pagina di raccolta dati SEO,
     visualizzare i dettagli della query, le People Also Ask, le Ricerche Correlate,
     i primi 10 risultati organici in stile SERP, selezionare le singole keywords,
-    e infine scegliere righe da common_ground e content_gap.
+    e infine scegliere righe da Common Ground e Content Gap.
     """
 )
 
@@ -75,48 +75,42 @@ except json.JSONDecodeError as e:
     st.error(f"❌ Errore nel parsing del JSON: {e}")
     st.stop()
 
-# Inizializzo lo step
+# --- Session state per multi-step ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 
 def go_next():
-    # Avanza di uno step fino a 3
     st.session_state.step = min(st.session_state.step + 1, 3)
 
 def go_back():
-    # Torna indietro di uno step fino a 1
     st.session_state.step = max(st.session_state.step - 1, 1)
 
 # === STEP 1 ===
 if st.session_state.step == 1:
-    # separatore iniziale
     st.markdown(separator, unsafe_allow_html=True)
 
-    # Dettagli della Query + Segnali E-E-A-T spostati qui
+    # Dettagli della Query + Segnali E-E-A-T
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
 
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
-    # preparo mappa di Analysis Strategica
+    # Preparo mappa di Analysis Strategica
     analysis_list = data.get("analysis_strategica", [])
-    analysis_map = {}
-    for item in analysis_list:
-        raw_label = item.get("Caratteristica SEO", "")
-        clean_label = re.sub(r"\*+", "", raw_label).strip()
-        clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
-        analysis_map[clean_label] = clean_value
+    analysis_map = {
+        re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
+        re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
+        for item in analysis_list
+    }
 
-    # estraggo il solo valore "Segnali E-E-A-T" senza parentesi
+    # Estraggo solo "Segnali E-E-A-T" senza testo tra parentesi
     raw_signals = analysis_map.get("Segnali E-E-A-T", "")
     signals_val = re.sub(r"\s*\([^)]*\)", "", raw_signals).strip()
 
-    # colonne: Query, Country, Language, Segnali E-E-A-T
     cols_main = st.columns(4, gap="small")
-    labels_main = ["Query", "Country", "Language", "Segnali E-E-A-T"]
+    labels_main = ["Query","Country","Language","Segnali E-E-A-T"]
     vals_main   = [query, country, lang, signals_val]
-
     for col, lbl, val in zip(cols_main, labels_main, vals_main):
         col.markdown(f"""
 <div style="
@@ -136,7 +130,7 @@ if st.session_state.step == 1:
     # Titolo Analisi Strategica
     st.markdown('<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>', unsafe_allow_html=True)
 
-    # cards di Analisi Strategica (4 card, senza segnali)
+    # 4 card (escludo i segnali già spostati)
     labels_analysis = [
         "Search Intent Primario",
         "Search Intent Secondario",
@@ -158,9 +152,10 @@ if st.session_state.step == 1:
   <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
 </div>
 """, unsafe_allow_html=True)
+
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # Separatore e colonne organici / PAA
+    # --- SERP ORGANICI + PAA + RICERCHE CORRELATE ---
     st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
@@ -236,7 +231,6 @@ if st.session_state.step == 1:
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
-    # pulsante avanti
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -251,10 +245,8 @@ elif st.session_state.step == 2:
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            label = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
-            kws_str = entry.get("Keywords / Concetti / Domande", "")
-            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
-
+            label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
+            kws     = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>', unsafe_allow_html=True)
             st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(" ", "_")}")
         st.markdown("<div style='margin-top:1rem; text-align:left;'>", unsafe_allow_html=True)
@@ -266,37 +258,35 @@ elif st.session_state.step == 2:
 
 
 # === STEP 3 ===
-else:  # st.session_state.step == 3
+else:
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0; padding-top:0;">Common Ground & Content Gap</h3>', unsafe_allow_html=True)
 
-    # tabella Common Ground
+    # Common Ground
     common = data.get("common_ground", [])
     if common:
         df_common = pd.DataFrame(common)
-        df_common.insert(0, "Seleziona", [False]*len(df_common))
+        df_common.insert(0, "Seleziona", [False] * len(df_common))
         st.markdown("**Common Ground Analysis**")
-        edited_common = st.experimental_data_editor(
-            df_common,
-            num_rows="dynamic",
-            use_container_width=True
-        )
+        if hasattr(st, "data_editor"):
+            edited_common = st.data_editor(df_common, num_rows="dynamic", use_container_width=True)
+        else:
+            edited_common = st.experimental_data_editor(df_common, num_rows="dynamic", use_container_width=True)
     else:
         st.write("_Nessuna sezione Common Ground trovata_")
 
     st.markdown("---")
 
-    # tabella Content Gap
+    # Content Gap
     gap = data.get("content_gap", [])
     if gap:
         df_gap = pd.DataFrame(gap)
-        df_gap.insert(0, "Seleziona", [False]*len(df_gap))
+        df_gap.insert(0, "Seleziona", [False] * len(df_gap))
         st.markdown("**Content Gap Opportunity**")
-        edited_gap = st.experimental_data_editor(
-            df_gap,
-            num_rows="dynamic",
-            use_container_width=True
-        )
+        if hasattr(st, "data_editor"):
+            edited_gap = st.data_editor(df_gap, num_rows="dynamic", use_container_width=True)
+        else:
+            edited_gap = st.experimental_data_editor(df_gap, num_rows="dynamic", use_container_width=True)
     else:
         st.write("_Nessuna sezione Content Gap trovata_")
 
