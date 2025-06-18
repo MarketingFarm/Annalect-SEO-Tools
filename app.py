@@ -21,7 +21,8 @@ st.sidebar.markdown(
 pages = {
     "On-Page SEO": [
         st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
-        st.Page("pages/NLP_Rank_Boost.py",   title="📝 NLP Rank Boost")
+        st.Page("pages/NLP_Rank_Boost.py",   title="🚀 Rank Booster Analysis")
+        st.Page("pages/NLP_Rank_Boost.py",   title="🚀 Rank Booster Processing")
     ],
     "Technical SEO": [],
     "Off-Page SEO": []
