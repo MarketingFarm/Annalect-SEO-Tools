@@ -110,7 +110,13 @@ if st.session_state.step == 1:
         """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # --- NUOVA RIGA: Analysis Strategica ---
+    # **Nuovo titolo sopra le card di Analisi Strategica**
+    st.markdown(
+        '<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>',
+        unsafe_allow_html=True
+    )
+
+    # --- NUOVA RIGA: Analysis Strategica come card flessibili ---
     analysis_list = data.get("analysis_strategica", [])
     if analysis_list:
         # definiamo le 5 card nell'ordine desiderato
@@ -129,23 +135,26 @@ if st.session_state.step == 1:
             clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
             analysis_map[clean_label] = clean_value
 
-        # costruiamo le card
-        vals = [analysis_map.get(lbl, "") for lbl in labels_analysis]
-        cols2 = st.columns(len(labels_analysis), gap="small")
-        for c, lbl, v in zip(cols2, labels_analysis, vals):
-            c.markdown(f"""
+        # costruiamo le card in un container flex con larghezza automatica
+        cards_html = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1rem;">'
+        for lbl in labels_analysis:
+            v = analysis_map.get(lbl, "")
+            cards_html += f"""
   <div style="
+    display:inline-block;
     padding: 0.75rem 1.5rem;
     border: 1px solid rgb(255 166 166);
     border-radius: 0.5rem;
     background-color: rgb(255, 246, 246);
-    margin-bottom: 0.5rem;
+    vertical-align: top;
+    max-width: 100%;
   ">
-    <div style="font-size:0.8rem; color: rgb(255, 70, 70);">{lbl}</div>
-    <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
+    <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
+    <div style="font-size:1rem; color:#202124; font-weight:500; white-space: normal;">{v}</div>
   </div>
-            """, unsafe_allow_html=True)
-        st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
+            """
+        cards_html += '</div>'
+        st.markdown(cards_html, unsafe_allow_html=True)
 
     # Separatore e colonne organici / PAA
     st.markdown("""
@@ -253,9 +262,8 @@ else:
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            # rimuovo tutto da "(" in poi
-            label = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
-            intent = entry.get("Intento Prevalente", "")
+            # rimuovo tutta la parte tra parentesi
+            label = re.sub(r"\s*\(.*\)", "", raw_cat.strip("* ").strip())
             kws_str = entry.get("Keywords / Concetti / Domande", "")
             kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
 
