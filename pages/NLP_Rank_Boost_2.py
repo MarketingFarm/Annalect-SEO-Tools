@@ -84,10 +84,9 @@ def go_back():
 
 # === STEP 1 ===
 if st.session_state.step == 1:
-    # singolo separatore all'inizio
     st.markdown(separator, unsafe_allow_html=True)
 
-    # 1) Dettagli della Query
+    # Dettagli della Query
     query   = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang    = data.get("language", "").strip()
@@ -96,71 +95,65 @@ if st.session_state.step == 1:
         unsafe_allow_html=True
     )
     cols = st.columns(3, gap="small")
-    for col, label, val in zip(cols, ["Query","Country","Language"], [query,country,lang]):
+    for col, label, val in zip(cols, ["Query", "Country", "Language"], [query, country, lang]):
         col.markdown(f"""
-<div style="
-  padding: 0.75rem 1.5rem;
-  border: 1px solid rgb(254, 212, 212);
-  border-radius: 0.5rem;
-  background-color: rgb(255, 246, 246);
-  margin-bottom: 0.5rem;
-">
-  <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
-  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
-</div>
-""", unsafe_allow_html=True)
+  <div style="
+    padding: 0.75rem 1.5rem;
+    border: 1px solid rgb(254, 212, 212);
+    border-radius: 0.5rem;
+    background-color: rgb(255, 246, 246);
+    margin-bottom: 0.5rem;
+  ">
+    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
+    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
+  </div>
+        """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # 1b) Nuova riga di card da analysis_strategica
-    raw_analysis = data.get("analysis_strategica", "")
-    # se arriva come lista, lo converto in testo
-    if isinstance(raw_analysis, list):
-        analysis_strategica = "\n".join(raw_analysis)
-    else:
-        analysis_strategica = raw_analysis
+    # --- NUOVA RIGA: Analysis Strategica ---
+    analysis_list = data.get("analysis_strategica", [])
+    if analysis_list:
+        # definiamo le 5 card nell'ordine desiderato
+        labels_analysis = [
+            "Search Intent Primario",
+            "Search Intent Secondario",
+            "Target Audience & Leggibilità",
+            "Tone of Voice (ToV)",
+            "Segnali E-E-A-T"
+        ]
+        # mappiamo label → analisi sintetica (rimuovendo gli asterischi)
+        analysis_map = {}
+        for item in analysis_list:
+            raw_label = item.get("Caratteristica SEO", "")
+            clean_label = re.sub(r"\*+", "", raw_label).strip()
+            clean_value = re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
+            analysis_map[clean_label] = clean_value
 
-    # predispongo i campi da estrarre
-    fields = {
-        "Search Intent Primario": "",
-        "Search Intent Secondario": "",
-        "Target Audience & Leggibilità": "",
-        "Tone of Voice (ToV)": "",
-        "Segnali E-E-A-T": ""
-    }
+        # costruiamo le card
+        vals = [analysis_map.get(lbl, "") for lbl in labels_analysis]
+        cols2 = st.columns(len(labels_analysis), gap="small")
+        for c, lbl, v in zip(cols2, labels_analysis, vals):
+            c.markdown(f"""
+  <div style="
+    padding: 0.75rem 1.5rem;
+    border: 1px solid rgb(254, 212, 212);
+    border-radius: 0.5rem;
+    background-color: rgb(255, 246, 246);
+    margin-bottom: 0.5rem;
+  ">
+    <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{lbl}</div>
+    <div style="font-size:1.15rem; color:#202124; font-weight:500;">{v}</div>
+  </div>
+            """, unsafe_allow_html=True)
+        st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # regex per catturare | **Label** | **Valore** |
-    pattern = re.compile(r"\|\s*\*\*(?P<label>.*?)\*\*\s*\|\s*\*\*(?P<val>.*?)\*\*")
-    for m in pattern.finditer(analysis_strategica):
-        lbl = m.group("label").strip()
-        val = m.group("val").strip()
-        if lbl in fields:
-            fields[lbl] = val
-
-    cols2 = st.columns(5, gap="small")
-    for col, label in zip(cols2, fields.keys()):
-        val = fields[label]
-        col.markdown(f"""
-<div style="
-  padding: 0.75rem 1.5rem;
-  border: 1px solid rgb(254, 212, 212);
-  border-radius: 0.5rem;
-  background-color: rgb(255, 246, 246);
-  margin-bottom: 0.5rem;
-">
-  <div style="font-size:0.8rem; color: rgb(255, 136, 136);">{label}</div>
-  <div style="font-size:1.15rem; color:#202124; font-weight:500;">{val}</div>
-</div>
-""", unsafe_allow_html=True)
-    st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
-
-    # 2) Separatore e colonne Organici / PAA+Correlate
+    # Separatore e colonne organici / PAA
     st.markdown("""
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1rem 0px 2rem 0rem;
-  padding-top:1rem;
-"></div>
-""", unsafe_allow_html=True)
+  <div style="
+    border-top:1px solid #ECEDEE;
+    margin: 1rem 0px 2rem 0rem;
+    padding-top:1rem;
+  "></div>""", unsafe_allow_html=True)
     col_org, col_paa = st.columns([2,1], gap="small")
 
     with col_org:
@@ -168,7 +161,7 @@ if st.session_state.step == 1:
             '<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>',
             unsafe_allow_html=True
         )
-        organic = data.get("organic",[])
+        organic = data.get("organic", [])
         if organic:
             html = '<div style="padding-right:3.5rem;">'
             for it in organic[:10]:
@@ -207,7 +200,7 @@ if st.session_state.step == 1:
             '<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>',
             unsafe_allow_html=True
         )
-        paa = data.get("people_also_ask",[])
+        paa = data.get("people_also_ask", [])
         if paa:
             pills = ''.join(
               f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{q}</span>'
@@ -221,7 +214,7 @@ if st.session_state.step == 1:
             '<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>',
             unsafe_allow_html=True
         )
-        related = data.get("related_searches",[])
+        related = data.get("related_searches", [])
         if related:
             pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
             spans = []
@@ -244,7 +237,6 @@ if st.session_state.step == 1:
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
-    # pulsante avanti
     st.markdown("<div style='margin-top:2rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Avanti", on_click=go_next, key="next_btn")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -261,21 +253,26 @@ else:
     if keyword_mining:
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            label = raw_cat.replace("*","").strip()
+            # rimuovo tutto da "(" in poi
+            label = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
+            intent = entry.get("Intento Prevalente", "")
             kws_str = entry.get("Keywords / Concetti / Domande", "")
-            options = [k.strip(" `") for k in kws_str.split(",") if k.strip()]
+            kws = [k.strip(" `") for k in kws_str.split(",") if k.strip(" `")]
+
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">'
                 f'{label}'
                 f'</p>',
                 unsafe_allow_html=True
             )
+
             st.multiselect(
                 label="",
-                options=options,
-                default=options,
-                key=f"ms_{label.replace(" ","_")}"
+                options=kws,
+                default=kws,
+                key=f"ms_{label.replace(" ", "_")}"
             )
+
         st.button("Indietro", on_click=go_back, key="back_btn")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
