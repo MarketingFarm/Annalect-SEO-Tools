@@ -9,6 +9,7 @@ st.markdown("""
             font-size: 0.6rem;
         }
 </style>
+""")
 
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
