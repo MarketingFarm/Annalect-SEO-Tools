@@ -181,9 +181,9 @@ with col_paa:
 
             # wrap in pill-style span
             span_html = (
-                f'<span style="background-color:#FEF4E6;'
-                f'padding:4px 8px; border-radius:4px; '
-                f'font-family:Arial,sans-serif; font-size:14px; margin-bottom:4px;">'
+                f'<span style="background-color:#f7f8f9;'
+                f'padding:4px 8px; border-radius:8px 12px; '
+                f'font-size:16px; margin-bottom:8px;">'
                 f'{highlighted}</span>'
             )
             spans.append(span_html)
