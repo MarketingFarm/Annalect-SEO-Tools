@@ -71,11 +71,11 @@ if organic:
   padding: 3rem;
 ">
   <h3 style="
-    margin-top:0px;
+    margin-top:0px !important;
     margin-bottom:1rem;
-    font-family: Arial, sans-serif;
+    font-family: Source Sans Pro, sans-serif;
     color: #202124;
-    font-size: 18px;
+    font-size: 24px;
     line-height: 24px;
   ">Risultati Organici (Top 10)</h3>
 """
