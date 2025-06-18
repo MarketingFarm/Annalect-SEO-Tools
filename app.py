@@ -2,6 +2,16 @@
 
 import streamlit as st
 
+st.markdown("""
+<style>
+    [data-testid=stSidebar] {
+        background-color: #ff000050;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+with st.sidebar:
+
 st.set_page_config(
     page_title="Multi-Tool Dashboard",
     page_icon="🔧",
