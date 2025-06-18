@@ -257,37 +257,44 @@ elif st.session_state.step == 2:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
 
 
-# === STEP 3 ===
-else:
+# === STEP 3: Common Ground & Content Gap ===
+elif st.session_state.step == 3:
+    # separatore
     st.markdown(separator, unsafe_allow_html=True)
-    st.markdown('<h3 style="margin-top:0; padding-top:0;">Common Ground & Content Gap</h3>', unsafe_allow_html=True)
+    # titolo
+    st.markdown(
+        '<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>',
+        unsafe_allow_html=True
+    )
+
+    # estrazione da JSON
+    common = data.get("common_ground", [])      # lista di dict
+    gap    = data.get("content_gap", [])        # lista di dict
+
+    # trasformazione in DataFrame
+    import pandas as pd
+    df_common = pd.DataFrame(common)
+    df_gap    = pd.DataFrame(gap)
 
     # Common Ground
-    common = data.get("common_ground", [])
-    if common:
-        df_common = pd.DataFrame(common)
-        df_common.insert= st.data_editor(
-    df_common,
-    num_rows="dynamic",
-    use_container_width=True,
-    row_config={"selectable": True}  # abilita la selezione riga nativa
-)
-
-    st.markdown("---")
+    st.subheader("Common Ground Analysis")
+    edited_common = st.data_editor(
+        df_common,
+        num_rows="dynamic",
+        use_container_width=True,
+        row_config={"selectable": True}   # abilita checkbox riga nativa
+    )
 
     # Content Gap
-    gap = data.get("content_gap", [])
-    if gap:
-        df_gap = pd.DataFrame(gap)
-        df_gap.insert(0, "Seleziona", [False] * len(df_gap))
-        st.markdown("**Content Gap Opportunity**")
-        if hasattr(st, "data_editor"):
-            edited_gap = st.data_editor(df_gap, num_rows="dynamic", use_container_width=True)
-        else:
-            edited_gap = st.experimental_data_editor(df_gap, num_rows="dynamic", use_container_width=True)
-    else:
-        st.write("_Nessuna sezione Content Gap trovata_")
+    st.subheader("Content Gap Opportunity")
+    edited_gap = st.data_editor(
+        df_gap,
+        num_rows="dynamic",
+        use_container_width=True,
+        row_config={"selectable": True}
+    )
 
-    st.markdown("<div style='margin-top:1rem; text-align:left;'>", unsafe_allow_html=True)
-    st.button("Indietro", on_click=go_back, key="back3_btn")
+    # navigazione indietro
+    st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
+    st.button("Indietro", on_click=go_back, key="back_btn_3")
     st.markdown("</div>", unsafe_allow_html=True)
