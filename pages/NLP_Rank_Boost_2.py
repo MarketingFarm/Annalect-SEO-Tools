@@ -28,7 +28,8 @@ separator = """
 st.markdown(separator, unsafe_allow_html=True)
 
 # --- Accordion per il caricamento del file JSON ---
-with st.expander("Carica il file JSON", expanded=False):
+with st.expander(expanded=False):
+    "Carica il file JSON",
     uploaded_file = st.file_uploader(
         type="json",
         help="Carica qui il file JSON generato dalla pagina precedente"
