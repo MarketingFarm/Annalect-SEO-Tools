@@ -44,22 +44,24 @@ except json.JSONDecodeError as e:
     st.error(f"❌ Errore nel parsing del JSON: {e}")
     st.stop()
 
-# --- Separator prima di "Dettagli della Query" ---
-st.markdown(separator, unsafe_allow_html=True)
+# --- Accordion chiuso per i dettagli della Query ---
+with st.expander("Dettagli della Query", expanded=False):
+    # Separator prima di "Dettagli della Query"
+    st.markdown(separator, unsafe_allow_html=True)
 
-# --- Dettagli della Query come card ---
-query   = data.get("query", "").strip()
-country = data.get("country", "").strip()
-lang    = data.get("language", "").strip()
+    # --- Dettagli della Query come card ---
+    query   = data.get("query", "").strip()
+    country = data.get("country", "").strip()
+    lang    = data.get("language", "").strip()
 
-st.markdown('<h3 style="margin-top:0.5rem; padding-top:0rem;">Dettagli della Query</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0rem;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
-cols = st.columns(3, gap="small")
-labels = ["Query", "Country", "Language"]
-values = [query, country, lang]
+    cols = st.columns(3, gap="small")
+    labels = ["Query", "Country", "Language"]
+    values = [query, country, lang]
 
-for col, label, val in zip(cols, labels, values):
-    col.markdown(f"""
+    for col, label, val in zip(cols, labels, values):
+        col.markdown(f"""
 <div style="
   padding: 0.75rem 1.5rem;
   border: 1px solid rgb(254, 212, 212);
@@ -71,8 +73,8 @@ for col, label, val in zip(cols, labels, values):
 </div>
 """, unsafe_allow_html=True)
 
-# margine inferiore di 1rem sotto alla riga delle card
-st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
+    # margine inferiore di 1rem sotto alla riga delle card
+    st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
 # --- Separator specifico prima di Risultati Organici ---
 separator_organic = """
@@ -88,8 +90,6 @@ st.markdown(separator_organic, unsafe_allow_html=True)
 col_org, col_paa = st.columns([2, 1], gap="small")
 
 with col_org:
-    # wrapper con bordo destro per il divisore
-    st.markdown('<div style="border-right:1px solid #ECEDEE; padding-right:1rem;">', unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
     organic = data.get("organic", [])
     if organic:
@@ -131,12 +131,12 @@ with col_org:
         st.markdown(html, unsafe_allow_html=True)
     else:
         st.warning("⚠️ Nessun risultato organico trovato nel JSON.")
-    st.markdown('</div>', unsafe_allow_html=True)  # chiude il wrapper
 
 with col_paa:
     st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
     paa = data.get("people_also_ask", [])
     if paa:
+        # pillole con lo stesso stile delle correlazioni
         pills = ''.join(
             f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">'
             f'{q}</span>'
@@ -146,7 +146,7 @@ with col_paa:
     else:
         st.write("_Nessuna PAA trovata_")
 
-    st.markdown('<h3 style="margin-top:2rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
     related = data.get("related_searches", [])
     if related:
         q = query.strip()
@@ -197,12 +197,12 @@ if len(lines) >= 3:
     for cat, kw_str, intent in rows:
         kws = [k.strip(" `") for k in kw_str.split(",") if k.strip()]
         st.markdown(f"**{cat}** _(Intento: {intent})_")
-        cols_chk = st.columns([1, 9])
+        cols = st.columns([1, 9])
         chosen = []
         for kw in kws:
             key = f"chk_{cat}_{kw}".replace(" ", "_")
-            chk = cols_chk[0].checkbox("", value=True, key=key)
-            cols_chk[1].write(kw)
+            chk = cols[0].checkbox("", value=True, key=key)
+            cols[1].write(kw)
             if chk:
                 chosen.append(kw)
         selected[cat] = chosen
