@@ -15,6 +15,16 @@ st.markdown(
     """
 )
 
+# --- CSS per nascondere il titolo dell'expander solo quando è aperto ---
+st.markdown("""
+<style>
+/* Nasconde solo il testo (primo span) quando l'expander è aperto */
+div.streamlit-expanderHeader[aria-expanded="true"] > span:first-child {
+    display: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --- Separator standardizzato ---
 separator = """
 <div style="
@@ -28,17 +38,24 @@ separator = """
 st.markdown(separator, unsafe_allow_html=True)
 
 # --- Accordion per il caricamento del file JSON ---
-with st.expander("Carica il file JSON", expanded=False):
-    uploaded_file = st.file_uploader(
-        " ",
+file_key = "json_uploader"
+with st.expander("Carica il file JSON", expanded=True):
+    st.file_uploader(
+        "Carica il file JSON",
         type="json",
-        help="Carica qui il file JSON generato dalla pagina precedente"
+        help="Carica qui il file JSON generato dalla pagina precedente",
+        key=file_key
     )
 
-# se non è stato caricato niente, mostro il messaggio e fermo
-if 'uploaded_file' not in locals() or uploaded_file is None:
+# Recupera il file da session_state
+uploaded_file = st.session_state.get(file_key)
+# Se non è stato caricato niente, mostro il messaggio e fermo
+if uploaded_file is None:
     st.info("⏳ Carica un file JSON per procedere con l'analisi.")
     st.stop()
+
+# Una volta caricato, l'expander si richiude automaticamente al rerun
+# (perché expanded=True ma ora session_state[file_key] non è None)
 
 # --- Parsing JSON ---
 try:
@@ -55,7 +72,7 @@ query   = data.get("query", "").strip()
 country = data.get("country", "").strip()
 lang    = data.get("language", "").strip()
 
-st.markdown('<h3 style="margin-top:0.5rem; padding-top:0rem;">Dettagli della Query</h3>', unsafe_allow_html=True)
+st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
 
 cols = st.columns(3, gap="small")
 labels = ["Query", "Country", "Language"]
@@ -81,7 +98,7 @@ st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 separator_organic = """
 <div style="
   border-top:1px solid #ECEDEE;
-  margin: 1.75rem 0px 2rem 0rem;
+  margin: 1rem 0px 2rem 0rem;
   padding-top:1rem;
 "></div>
 """
