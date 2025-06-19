@@ -301,6 +301,8 @@ elif st.session_state.step == 3:
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
+    import re
+
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown(
         '<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizza il Contenuto</h3>',
@@ -333,26 +335,44 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # TOGGLE PER KEYWORDS, TOV E INFO AGGIUNTIVE SULLA STESSA RIGA
+    # TOGGLE PER KEYWORDS, TOV E INFO AGGIUNTIVE ALLINEATI
     tcol1, tcol2, tcol3 = st.columns(3, gap="small")
+
     with tcol1:
+        st.markdown(
+            "<div style='display:flex; justify-content:flex-start; padding:0.75rem 0;'>",
+            unsafe_allow_html=True
+        )
         custom_toggle = st.toggle(
             "Keyword Personalizzate",
             value=False,
             key="custom_kw_toggle"
         )
+        st.markdown("</div>", unsafe_allow_html=True)
+
     with tcol2:
+        st.markdown(
+            "<div style='display:flex; justify-content:center; padding:0.75rem 0;'>",
+            unsafe_allow_html=True
+        )
         tov_toggle = st.toggle(
             "ToV / Stile del Cliente",
             value=False,
             key="tov_toggle"
         )
+        st.markdown("</div>", unsafe_allow_html=True)
+
     with tcol3:
+        st.markdown(
+            "<div style='display:flex; justify-content:flex-end; padding:0.75rem 0;'>",
+            unsafe_allow_html=True
+        )
         info_toggle = st.toggle(
             "Informazioni Aggiuntive",
             value=False,
             key="info_toggle"
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # CAMPO PER INCOLLARE KEYWORDS (UNA PER RIGA)
     if custom_toggle:
