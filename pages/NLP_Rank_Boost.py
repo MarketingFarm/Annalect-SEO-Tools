@@ -446,7 +446,7 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
 
 1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
-2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di keyword, concetti e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
+2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di **keyword secondarie, varianti della keyword principale, sinonimi, termini semanticamente correlati** e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
     * Alta rilevanza semantica con la **Keyword Principale**.
     * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
     * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
@@ -462,8 +462,8 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 | :------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------ |
 | **Keyword Principale** | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
 | **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_          | _(Informazionale / Commerciale ecc.)_  |
-| **LSI Keywords** | _(elenca i concetti e le parole semanticamente correlate più strategiche)_                      | _(Supporto all'intento)_        |
-| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_    |
+| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_                | _(Supporto all'intento)_        |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_    |                     | _(Informazionale (Specifico))_    |
 """
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
