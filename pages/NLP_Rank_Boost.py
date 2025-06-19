@@ -408,7 +408,7 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
 * **Tabella 2: Entità Mancanti / Content Gap:**
     {table_contentgap}
 * **Tabella 3: Ricerche Correlate dalla SERP:**
-    {table_related}
+    {table3_related}
 * **Tabella 4: People Also Ask (PAA) dalla SERP:**
     {table4_paa}
 
