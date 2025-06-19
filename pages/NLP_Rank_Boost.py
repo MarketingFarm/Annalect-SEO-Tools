@@ -1,5 +1,4 @@
 import os
-import io
 import re
 import json
 import streamlit as st
@@ -8,30 +7,27 @@ import pandas as pd
 from urllib.parse import urlparse, urlunparse
 from streamlit_quill import st_quill
 from google import genai
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Preformatted
-from reportlab.lib.styles import getSampleStyleSheet
 
-# --- UTILITIES CACHING GEMINI CALLS ---
-@st.cache_data(show_spinner=False)
+# --- SESSIONE HTTP GLOBALE PER RIUSO CONNESSIONE ---
+session = requests.Session()
+
+# --- UTILITIES NLU GENERICA ---
+def run_nlu(prompt: str) -> str:
+    return client.models.generate_content(
+        model="gemini-2.5-flash-preview-05-20",
+        contents=[prompt]
+    ).text
+
+# wrapper per mantenere le funzioni originali
 def run_nlu_strategica(prompt: str) -> str:
-    return client.models.generate_content(
-        model="gemini-2.5-flash-preview-05-20",
-        contents=[prompt]
-    ).text
+    return run_nlu(prompt)
 
-@st.cache_data(show_spinner=False)
 def run_nlu_competitiva(prompt: str) -> str:
-    return client.models.generate_content(
-        model="gemini-2.5-flash-preview-05-20",
-        contents=[prompt]
-    ).text
+    return run_nlu(prompt)
 
-@st.cache_data(show_spinner=False)
 def run_nlu_mining(prompt: str) -> str:
-    return client.models.generate_content(
-        model="gemini-2.5-flash-preview-05-20",
-        contents=[prompt]
-    ).text
+    return run_nlu(prompt)
+
 
 # --- INIEZIONE CSS GENERALE ---
 st.markdown("""
@@ -73,23 +69,22 @@ table th:nth-child(5), table td:nth-child(5) {
 </style>
 """, unsafe_allow_html=True)
 
+
 # --- CONFIG DATAFORSEO ---
 DFS_USERNAME = st.secrets["dataforseo"]["username"]
 DFS_PASSWORD = st.secrets["dataforseo"]["password"]
 auth = (DFS_USERNAME, DFS_PASSWORD)
 
 @st.cache_data(show_spinner=False)
-def get_countries():
-    url = 'https://api.dataforseo.com/v3/serp/google/locations'
-    resp = requests.get(url, auth=auth)
+def get_countries() -> list[str]:
+    resp = session.get('https://api.dataforseo.com/v3/serp/google/locations', auth=auth)
     resp.raise_for_status()
-    locations = resp.json()['tasks'][0]['result']
-    return sorted(loc['location_name'] for loc in locations if loc.get('location_type') == 'Country')
+    locs = resp.json()['tasks'][0]['result']
+    return sorted(loc['location_name'] for loc in locs if loc.get('location_type') == 'Country')
 
 @st.cache_data(show_spinner=False)
-def get_languages():
-    url = 'https://api.dataforseo.com/v3/serp/google/languages'
-    resp = requests.get(url, auth=auth)
+def get_languages() -> list[str]:
+    resp = session.get('https://api.dataforseo.com/v3/serp/google/languages', auth=auth)
     resp.raise_for_status()
     langs = resp.json()['tasks'][0]['result']
     return sorted(lang['language_name'] for lang in langs)
@@ -108,24 +103,25 @@ def fetch_serp(query: str, country: str, language: str) -> dict | None:
         'calculate_rectangles': True,
         'people_also_ask_click_depth': 1
     }]
-    resp = requests.post(
+    resp = session.post(
         'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
         auth=auth,
         json=payload
     )
     resp.raise_for_status()
-    data = resp.json()
-    tasks = data.get('tasks')
-    if not tasks:
+    tasks = resp.json().get('tasks', [])
+    if not tasks or not tasks[0].get('result'):
         return None
-    results = tasks[0].get('result')
-    if not results:
-        return None
-    return results[0]
+    return tasks[0]['result'][0]
+
 
 # --- CONFIG GEMINI / VERTEX AI ---
 api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    st.error("GEMINI_API_KEY non trovata in environment.")
+    st.stop()
 client = genai.Client(api_key=api_key)
+
 
 # === SESSION STATE PER CHIUDERE EXPANDER DOPO ANALISI ===
 if 'analysis_started' not in st.session_state:
@@ -134,12 +130,12 @@ if 'analysis_started' not in st.session_state:
 def start_analysis():
     st.session_state['analysis_started'] = True
 
+
 # === UI PRINCIPALE ===
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Step 1 inputs: query, country, language, numero competitor
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     query = st.text_input("Query", key="query")
@@ -154,12 +150,7 @@ count = int(num_comp) if isinstance(num_comp, int) else 0
 
 st.markdown("---")
 
-# Placeholder contesto e tipologia (rimossi dall'UI)
-contesto = ""
-tipologia = ""
-
 # Step 1c: editor in expander
-competitor_texts: list[str] = []
 with st.expander(
     "Testi dei Competitor",
     expanded=not st.session_state['analysis_started']
@@ -172,16 +163,29 @@ with st.expander(
                 if idx <= count:
                     with col:
                         st.markdown(f"**Testo Competitor #{idx}**")
-                        competitor_texts.append(st_quill("", key=f"comp_quill_{idx}"))
+                        st_quill("", key=f"comp_quill_{idx}")
                     idx += 1
-    else:
-        for i in range(1, count + 1):
-            competitor_texts.append(st.session_state.get(f"comp_quill_{i}", ""))
 
-# Bottone di avvio, usa on_click per chiudere l’expander immediatamente
 st.button("🚀 Avvia l'Analisi", on_click=start_analysis)
 
-# funzione di parsing Markdown→lista di dict
+
+# --- helper per estrarre tutte le tabelle Markdown da un testo
+def extract_markdown_tables(text: str) -> list[str]:
+    lines = text.splitlines()
+    tables = []
+    buf = []
+    for line in lines:
+        if line.strip().startswith("|"):
+            buf.append(line)
+        else:
+            if buf:
+                tables.append("\n".join(buf))
+                buf = []
+    if buf:
+        tables.append("\n".join(buf))
+    return tables
+
+# parsing generico Markdown→lista di dict
 def parse_md_table(md: str) -> list[dict]:
     lines = [l for l in md.splitlines() if l.strip()]
     if len(lines) < 2:
@@ -194,7 +198,7 @@ def parse_md_table(md: str) -> list[dict]:
             rows.append(dict(zip(header, cells)))
     return rows
 
-# --- dopo il click, eseguo l’analisi ---
+
 if st.session_state['analysis_started']:
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
@@ -207,7 +211,6 @@ if st.session_state['analysis_started']:
         st.stop()
     items = result.get('items', [])
 
-    # ORGANIC TOP 10
     organic = [it for it in items if it.get('type') == 'organic'][:10]
     data_org = []
     for it in organic:
@@ -215,7 +218,7 @@ if st.session_state['analysis_started']:
         desc = it.get('description') or it.get('snippet', '')
         clean = clean_url(it.get('link') or it.get('url',''))
         data_org.append({
-            'URL': f"<a href='{clean}' target='_blank'>{clean}</a>",
+            'URL': clean,
             'Meta Title': title,
             'Lunghezza Title': len(title),
             'Meta Description': desc,
@@ -230,15 +233,15 @@ if st.session_state['analysis_started']:
 
     styled = (
         df_org.style
-        .format({'URL': lambda u: u})
+        .format({'URL': lambda u: f"<a href='{u}' target='_blank'>{u}</a>"})
         .set_properties(subset=['Lunghezza Title','Lunghezza Description'], **{'text-align':'center'})
         .map(style_title, subset=['Lunghezza Title'])
         .map(style_desc, subset=['Lunghezza Description'])
     )
-    st.subheader("Risultati Organici (top 10)")
-    st.write(styled.to_html(escape=False), unsafe_allow_html=True)
 
-    # PAA e Ricerche correlate
+    st.subheader("Risultati Organici (top 10)")
+    st.dataframe(styled)
+
     paa_list, related = [], []
     for el in items:
         if el.get('type') == 'people_also_ask':
@@ -246,25 +249,28 @@ if st.session_state['analysis_started']:
         if el.get('type') in ('related_searches','related_search'):
             for rel in el.get('items', []):
                 related.append(rel if isinstance(rel, str) else rel.get('query') or rel.get('keyword'))
+
     col_paa, col_rel = st.columns(2)
     with col_paa:
         st.subheader("People Also Ask")
         if paa_list:
-            df_paa = pd.DataFrame({'Domanda': paa_list})
-            st.write(df_paa.to_html(index=False), unsafe_allow_html=True)
+            st.table(pd.DataFrame({'Domanda': paa_list}))
         else:
             st.write("Nessuna sezione PAA trovata.")
     with col_rel:
         st.subheader("Ricerche Correlate")
         if related:
-            df_rel = pd.DataFrame({'Query Correlata': related})
-            st.write(df_rel.to_html(index=False), unsafe_allow_html=True)
+            st.table(pd.DataFrame({'Query Correlata': related}))
         else:
             st.write("Nessuna sezione Ricerche correlate trovata.")
 
     # --- STEP NLU: analisi strategica e gap di contenuto ---
-    separator_text = "\n\n--- SEPARATORE TESTO ---\n\n"
-    joined_texts = separator_text.join(competitor_texts)
+    separator = "\n\n--- SEPARATORE TESTO ---\n\n"
+    competitor_texts = [
+        str(st.session_state.get(f"comp_quill_{i}", "") or "")
+        for i in range(1, count+1)
+    ]
+    joined_texts = separator.join(competitor_texts)
 
     prompt_strategica = f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
@@ -338,11 +344,10 @@ TESTI DEI COMPETITOR:
     with st.spinner("Entity & Content Gap Analysis..."):
         resp2_text = run_nlu_competitiva(prompt_competitiva)
 
-    pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
-    table_blocks = re.findall(pattern, resp2_text)
-    if len(table_blocks) >= 2:
-        table_entities   = table_blocks[0].strip()
-        table_contentgap = table_blocks[1].strip()
+    tables = extract_markdown_tables(resp2_text)
+    if len(tables) >= 2:
+        table_entities = tables[0]
+        table_contentgap = tables[1]
         st.subheader("Entità Rilevanti (Common Ground)")
         st.markdown(table_entities, unsafe_allow_html=True)
         st.subheader("Entità Mancanti (Content Gap)")
@@ -355,7 +360,7 @@ TESTI DEI COMPETITOR:
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
-    table3_related_searches = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
+    table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
     table4_paa = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
     prompt_bank = f"""
@@ -371,7 +376,7 @@ TESTI DEI COMPETITOR:
 * **Tabella 2: Entità Mancanti / Content Gap:**  
 {table_contentgap}  
 * **Tabella 3: Ricerche Correlate dalla SERP:**  
-{table3_related_searches}  
+{table3_related}  
 * **Tabella 4: People Anche Ask (PAA) dalla SERP:**  
 {table4_paa}
 
@@ -404,38 +409,21 @@ TESTI DEI COMPETITOR:
             st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
     resp3_text = st.session_state['resp3_text']
 
-    # --- Estrazione e rendering della tabella di Semantic Keyword Mining ---
-    table_mining = None
-    regex = r"(\|[^\n]+\n\|[^\n]+\n(?:\|.*\n)+)"
-    match = re.search(regex, resp3_text + "\n", re.MULTILINE)
-    if match:
-        table_mining = match.group(1).strip()
-    else:
-        if "| Categoria Keyword" in resp3_text:
-            parts = resp3_text.split("|")[1:]
-            rows = []
-            for i in range(0, len(parts), 4):
-                if i + 2 < len(parts):
-                    f1 = parts[i].strip()
-                    f2 = parts[i+1].strip()
-                    f3 = parts[i+2].strip()
-                    rows.append(f"| {f1} | {f2} | {f3} |")
-            if rows:
-                header = rows[0]
-                alignment = "| :-------------------------------- | :-------------------------------------- | :---------------------------- |"
-                table_mining = "\n".join([header, alignment] + rows[1:])
-
-    st.subheader("Semantic Keyword Mining with NLP")
-    if table_mining:
+    # estrazione della prima tabella trovata
+    tables_mining = extract_markdown_tables(resp3_text)
+    if tables_mining:
+        table_mining = tables_mining[0]
+        st.subheader("Semantic Keyword Mining with NLP")
         st.markdown(table_mining)
     else:
+        st.subheader("Semantic Keyword Mining with NLP")
         st.markdown(resp3_text)
 
     # --- Costruzione export JSON strutturato ---
-    analisi_struct = parse_md_table(resp1_text)
-    common_ground_struct = parse_md_table(table_entities)
-    content_gap_struct = parse_md_table(table_contentgap)
-    keyword_mining_struct = parse_md_table(table_mining or resp3_text)
+    analisi_struct        = parse_md_table(resp1_text)
+    common_ground_struct  = parse_md_table(table_entities)
+    content_gap_struct    = parse_md_table(table_contentgap)
+    keyword_mining_struct = parse_md_table(table_mining if tables_mining else resp3_text)
 
     export_data = {
         "query": query,
@@ -454,16 +442,17 @@ TESTI DEI COMPETITOR:
     export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
 
     def reset_all():
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
+        keys_to_remove = [
+            "query","country","language","num_competitor","analysis_started",
+            *(f"comp_quill_{i}" for i in range(1, count+1)),
+            "resp3_text"
+        ]
+        for k in keys_to_remove:
+            st.session_state.pop(k, None)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.button(
-            "Reset",
-            on_click=reset_all,
-            key="reset_btn"
-        )
+        st.button("Reset", on_click=reset_all, key="reset_btn")
     with col2:
         st.download_button(
             "Download (json)",
