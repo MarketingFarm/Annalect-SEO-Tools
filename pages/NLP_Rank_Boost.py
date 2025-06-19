@@ -461,9 +461,9 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 | Categoria Keyword              | Keywords / Concetti / Domande                                                                  | Intento Prevalente              |
 | :------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------ |
 | **Keyword Principale** | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
-| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_          | _(Informazionale / Commerciale ecc.)_  |
-| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_                | _(Supporto all'intento)_        |
-| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_    |                     | _(Informazionale (Specifico))_    |
+| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_          | _(Informazionale / Commerciale ecc.)_ |
+| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_                | _(Supporto all'intento)_ |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_ |
 """
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
