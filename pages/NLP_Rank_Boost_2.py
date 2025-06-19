@@ -301,7 +301,7 @@ elif st.session_state.step == 3:
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
-    import re
+    from streamlit_tags import st_tags  # pip install streamlit-tags
 
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown(
@@ -335,37 +335,37 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # Toggle per keyword custom
+    # TOGGLE per abilitare Keyword Personalizzate
     st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
-    custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
+    custom_toggle = st.toggle(
+        "Keyword Personalizzate",
+        value=False,
+        key="custom_kw_toggle"
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
     if custom_toggle:
-        # metto tutto dentro un form per avere il pulsante di submit
-        with st.form("kw_form", clear_on_submit=False):
-            raw = st.text_area(
-                "Incolla qui le keyword (virgola o a capo)",
-                height=120,
-                placeholder="es: keyword1, keyword2\nkeyword3"
-            )
-            submitted = st.form_submit_button("Genera tag")
-        if submitted:
-            # split su virgola o newline e pulizia
-            parts = re.split(r"[,\n]+", raw or "")
-            tags = [p.strip() for p in parts if p.strip()]
-            st.session_state.custom_keywords = tags
+        # inizializza con eventuali tag già in sessione
+        initial = st.session_state.get("custom_keywords", [])
 
-        # se ci sono tags in session, li mostro
-        if st.session_state.get("custom_keywords"):
-            pills_html = "".join(
-                f'<span style="display:inline-block; margin:4px; padding:6px 10px; '
-                'background-color:#e0f7fa; border-radius:4px; font-size:0.9rem;">{kw}</span>'
-                for kw in st.session_state.custom_keywords
-            )
-            st.markdown(f"<div>{pills_html}</div>", unsafe_allow_html=True)
+        # il widget vero e proprio
+        custom_keywords = st_tags(
+            label="Inserisci Keyword Personalizzate",
+            text="Digita o incolla, poi premi Invio per separare ogni keyword",
+            value=initial,
+            suggestions=[],
+            maxtags=-1,
+            key="custom_kw_tags"
+        )
 
-    # Info aggiuntive
-    st.text_input("Informazioni aggiuntive", key="additional_info")
+        # salvo la lista finale
+        st.session_state.custom_keywords = custom_keywords
+
+    # Informazioni aggiuntive
+    st.text_input(
+        "Informazioni aggiuntive",
+        key="additional_info"
+    )
 
     # Navigazione
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
