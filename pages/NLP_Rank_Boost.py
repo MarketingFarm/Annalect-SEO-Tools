@@ -415,7 +415,55 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-... (rest del prompt)
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
+
+---
+### DATI DI INPUT ###
+
+**1. CONTESTO DI BASE**
+* **Keyword Principale:** {keyword_principale}
+* **Country:** {country}
+* **Lingua:** {language}
+
+**2. CONTENUTI GREZZI DA ANALIZZARE**
+* **Testi Completi dei Competitor:**
+    {joined_texts}
+
+**3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
+* **Tabella 1: Entità Principali Estratte dai Competitor:**
+    {table_entities}
+* **Tabella 2: Entità Mancanti / Content Gap:**
+    {table_contentgap}
+* **Tabella 3: Ricerche Correlate dalla SERP:**
+    {table3_related}
+* **Tabella 4: People Also Ask (PAA) dalla SERP:**
+    {table4_paa}
+
+---
+
+### COMPITO E FORMATO DI OUTPUT ###
+
+**PROCESSO DI ESECUZIONE (In ordine rigoroso):**
+
+1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
+2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di keyword, concetti e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
+    * Alta rilevanza semantica con la **Keyword Principale**.
+    * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
+    * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
+3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
+    * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
+    * **IMPORTANTE:** Scrivi tutte le keyword e i concetti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
+
+Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
+
+### Semantic Keyword Mining with NLP
+
+| Categoria Keyword              | Keywords / Concetti / Domande                                                                  | Intento Prevalente              |
+| :------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------ |
+| **Keyword Principale** | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
+| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_          | _(Informazionale / Commerciale ecc.)_  |
+| **LSI Keywords** | _(elenca i concetti e le parole semanticamente correlate più strategiche)_                      | _(Supporto all'intento)_        |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_    |
 """
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
