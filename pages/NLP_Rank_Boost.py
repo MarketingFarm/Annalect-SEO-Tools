@@ -19,7 +19,6 @@ def run_nlu(prompt: str) -> str:
         contents=[prompt]
     ).text
 
-# wrapper per mantenere le funzioni originali
 def run_nlu_strategica(prompt: str) -> str:
     return run_nlu(prompt)
 
@@ -104,15 +103,27 @@ def fetch_serp(query: str, country: str, language: str) -> dict | None:
         'calculate_rectangles': True,
         'people_also_ask_click_depth': 1
     }]
-    resp = session.post(
-        'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
-        auth=auth,
-        json=payload
-    )
-    resp.raise_for_status()
-    tasks = resp.json().get('tasks', [])
-    if not tasks or not tasks[0].get('result'):
+    try:
+        resp = session.post(
+            'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
+            auth=auth,
+            json=payload
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        st.error(f"Errore HTTP DataForSEO: {e}")
+        st.write("**Payload inviato:**", payload)
+        st.write("**Risposta raw:**", resp.text if 'resp' in locals() else "nessuna risposta")
         return None
+
+    tasks = data.get('tasks', [])
+    if not tasks or not tasks[0].get('result'):
+        st.error("Nessun task/result trovato nella risposta DataForSEO.")
+        st.write("**Payload inviato:**", payload)
+        st.write("**Risposta JSON completa:**", data)
+        return None
+
     return tasks[0]['result'][0]
 
 
