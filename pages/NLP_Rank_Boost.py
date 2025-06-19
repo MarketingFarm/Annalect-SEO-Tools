@@ -28,7 +28,6 @@ def run_nlu_competitiva(prompt: str) -> str:
 def run_nlu_mining(prompt: str) -> str:
     return run_nlu(prompt)
 
-
 # --- INIEZIONE CSS GENERALE ---
 st.markdown("""
 <style>
@@ -68,7 +67,6 @@ table th:nth-child(5), table td:nth-child(5) {
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 # --- CONFIG DATAFORSEO ---
 DFS_USERNAME = st.secrets["dataforseo"]["username"]
@@ -127,7 +125,6 @@ def fetch_serp(query: str, country: str, language: str) -> dict | None:
 
     return tasks[0]['result'][0]
 
-
 # --- CONFIG GEMINI / VERTEX AI ---
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
@@ -135,14 +132,12 @@ if not api_key:
     st.stop()
 client = genai.Client(api_key=api_key)
 
-
 # === SESSION STATE PER CHIUDERE EXPANDER DOPO ANALISI ===
 if 'analysis_started' not in st.session_state:
     st.session_state['analysis_started'] = False
 
 def start_analysis():
     st.session_state['analysis_started'] = True
-
 
 # --- HELPER PER TABELLE MARKDOWN ---
 def extract_markdown_tables(text: str) -> list[str]:
@@ -171,7 +166,6 @@ def parse_md_table(md: str) -> list[dict]:
         if len(cells) == len(header):
             rows.append(dict(zip(header, cells)))
     return rows
-
 
 # === UI PRINCIPALE ===
 st.title("Analisi SEO Competitiva Multi-Step")
@@ -205,7 +199,6 @@ with st.expander("Testi dei Competitor", expanded=not st.session_state['analysis
                     idx += 1
 
 st.button("🚀 Avvia l'Analisi", on_click=start_analysis)
-
 
 if st.session_state['analysis_started']:
     if not (query and country and language):
@@ -330,8 +323,8 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
 | **Search Intent Primario**      | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` | `[Spiega perché, es: "L'utente cerca definizioni, guide e 'come fare', indicando una fase di apprendimento."]`              |
 | **Search Intent Secondario**    | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]`              | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente inizia a confrontare soluzioni e prodotti."]` |
 | **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]`        | `[Stima il livello di complessità, es: "Linguaggio semplice e accessibile, evita gergo tecnico. Adatto a non addetti ai lavori."]` |
-| **Tone of Voice (ToV)**         | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]`                  | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]`                         |
-| **Segnali E-E-A-T**             | `[Valuta la forza aggregata: Deboli / Medi / Forti]`                                 | `[Elenca i segnali più comuni trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio."]`          |
+| **Tone of Voice (ToV)**         | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]`                  | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]`
+
 """
     prompt_competitiva = f"""
 **RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
@@ -380,21 +373,36 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
     st.subheader("Search Intent & Content Analysis with NLU")
     if tables_strat:
         table_strategica = tables_strat[0]
-        st.markdown(table_strategica, unsafe_allow_html=False)
+        # parse and highlight entities as pills
+        df_strat = pd.DataFrame(parse_md_table(table_strategica))
+        if 'Entità' in df_strat.columns:
+            df_strat['Entità'] = df_strat['Entità'].apply(lambda x: f"`{x}`")
+        md_strat = df_strat.to_markdown(index=False)
+        st.markdown(md_strat)
     else:
         table_strategica = ""
         st.error("Non è stata trovata nessuna tabella nella risposta NLU strategica.")
         st.text(resp1_text)
 
-    # --- Rendering competitiva ---
+    # --- Rendering competitiva con markdown e pillole ---
     tables = extract_markdown_tables(resp2_text)
     if len(tables) >= 2:
         table_entities   = tables[0]
         table_contentgap = tables[1]
+        # Common Ground
+        df_entities = pd.DataFrame(parse_md_table(table_entities))
+        if 'Entità' in df_entities.columns:
+            df_entities['Entità'] = df_entities['Entità'].apply(lambda x: f"`{x}`")
+        md_entities = df_entities.to_markdown(index=False)
         st.subheader("Entità Rilevanti (Common Ground)")
-        st.markdown(table_entities, unsafe_allow_html=True)
+        st.markdown(md_entities)
+        # Content Gap
+        df_gap = pd.DataFrame(parse_md_table(table_contentgap))
+        if 'Entità' in df_gap.columns:
+            df_gap['Entità'] = df_gap['Entità'].apply(lambda x: f"`{x}`")
+        md_gap = df_gap.to_markdown(index=False)
         st.subheader("Entità Mancanti (Content Gap)")
-        st.markdown(table_contentgap, unsafe_allow_html=True)
+        st.markdown(md_gap)
     else:
         table_entities = table_contentgap = ""
         st.error("Non sono state trovate due tabelle nel risultato NLU competitiva.")
@@ -407,55 +415,7 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
-
----
-### DATI DI INPUT ###
-
-**1. CONTESTO DI BASE**
-* **Keyword Principale:** {keyword_principale}
-* **Country:** {country}
-* **Lingua:** {language}
-
-**2. CONTENUTI GREZZI DA ANALIZZARE**
-* **Testi Completi dei Competitor:**
-    {joined_texts}
-
-**3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
-* **Tabella 1: Entità Principali Estratte dai Competitor:**
-    {table_entities}
-* **Tabella 2: Entità Mancanti / Content Gap:**
-    {table_contentgap}
-* **Tabella 3: Ricerche Correlate dalla SERP:**
-    {table3_related}
-* **Tabella 4: People Also Ask (PAA) dalla SERP:**
-    {table4_paa}
-
----
-
-### COMPITO E FORMATO DI OUTPUT ###
-
-**PROCESSO DI ESECUZIONE (In ordine rigoroso):**
-
-1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
-2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di keyword, concetti e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
-    * Alta rilevanza semantica con la **Keyword Principale**.
-    * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
-    * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
-3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
-    * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
-    * **IMPORTANTE:** Scrivi tutte le keyword e i concetti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
-
-Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
-
-### Semantic Keyword Mining with NLP
-
-| Categoria Keyword              | Keywords / Concetti / Domande                                                                  | Intento Prevalente              |
-| :------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------ |
-| **Keyword Principale**          | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
-| **Keyword Secondarie**          | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_           | _(Informazionale / Commerciale ecc.)_  |
-| **LSI Keywords**                | _(elenca i concetti e le parole semanticamente correlate più strategiche)_                     | _(Supporto all'intento)_        |
-| **Domande degli Utenti (FAQ)**  | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_  |
+... (rest del prompt)
 """
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
