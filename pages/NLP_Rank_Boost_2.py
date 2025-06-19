@@ -310,7 +310,7 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # Dropdown contesto e destinazione come prima
+    # --- Contesto e Destinazione ---
     col1, col2 = st.columns(2, gap="small")
     with col1:
         context = st.selectbox(
@@ -321,55 +321,75 @@ elif st.session_state.step == 4:
     with col2:
         dest_options = {
             "-- Seleziona --": ["-- Seleziona --"],
-            "E-commerce": ["-- Seleziona --","PLP","PDP","Guida all'Acquisto","Blog"],
-            "Magazine / Testata Giornalistica": ["-- Seleziona --","Articolo del Blog"]
+            "E-commerce": [
+                "-- Seleziona --",
+                "Product Listing Page (PLP)",
+                "Product Detail Page (PDP)",
+                "Guida all'Acquisto",
+                "Articolo del Blog"
+            ],
+            "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
-        destino = st.selectbox("Destinazione Contenuto", dest_options[context], key="dest_select")
+        destino = st.selectbox(
+            "Destinazione Contenuto",
+            dest_options.get(context, ["-- Seleziona --"]),
+            key="dest_select"
+        )
 
-    # Toggle
+    # --- Toggle Keyword Personalizzate ---
     st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
-    custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
+    custom_toggle = st.toggle(
+        "Keyword Personalizzate",
+        value=False,
+        key="custom_kw_toggle"
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
     if custom_toggle:
-        # CAMPO NASCOSTO per incollare liberamente; gestito via CSS
-        st.markdown(
-            """
-            <style>
-              /* Nasconde completamente il textarea ma mantiene il valore in session */
-              .hidden-raw-input .stTextArea>div>div>textarea {
-                height: 1px !important;
-                opacity: 0 !important;
-                position: absolute;
-                pointer-events: none;
-              }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-        raw = st.text_area(
-            "### ",  # label vuota
-            key="raw_custom_kw",
-            help="Incolla qui parole separate da virgola o newline",
-            css_class="hidden-raw-input"
-        )
-        # Splitting
-        parts = re.split(r"[,\n]+", raw or "")
-        initial = [p.strip() for p in parts if p.strip()]
+        # Prendo i tag già in session (vuoto al primo giro)
+        initial = st.session_state.get("custom_kw_tags", [])
 
-        # Componente tag-based visibile
+        # Il widget unico che mostra i tag
         custom_keywords = st_tags(
             label="Inserisci Keyword Personalizzate",
-            text="Digita e premi Invio per aggiungere",
+            text="Digita e premi Invio o incolla e premi Invio per aggiungere",
             value=initial,
             suggestions=[],
             maxtags=-1,
             key="custom_kw_tags"
         )
+
+        # Se uno dei tag contiene virgole o newline, splittalo:
+        new_tags = []
+        for tag in custom_keywords:
+            if isinstance(tag, str) and re.search(r"[,\n]", tag):
+                parts = re.split(r"[,\n]+", tag)
+                new_tags.extend([p.strip() for p in parts if p.strip()])
+            else:
+                new_tags.append(tag)
+
+        # Rimuovi eventuali duplicati mantenendo l'ordine
+        seen = set()
+        uniq = []
+        for t in new_tags:
+            if t not in seen:
+                seen.add(t)
+                uniq.append(t)
+
+        # Se è cambiato, riscrivo lo stato e rendo i nuovi tag
+        if uniq != custom_keywords:
+            st.session_state.custom_kw_tags = uniq
+            custom_keywords = uniq
+
+        # Salvo la lista finale
         st.session_state.custom_keywords = custom_keywords
 
-    # Info aggiuntive e navigazione
-    st.text_input("Informazioni aggiuntive", key="additional_info")
+    # --- Info aggiuntive e navigazione ---
+    st.text_input(
+        "Informazioni aggiuntive",
+        key="additional_info"
+    )
+
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
     st.markdown("</div>", unsafe_allow_html=True)
