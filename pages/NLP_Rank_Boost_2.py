@@ -301,7 +301,8 @@ elif st.session_state.step == 3:
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
-    from streamlit_tags import st_tags  # pip install streamlit-tags
+    import re
+    from streamlit_tags import st_tags  # Assicurati di aver già installato streamlit-tags
 
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown(
@@ -345,17 +346,30 @@ elif st.session_state.step == 4:
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Se attivo, uso lo st_tags per inserire i tag
     if custom_toggle:
+        # Primo passo: textarea per incollare lista di keyword
+        raw_input = st.text_area(
+            "Incolla qui le tue keyword (separate da virgola o una per riga)",
+            height=100,
+            key="raw_custom_kw"
+        )
+        # Parsing: split su virgole o newline e pulizia spazi
+        if raw_input:
+            parts = re.split(r'[,\n]+', raw_input)
+            initial_tags = [p.strip() for p in parts if p.strip()]
+        else:
+            initial_tags = []
+
+        # Secondo passo: st_tags per mostrare i tag singoli
         custom_keywords = st_tags(
             label="Inserisci Keyword Personalizzate",
             text="Digita e premi Invio per aggiungere",
-            value=[],           # valori iniziali (opzionale)
-            suggestions=[],     # suggerimenti (opzionale)
-            maxtags=-1,         # -1 per tags illimitati
+            value=initial_tags,
+            suggestions=[],
+            maxtags=-1,
             key="custom_kw_tags"
         )
-        # Se ti serve nel resto del flusso:
+        # Salvo nel session_state se serve dopo
         st.session_state.custom_keywords = custom_keywords
 
     # Informazioni aggiuntive
