@@ -323,7 +323,6 @@ elif st.session_state.step == 4:
                 "Product Listing Page (PLP)",
                 "Product Detail Page (PDP)",
                 "Guida all'Acquisto",
-                "Pagina Informativa",
                 "Articolo del Blog"
             ],
             "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
