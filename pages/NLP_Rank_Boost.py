@@ -363,59 +363,59 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
 | :--- | :--- | :--- |
 """
 
-    # --- STEP 2: parallelizzo le due chiamate NLU indipendenti ---
-    with st.spinner("Esecuzione parallela delle analisi NLU..."):
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            fut1 = executor.submit(run_nlu_strategica, prompt_strategica)
-            fut2 = executor.submit(run_nlu_competitiva, prompt_competitiva)
-            resp1_text = fut1.result()
-            resp2_text = fut2.result()
+# --- STEP 2: parallelizzo le due chiamte NLU indipendenti ---
+with st.spinner("Esecuzione parallela delle analisi NLU..."):
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        fut1 = executor.submit(run_nlu_strategica, prompt_strategica)
+        fut2 = executor.submit(run_nlu_competitiva, prompt_competitiva)
+        resp1_text = fut1.result()
+        resp2_text = fut2.result()
 
-    # --- Rendering strategica robusto ---
-    tables_strat = extract_markdown_tables(resp1_text)
-    st.subheader("Search Intent & Content Analysis with NLU")
-    if tables_strat:
-        table_strategica = tables_strat[0]
-        # parse and highlight entities as pills
-        df_strat = pd.DataFrame(parse_md_table(table_strategica))
-        if 'Entità' in df_strat.columns:
-            df_strat['Entità'] = df_strat['Entità'].apply(lambda x: f"`{x}`")
-        md_strat = df_strat.to_markdown(index=False)
-        st.markdown(md_strat)
-    else:
-        table_strategica = ""
-        st.error("Non è stata trovata nessuna tabella nella risposta NLU strategica.")
-        st.text(resp1_text)
+# --- Rendering strategica robusto ---
+tables_strat = extract_markdown_tables(resp1_text)
+st.subheader("Search Intent & Content Analysis with NLU")
+if tables_strat:
+    table_strategica = tables_strat[0]
+    # parse and highlight entities as pills
+    df_strat = pd.DataFrame(parse_md_table(table_strategica))
+    if 'Entità' in df_strat.columns:
+        df_strat['Entità'] = df_strat['Entità'].apply(lambda x: f"`{x}`")
+    md_strat = df_strat.to_markdown(index=False)
+    st.markdown(md_strat)
+else:
+    table_strategica = ""
+    st.error("Non è stata trovata nessuna tabella nella risposta NLU strategica.")
+    st.text(resp1_text)
 
-    # --- Rendering competitiva con markdown e pillole ---
-    tables = extract_markdown_tables(resp2_text)
-    if len(tables) >= 2:
-        table_entities   = tables[0]
-        table_contentgap = tables[1]
-        # Common Ground
-        df_entities = pd.DataFrame(parse_md_table(table_entities))
-        if 'Entità' in df_entities.columns:
-            df_entities['Entità'] = df_entities['Entità'].apply(lambda x: f"`{x}`")
-        md_entities = df_entities.to_markdown(index=False)
-        st.subheader("Entità Rilevanti (Common Ground)")
-        st.markdown(md_entities)
-        # Content Gap
-        df_gap = pd.DataFrame(parse_md_table(table_contentgap))
-        if 'Entità' in df_gap.columns:
-            df_gap['Entità'] = df_gap['Entità'].apply(lambda x: f"`{x}`")
-        md_gap = df_gap.to_markdown(index=False)
-        st.subheader("Entità Mancanti (Content Gap)")
-        st.markdown(md_gap)
-    else:
-        table_entities = table_contentgap = ""
-        st.error("Non sono state trovate due tabelle nel risultato NLU competitiva.")
-        st.text(resp2_text)
+# --- Rendering competitiva con markdown e pillole ---
+tables = extract_markdown_tables(resp2_text)
+if len(tables) >= 2:
+    table_entities   = tables[0]
+    table_contentgap = tables[1]
+    # Common Ground
+    df_entities = pd.DataFrame(parse_md_table(table_entities))
+    if 'Entità' in df_entities.columns:
+        df_entities['Entità'] = df_entities['Entità'].apply(lambda x: f"`{x}`")
+    md_entities = df_entities.to_markdown(index=False)
+    st.subheader("Entità Rilevanti (Common Ground)")
+    st.markdown(md_entities)
+    # Content Gap
+    df_gap = pd.DataFrame(parse_md_table(table_contentgap))
+    if 'Entità' in df_gap.columns:
+        df_gap['Entità'] = df_gap['Entità'].apply(lambda x: f"`{x}`")
+    md_gap = df_gap.to_markdown(index=False)
+    st.subheader("Entità Mancanti (Content Gap)")
+    st.markdown(md_gap)
+else:
+    table_entities = table_contentgap = ""
+    st.error("Non sono state trovate due tabelle nel risultato NLU competitiva.")
+    st.text(resp2_text)
 
-    # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
-    table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
-    table4_paa     = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
+# --- STEP BANCA DATI KEYWORD STRATEGICHE ---
+table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
+table4_paa     = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
-    prompt_bank = f"""
+prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
 **PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
@@ -469,11 +469,18 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 | **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_ |
 
 """
-    if 'resp3_text' not in st.session_state:
-        with st.spinner("Semantic Keyword Mining..."):
-            st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
-    resp3_text = st.session_state['resp3_text']
 
+# --- CACHE ESECUZIONE semantic keyword mining SOLO SE NECESSARIO ---
+if st.session_state.get('resp3_text') is None:
+    with st.spinner("Semantic Keyword Mining..."):
+        st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
+
+resp3_text = st.session_state['resp3_text']
+
+# --- GESTIONE CASO ERRORE NLU MINING ---
+if not resp3_text:
+    st.error("Errore NLU Mining: testo vuoto o non disponibile")
+else:
     tables_mining = extract_markdown_tables(resp3_text)
     if tables_mining:
         table_mining = tables_mining[0]
@@ -483,45 +490,45 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
         st.subheader("Semantic Keyword Mining with NLP")
         st.markdown(resp3_text)
 
-    # --- Costruzione export JSON strutturato ---
-    analisi_struct        = parse_md_table(table_strategica)
-    common_ground_struct  = parse_md_table(table_entities)
-    content_gap_struct    = parse_md_table(table_contentgap)
-    keyword_mining_struct = parse_md_table(table_mining if tables_mining else resp3_text)
+# --- Costruzione export JSON strutturato ---
+analisi_struct        = parse_md_table(table_strategica)
+common_ground_struct  = parse_md_table(table_entities)
+content_gap_struct    = parse_md_table(table_contentgap)
+keyword_mining_struct = parse_md_table(tables_mining[0] if tables_mining else resp3_text)
 
-    export_data = {
-        "query": query,
-        "country": country,
-        "language": language,
-        "num_competitor": count,
-        "competitor_texts": competitor_texts,
-        "organic": data_org,
-        "people_also_ask": paa_list,
-        "related_searches": related,
-        "analysis_strategica": analisi_struct,
-        "common_ground": common_ground_struct,
-        "content_gap": content_gap_struct,
-        "keyword_mining": keyword_mining_struct
-    }
-    export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
+export_data = {
+    "query": query,
+    "country": country,
+    "language": language,
+    "num_competitor": count,
+    "competitor_texts": competitor_texts,
+    "organic": data_org,
+    "people_also_ask": paa_list,
+    "related_searches": related,
+    "analysis_strategica": analisi_struct,
+    "common_ground": common_ground_struct,
+    "content_gap": content_gap_struct,
+    "keyword_mining": keyword_mining_struct
+}
+export_json = json.dumps(export_data, ensure_ascii=False, indent=2)
 
-    def reset_all():
-        keys_to_remove = [
-            "query","country","language","num_competitor","analysis_started",
-            *(f"comp_quill_{i}" for i in range(1, count+1)),
-            "resp3_text"
-        ]
-        for k in keys_to_remove:
-            st.session_state.pop(k, None)
+def reset_all():
+    keys_to_remove = [
+        "query","country","language","num_competitor","analysis_started",
+        *(f"comp_quill_{i}" for i in range(1, count+1)),
+        "resp3_text"
+    ]
+    for k in keys_to_remove:
+        st.session_state.pop(k, None)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.button("Reset", on_click=reset_all, key="reset_btn")
-    with col2:
-        st.download_button(
-            "Download (json)",
-            data=export_json,
-            file_name=f"{keyword_principale}.json",
-            mime="application/json",
-            key="download_json_btn"
-        )
+col1, col2 = st.columns(2)
+with col1:
+    st.button("Reset", on_click=reset_all, key="reset_btn")
+with col2:
+    st.download_button(
+        "Download (json)",
+        data=export_json,
+        file_name=f"{keyword_principale}.json",
+        mime="application/json",
+        key="download_json_btn"
+    )
