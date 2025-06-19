@@ -259,13 +259,35 @@ if st.session_state['analysis_started']:
     html_org = styled.to_html(escape=False)
     st.markdown(html_org, unsafe_allow_html=True)
 
-    paa_list, related = [], []
+    # --- ESTRAZIONE PAA E RICERCHE CORRELATE AGGIORNATA ---
+    paa_list = []
+    related = []
+
     for el in items:
-        if el.get('type') == 'people_also_ask':
-            paa_list = [q.get('title') for q in el.get('items', [])]
-        if el.get('type') in ('related_searches','related_search'):
+        t = el.get('type')
+        if t == 'people_also_ask':
+            paa_list.extend([
+                q.get('title') or q.get('question') or ""
+                for q in el.get('items', [])
+            ])
+        if t in ('related_searches','related_search'):
             for rel in el.get('items', []):
-                related.append(rel if isinstance(rel, str) else rel.get('query') or rel.get('keyword'))
+                query_text = (
+                    rel if isinstance(rel, str) else
+                    rel.get('query') or
+                    rel.get('keyword') or
+                    rel.get('value') or
+                    ""
+                )
+                if query_text:
+                    related.append(query_text)
+
+    def dedupe(seq):
+        seen = set()
+        return [x for x in seq if not (x in seen or seen.add(x))]
+
+    paa_list = dedupe(paa_list)
+    related = dedupe(related)
 
     col_paa, col_rel = st.columns(2)
     with col_paa:
@@ -382,7 +404,6 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
         table_contentgap = ""
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
-    keyword_principale = query
     table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
     table4_paa     = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
