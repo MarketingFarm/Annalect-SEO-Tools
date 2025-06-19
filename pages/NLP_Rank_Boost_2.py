@@ -312,7 +312,7 @@ elif st.session_state.step == 4:
     with col1:
         context = st.selectbox(
             "Contesto",
-            ["-- Seleziona --", "E-commerce", "Blog / Testata Giornalistica"],
+            ["-- Seleziona --", "E-commerce", "Magazine / Testata Giornalistica"],
             key="context_select"
         )
     with col2:
@@ -326,7 +326,7 @@ elif st.session_state.step == 4:
                 "Pagina Informativa",
                 "Articolo del Blog"
             ],
-            "Blog / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
+            "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
         opts = dest_options.get(context, ["-- Seleziona --"])
         destino = st.selectbox(
