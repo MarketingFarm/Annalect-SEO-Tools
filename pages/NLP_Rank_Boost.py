@@ -216,6 +216,9 @@ if st.session_state['analysis_started']:
         st.error("Query, Country e Lingua sono obbligatori.")
         st.stop()
 
+    # definisco keyword_principale correttamente prima dei prompt
+    keyword_principale = query
+
     # --- STEP SERP SCRAPING E TABELLE ---
     result = fetch_serp(query, country, language)
     if result is None:
@@ -252,7 +255,8 @@ if st.session_state['analysis_started']:
     )
 
     st.subheader("Risultati Organici (top 10)")
-    st.dataframe(styled)
+    html_org = styled.to_html(escape=False)
+    st.markdown(html_org, unsafe_allow_html=True)
 
     paa_list, related = [], []
     for el in items:
