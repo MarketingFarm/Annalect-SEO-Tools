@@ -289,52 +289,56 @@ if st.session_state['analysis_started']:
 
 **PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
 
-**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per una query strategica. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni e, soprattutto, le loro lacune.
+**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per la query strategica specificata di seguito. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni e, soprattutto, le loro lacune.
 
-**OBIETTIVO FINALE:** Esegui una procedura in una singola fase per fornirmi un'analisi comparativa.
-1.  **FASE 1: ANALISI COMPARATIVA.** Analizza tutti i testi forniti e aggrega i risultati in una SINGOLA tabella Markdown di sintesi. La tabella deve riflettere la tendenza predominante o la media.
+**QUERY STRATEGICA:** {keyword_principale}
 
-**TESTI DEI COMPETITOR DA ANALIZZARE:**
+### INIZIO TESTI DEI COMPETITOR DA ANALIZZARE ###
+
 <TESTI>
 {joined_texts}
 </TESTI>
 
 ---
-### **FASE 1: ISTRUZIONI PER LA TABELLA DI ANALISI**
 
-Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetizza il risultato. Se noti forti divergenze, segnalale (es. "Misto: 60% Informale, 40% Formale").
+**COMPITO E FORMATO DI OUTPUT:**
 
-| Caratteristica SEO              | Analisi Sintetica                                                     | Giustificazione e Dettagli                                                                 |
-| :------------------------------ | :-------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
-| **Search Intent Primario**      | `[Informazionale, Commerciale, ecc.]`                                  | `[Spiega perché, es: "L'utente cerca definizioni e guide, non vuole ancora comprare."]`    |
-| **Search Intent Secondario**    | `[Informazionale, Commerciale, ecc. o "Nessuno"]`                       | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente confronta soluzioni."]` |
-| **Target Audience & Leggibilità**| `[B2B Esperto, B2C Principiante, Generalista, ecc.]`                  | `[Stima il livello (es: "Linguaggio semplice, per non addetti ai lavori") e il target.]`    |
-| **Tone of Voice (ToV)**         | `[Es: "Didattico e professionale", "Empatico e rassicurante"]`         | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]` |
-| **Segnali E-E-A-T**             | `[Deboli / Medi / Forti]`                                             | `[Elenca i segnali trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio, link a fonti autorevoli."]` |
-| **Angolo del Contenuto**        | `[Es: "Guida definitiva step-by-step", "Analisi comparativa basata su dati", "Elenco curato di risorse"]` | `[Descrive il "gancio" principale usato per attrarre il lettore.]`        |
+Analizza in modo aggregato tutti i testi forniti tra i delimitatori `### INIZIO` e `### FINE`. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi. Se noti forti divergenze, segnalale nel campo "Giustificazione e Dettagli".
 
-OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
+Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header e **senza** alcuna introduzione, commento o testo conclusivo.
+
+| Caratteristica SEO              | Analisi Sintetica                                                                  | Giustificazione e Dettagli                                                                                                |
+| :------------------------------ | :--------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
+| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` | `[Spiega perché, es: "L'utente cerca definizioni, guide e 'come fare', indicando una fase di apprendimento."]`              |
+| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]`              | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente inizia a confrontare soluzioni e prodotti."]` |
+| **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]`        | `[Stima il livello di complessità, es: "Linguaggio semplice e accessibile, evita gergo tecnico. Adatto a non addetti ai lavori."]` |
+| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]`                  | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]`                         |
+| **Segnali E-E-A-T** | `[Valuta la forza aggregata: Deboli / Medi / Forti]`                                 | `[Elenca i segnali più comuni trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio."]`          |
 """
     prompt_competitiva = f"""
-RUOLO: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
+**RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
 
-CONTESTO: L'obiettivo primario è superare i principali competitor per una keyword target specifica. Per raggiungere ciò, è fondamentale analizzare in profondità i testi dei competitor forniti, identificando e categorizzando le entità semantiche rilevanti.
+**CONTESTO**: L'obiettivo primario è superare i principali competitor per la keyword target. Per raggiungere ciò, è fondamentale analizzare in profondità i testi dei competitor forniti, identificando e categorizzando le entità semantiche rilevanti.
 
-COMPITO: Esegui un'analisi semantica dettagliata dei testi dei competitor forniti, seguendo scrupolosamente questi passaggi:
+**KEYWORD TARGET**: {keyword_principale}
 
-1. Named Entity Recognition (NER): Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
+### INIZIO TESTI DA ANALIZZARE ###
 
-2. Identificazione Entità Mancanti (Content Gap): Sulla base delle entità rilevate e della tua conoscenza del settore, identifica entità strategiche che sono assenti nei testi dei competitor ma che sarebbero rilevanti per la keyword target.
+<TESTI>
+{joined_texts}
+</TESTI>
 
-3. Categorizzazione delle Entità: Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+### FINE TESTI DA ANALIZZARE ###
 
-4. Assegnazione Rilevanza Strategica: Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media, Medio/Bassa, Bassa.
+**COMPITO**: Esegui un'analisi semantica dettagliata dei testi contenuti tra i delimitatori `### INIZIO TESTI DA ANALIZZARE ###` e `### FINE TESTI DA ANALIZZARE ###`, seguendo scrupolosamente questi passaggi:
 
-5. Filtro Rilevanza: Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
-
-6. Raggruppamento Entità: Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (;).
-
-7. Formattazione Output: Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito, senza alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente dalla riga dell'header di ciascuna tabella.
+1.  **Named Entity Recognition (NER):** Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
+2.  **Identificazione Entità Mancanti (Content Gap):** Sulla base delle entità rilevate e della tua conoscenza del settore, identifica entità strategiche che sono assenti nei testi dei competitor ma che sarebbero rilevanti per la keyword target.
+3.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+4.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media, Medio/Bassa, Bassa.
+5.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
+6.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da un punto e virgola (;).
+7.  **Formattazione Output:** Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente con la prima tabella.
 
 ### TABELLA 1: Entità
 | Categoria | Entità | Rilevanza Strategica |
@@ -343,9 +347,6 @@ COMPITO: Esegui un'analisi semantica dettagliata dei testi dei competitor fornit
 ### TABELLA 2: Entità Mancanti (Content Gap)
 | Categoria | Entità | Rilevanza Strategica |
 | :--- | :--- | :--- |
-
-TESTI DEI COMPETITOR:
-{joined_texts}
 """
 
     # --- STEP 2: parallelizzo le due chiamate NLU indipendenti ---
@@ -383,43 +384,55 @@ TESTI DEI COMPETITOR:
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
-**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.  
-* **Keyword Principale:** {keyword_principale}  
-* **Country:** {country}  
-* **Lingua:** {language}  
-* **Testi Completi dei Competitor:** {joined_texts}  
-* **Tabella 1: Entità Principali Estratte dai Competitor:**  
-{table_entities}  
-* **Tabella 2: Entità Mancanti / Content Gap:**  
-{table_contentgap}  
-* **Tabella 3: Ricerche Correlate dalla SERP:**  
-{table3_related}  
-* **Tabella 4: People Anche Ask (PAA) dalla SERP:**  
-{table4_paa}
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
+
+---
+### DATI DI INPUT ###
+
+**1. CONTESTO DI BASE**
+* **Keyword Principale:** {keyword_principale}
+* **Country:** {country}
+* **Lingua:** {language}
+
+**2. CONTENUTI GREZZI DA ANALIZZARE**
+* **Testi Completi dei Competitor:**
+    {joined_texts}
+
+**3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
+* **Tabella 1: Entità Principali Estratte dai Competitor:**
+    {table_entities}
+* **Tabella 2: Entità Mancanti / Content Gap:**
+    {table_contentgap}
+* **Tabella 3: Ricerche Correlate dalla SERP:**
+    {table_related}
+* **Tabella 4: People Also Ask (PAA) dalla SERP:**
+    {table4_paa}
 
 ---
 
-<TASK>
+### COMPITO E FORMATO DI OUTPUT ###
+
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
 
-1. **Analisi e Classificazione:** Analizza e correla tutti i dati per identificare ogni keyword, concetto e domande. Assegna a ciascuna una tipologia e una priorità strategica e restituisci solo quelle che hanno alti volumi di ricerca, rilevanza semantica con l'argomento e una priorità strategica elevata.
-2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
-3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
-    * Usa la virgola come separatore per le liste.
-    * **IMPORTANT:** Scrivi tutte le keyword e i concetti in minuscolo. Fai eccezione solo per la lettera iniziale delle "Domande degli Utenti", che deve essere maiuscola.
+1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
+2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di keyword, concetti e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
+    * Alta rilevanza semantica con la **Keyword Principale**.
+    * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
+    * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
+3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
+    * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
+    * **IMPORTANTE:** Scrivi tutte le keyword e i concetti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
 
-</TASK>
+Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
 
-<OUTPUT_FORMAT>
 ### Semantic Keyword Mining with NLP
 
-| Categoria Keyword                 | Keywords / Concetti / Domande           | Intento Prevalente           |
-| :-------------------------------- | :-------------------------------------- | :---------------------------- |
-| **Keyword Principale**            | `{keyword_principale.lower()}`          | _(inserisci intento primario)_|
-| **Keyword Secondarie**            | _(elenca keyword secondarie più importanti, non inserire in questa riga la keyword principale se già presente)_      | _(Informazionale / Commerciale ecc.)_|
-| **LSI Keywords**                  | _(elenca le migliori Keywords LSI)_                     | _(Supporto all'intento)_      |
-| **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
-</OUTPUT_FORMAT>
+| Categoria Keyword              | Keywords / Concetti / Domande                                                                  | Intento Prevalente              |
+| :------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------ |
+| **Keyword Principale** | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
+| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_          | _(Informazionale / Commerciale ecc.)_  |
+| **LSI Keywords** | _(elenca i concetti e le parole semanticamente correlate più strategiche)_                      | _(Supporto all'intento)_        |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_    |
 """
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
