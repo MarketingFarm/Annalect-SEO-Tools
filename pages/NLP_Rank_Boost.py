@@ -144,6 +144,35 @@ def start_analysis():
     st.session_state['analysis_started'] = True
 
 
+# --- HELPER PER TABELLE MARKDOWN ---
+def extract_markdown_tables(text: str) -> list[str]:
+    lines = text.splitlines()
+    tables = []
+    buf = []
+    for line in lines:
+        if line.strip().startswith("|"):
+            buf.append(line)
+        else:
+            if buf:
+                tables.append("\n".join(buf))
+                buf = []
+    if buf:
+        tables.append("\n".join(buf))
+    return tables
+
+def parse_md_table(md: str) -> list[dict]:
+    lines = [l for l in md.splitlines() if l.strip()]
+    if len(lines) < 2:
+        return []
+    header = [h.strip().strip('* ') for h in lines[0].split('|')[1:-1]]
+    rows = []
+    for line in lines[2:]:
+        cells = [c.strip() for c in line.split('|')[1:-1]]
+        if len(cells) == len(header):
+            rows.append(dict(zip(header, cells)))
+    return rows
+
+
 # === UI PRINCIPALE ===
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
@@ -163,11 +192,7 @@ count = int(num_comp) if isinstance(num_comp, int) else 0
 
 st.markdown("---")
 
-# Step 1c: editor in expander
-with st.expander(
-    "Testi dei Competitor",
-    expanded=not st.session_state['analysis_started']
-):
+with st.expander("Testi dei Competitor", expanded=not st.session_state['analysis_started']):
     if not st.session_state['analysis_started']:
         idx = 1
         for _ in range((count + 1) // 2):
@@ -182,42 +207,11 @@ with st.expander(
 st.button("🚀 Avvia l'Analisi", on_click=start_analysis)
 
 
-# --- helper per estrarre tutte le tabelle Markdown da un testo
-def extract_markdown_tables(text: str) -> list[str]:
-    lines = text.splitlines()
-    tables = []
-    buf = []
-    for line in lines:
-        if line.strip().startswith("|"):
-            buf.append(line)
-        else:
-            if buf:
-                tables.append("\n".join(buf))
-                buf = []
-    if buf:
-        tables.append("\n".join(buf))
-    return tables
-
-# parsing generico Markdown→lista di dict
-def parse_md_table(md: str) -> list[dict]:
-    lines = [l for l in md.splitlines() if l.strip()]
-    if len(lines) < 2:
-        return []
-    header = [h.strip().strip('* ') for h in lines[0].split('|')[1:-1]]
-    rows = []
-    for line in lines[2:]:
-        cells = [c.strip() for c in line.split('|')[1:-1]]
-        if len(cells) == len(header):
-            rows.append(dict(zip(header, cells)))
-    return rows
-
-
 if st.session_state['analysis_started']:
     if not (query and country and language):
         st.error("Query, Country e Lingua sono obbligatori.")
         st.stop()
 
-    # definisco keyword_principale correttamente prima dei prompt
     keyword_principale = query
 
     # --- STEP SERP SCRAPING E TABELLE ---
@@ -227,6 +221,7 @@ if st.session_state['analysis_started']:
         st.stop()
     items = result.get('items', [])
 
+    # Organici top10
     organic = [it for it in items if it.get('type') == 'organic'][:10]
     data_org = []
     for it in organic:
@@ -241,12 +236,10 @@ if st.session_state['analysis_started']:
             'Lunghezza Description': len(desc)
         })
     df_org = pd.DataFrame(data_org)
-
     def style_title(val):
         return 'background-color: #d4edda' if 50 <= val <= 60 else 'background-color: #f8d7da'
     def style_desc(val):
         return 'background-color: #d4edda' if 120 <= val <= 160 else 'background-color: #f8d7da'
-
     styled = (
         df_org.style
         .format({'URL': lambda u: f"<a href='{u}' target='_blank'>{u}</a>"})
@@ -254,10 +247,8 @@ if st.session_state['analysis_started']:
         .map(style_title, subset=['Lunghezza Title'])
         .map(style_desc, subset=['Lunghezza Description'])
     )
-
     st.subheader("Risultati Organici (top 10)")
-    html_org = styled.to_html(escape=False)
-    st.markdown(html_org, unsafe_allow_html=True)
+    st.markdown(styled.to_html(escape=False), unsafe_allow_html=True)
 
     # --- ESTRAZIONE PAA E RICERCHE CORRELATE AGGIORNATA ---
     paa_list = []
@@ -336,11 +327,11 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
 
 | Caratteristica SEO              | Analisi Sintetica                                                                  | Giustificazione e Dettagli                                                                                                |
 | :------------------------------ | :--------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` | `[Spiega perché, es: "L'utente cerca definizioni, guide e 'come fare', indicando una fase di apprendimento."]`              |
-| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]`              | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente inizia a confrontare soluzioni e prodotti."]` |
+| **Search Intent Primario**      | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` | `[Spiega perché, es: "L'utente cerca definizioni, guide e 'come fare', indicando una fase di apprendimento."]`              |
+| **Search Intent Secondario**    | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]`              | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente inizia a confrontare soluzioni e prodotti."]` |
 | **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]`        | `[Stima il livello di complessità, es: "Linguaggio semplice e accessibile, evita gergo tecnico. Adatto a non addetti ai lavori."]` |
-| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]`                  | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]`                         |
-| **Segnali E-E-A-T** | `[Valuta la forza aggregata: Deboli / Medi / Forti]`                                 | `[Elenca i segnali più comuni trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio."]`          |
+| **Tone of Voice (ToV)**         | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]`                  | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]`                         |
+| **Segnali E-E-A-T**             | `[Valuta la forza aggregata: Deboli / Medi / Forti]`                                 | `[Elenca i segnali più comuni trovati, es: "Citazioni di esperti, dati originali, biografia autore, casi studio."]`          |
 """
     prompt_competitiva = f"""
 **RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
@@ -384,11 +375,18 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
             resp1_text = fut1.result()
             resp2_text = fut2.result()
 
-    # Rendering strategica
+    # --- Rendering strategica robusto ---
+    tables_strat = extract_markdown_tables(resp1_text)
     st.subheader("Search Intent & Content Analysis with NLU")
-    st.markdown(resp1_text, unsafe_allow_html=False)
+    if tables_strat:
+        table_strategica = tables_strat[0]
+        st.markdown(table_strategica, unsafe_allow_html=False)
+    else:
+        table_strategica = ""
+        st.error("Non è stata trovata nessuna tabella nella risposta NLU strategica.")
+        st.text(resp1_text)
 
-    # Rendering competitiva
+    # --- Rendering competitiva ---
     tables = extract_markdown_tables(resp2_text)
     if len(tables) >= 2:
         table_entities   = tables[0]
@@ -398,10 +396,9 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
         st.subheader("Entità Mancanti (Content Gap)")
         st.markdown(table_contentgap, unsafe_allow_html=True)
     else:
-        st.error("Non sono state trovate due tabelle nel risultato NLU.")
+        table_entities = table_contentgap = ""
+        st.error("Non sono state trovate due tabelle nel risultato NLU competitiva.")
         st.text(resp2_text)
-        table_entities = ""
-        table_contentgap = ""
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
@@ -455,17 +452,16 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 
 | Categoria Keyword              | Keywords / Concetti / Domande                                                                  | Intento Prevalente              |
 | :------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------ |
-| **Keyword Principale** | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
-| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_          | _(Informazionale / Commerciale ecc.)_  |
-| **LSI Keywords** | _(elenca i concetti e le parole semanticamente correlate più strategiche)_                      | _(Supporto all'intento)_        |
-| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_    |
+| **Keyword Principale**          | `{keyword_principale.lower()}`                                                                 | _(determina e inserisci l'intento primario)_ |
+| **Keyword Secondarie**          | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_           | _(Informazionale / Commerciale ecc.)_  |
+| **LSI Keywords**                | _(elenca i concetti e le parole semanticamente correlate più strategiche)_                     | _(Supporto all'intento)_        |
+| **Domande degli Utenti (FAQ)**  | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_                      | _(Informazionale (Specifico))_  |
 """
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
             st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
     resp3_text = st.session_state['resp3_text']
 
-    # estrazione della prima tabella trovata
     tables_mining = extract_markdown_tables(resp3_text)
     if tables_mining:
         table_mining = tables_mining[0]
@@ -476,7 +472,7 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
         st.markdown(resp3_text)
 
     # --- Costruzione export JSON strutturato ---
-    analisi_struct        = parse_md_table(resp1_text)
+    analisi_struct        = parse_md_table(table_strategica)
     common_ground_struct  = parse_md_table(table_entities)
     content_gap_struct    = parse_md_table(table_contentgap)
     keyword_mining_struct = parse_md_table(table_mining if tables_mining else resp3_text)
