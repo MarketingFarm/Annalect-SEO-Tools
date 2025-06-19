@@ -302,7 +302,6 @@ elif st.session_state.step == 3:
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
     import re
-    from streamlit_tags import st_tags  # pip install streamlit-tags
 
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown(
@@ -310,7 +309,7 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # --- Contesto e Destinazione ---
+    # CONTEXT E DESTINATION
     col1, col2 = st.columns(2, gap="small")
     with col1:
         context = st.selectbox(
@@ -336,60 +335,39 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # --- Toggle Keyword Personalizzate ---
+    # Toggle per keyword custom
     st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
-    custom_toggle = st.toggle(
-        "Keyword Personalizzate",
-        value=False,
-        key="custom_kw_toggle"
-    )
+    custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
     st.markdown('</div>', unsafe_allow_html=True)
 
     if custom_toggle:
-        # Prendo i tag già in session (vuoto al primo giro)
-        initial = st.session_state.get("custom_kw_tags", [])
+        # metto tutto dentro un form per avere il pulsante di submit
+        with st.form("kw_form", clear_on_submit=False):
+            raw = st.text_area(
+                "Incolla qui le keyword (virgola o a capo)",
+                height=120,
+                placeholder="es: keyword1, keyword2\nkeyword3"
+            )
+            submitted = st.form_submit_button("Genera tag")
+        if submitted:
+            # split su virgola o newline e pulizia
+            parts = re.split(r"[,\n]+", raw or "")
+            tags = [p.strip() for p in parts if p.strip()]
+            st.session_state.custom_keywords = tags
 
-        # Il widget unico che mostra i tag
-        custom_keywords = st_tags(
-            label="Inserisci Keyword Personalizzate",
-            text="Digita e premi Invio o incolla e premi Invio per aggiungere",
-            value=initial,
-            suggestions=[],
-            maxtags=-1,
-            key="custom_kw_tags"
-        )
+        # se ci sono tags in session, li mostro
+        if st.session_state.get("custom_keywords"):
+            pills_html = "".join(
+                f'<span style="display:inline-block; margin:4px; padding:6px 10px; '
+                'background-color:#e0f7fa; border-radius:4px; font-size:0.9rem;">{kw}</span>'
+                for kw in st.session_state.custom_keywords
+            )
+            st.markdown(f"<div>{pills_html}</div>", unsafe_allow_html=True)
 
-        # Se uno dei tag contiene virgole o newline, splittalo:
-        new_tags = []
-        for tag in custom_keywords:
-            if isinstance(tag, str) and re.search(r"[,\n]", tag):
-                parts = re.split(r"[,\n]+", tag)
-                new_tags.extend([p.strip() for p in parts if p.strip()])
-            else:
-                new_tags.append(tag)
+    # Info aggiuntive
+    st.text_input("Informazioni aggiuntive", key="additional_info")
 
-        # Rimuovi eventuali duplicati mantenendo l'ordine
-        seen = set()
-        uniq = []
-        for t in new_tags:
-            if t not in seen:
-                seen.add(t)
-                uniq.append(t)
-
-        # Se è cambiato, riscrivo lo stato e rendo i nuovi tag
-        if uniq != custom_keywords:
-            st.session_state.custom_kw_tags = uniq
-            custom_keywords = uniq
-
-        # Salvo la lista finale
-        st.session_state.custom_keywords = custom_keywords
-
-    # --- Info aggiuntive e navigazione ---
-    st.text_input(
-        "Informazioni aggiuntive",
-        key="additional_info"
-    )
-
+    # Navigazione
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
     st.markdown("</div>", unsafe_allow_html=True)
