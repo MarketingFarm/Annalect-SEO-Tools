@@ -94,7 +94,8 @@ def clean_url(url: str) -> str:
     cleaned = parsed._replace(query='', params='', fragment='')
     return urlunparse(cleaned)
 
-@st.cache_data(show_spinner=True)
+# --- FETCH SERP CON CACHE TTL 600s ---
+@st.cache_data(ttl=600, show_spinner=True)
 def fetch_serp(query: str, country: str, language: str) -> dict | None:
     payload = [{
         'keyword': query,
