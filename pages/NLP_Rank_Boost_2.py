@@ -301,7 +301,7 @@ elif st.session_state.step == 3:
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
-    from streamlit_tags import st_tags  # pip install streamlit-tags
+    import re
 
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown(
@@ -309,7 +309,7 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # CONTEXT E DESTINATION
+    # CONTEXT e DESTINATION (restano invariate)
     col1, col2 = st.columns(2, gap="small")
     with col1:
         context = st.selectbox(
@@ -335,7 +335,7 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # TOGGLE per abilitare Keyword Personalizzate
+    # TOGGLE per entrare nella modalità “Keyword Personalizzate”
     st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
     custom_toggle = st.toggle(
         "Keyword Personalizzate",
@@ -345,21 +345,37 @@ elif st.session_state.step == 4:
     st.markdown('</div>', unsafe_allow_html=True)
 
     if custom_toggle:
-        # inizializza con eventuali tag già in sessione
-        initial = st.session_state.get("custom_keywords", [])
-
-        # il widget vero e proprio
-        custom_keywords = st_tags(
-            label="Inserisci Keyword Personalizzate",
-            text="Digita o incolla, poi premi Invio per separare ogni keyword",
-            value=initial,
-            suggestions=[],
-            maxtags=-1,
-            key="custom_kw_tags"
+        # 1) Area di testo dove incollare le keyword raw
+        raw = st.text_area(
+            "Incolla qui le keywords (virgola o a capo)",
+            height=120,
+            placeholder="es: asd, lui, perterrre\nasdsaddas, 1111",
+            key="raw_custom_kw"
         )
 
-        # salvo la lista finale
-        st.session_state.custom_keywords = custom_keywords
+        # 2) Split su virgola/newline
+        if raw:
+            parts = [p.strip() for p in re.split(r"[,\n]+", raw) if p.strip()]
+        else:
+            parts = []
+
+        # 3) Ricavo gli initial tag (precedenti modifiche, se ci sono)
+        previous = st.session_state.get("custom_keywords", [])
+        # Unisco senza duplicati, mantenendo l'ordine: parti incollate + eventuali già in session
+        options = list(dict.fromkeys(parts + previous))
+        defaults = previous or parts
+
+        # 4) Il multiselect “taggato”
+        selected = st.multiselect(
+            "Keyword Personalizzate",
+            options=options,
+            default=defaults,
+            accept_new_options=True,     # permette di digitare e confermare nuovi tag
+            key="custom_kw_select"
+        )
+
+        # 5) Salvo il risultato finale in session_state
+        st.session_state.custom_keywords = selected
 
     # Informazioni aggiuntive
     st.text_input(
@@ -367,7 +383,7 @@ elif st.session_state.step == 4:
         key="additional_info"
     )
 
-    # Navigazione
+    # Pulsante “Indietro”
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
     st.markdown("</div>", unsafe_allow_html=True)
