@@ -307,7 +307,7 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # Due dropdown affiancati per contesto e destinazione
+    # CONTEXT E DESTINATION
     col1, col2 = st.columns(2, gap="small")
     with col1:
         context = st.selectbox(
@@ -333,16 +333,28 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # Toggle per abilitare il campo di incolla keywords
-    st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
-    custom_toggle = st.toggle(
-        "Keyword Personalizzate",
-        value=False,
-        key="custom_kw_toggle"
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
+    # TOGGLE PER KEYWORDS, TOV E INFO AGGIUNTIVE SULLA STESSA RIGA
+    tcol1, tcol2, tcol3 = st.columns(3, gap="small")
+    with tcol1:
+        custom_toggle = st.toggle(
+            "Keyword Personalizzate",
+            value=False,
+            key="custom_kw_toggle"
+        )
+    with tcol2:
+        tov_toggle = st.toggle(
+            "ToV / Stile del Cliente",
+            value=False,
+            key="tov_toggle"
+        )
+    with tcol3:
+        info_toggle = st.toggle(
+            "Informazioni Aggiuntive",
+            value=False,
+            key="info_toggle"
+        )
 
-    # Se attivo, mostro solo la text_area per incollare una keyword per riga
+    # CAMPO PER INCOLLARE KEYWORDS (UNA PER RIGA)
     if custom_toggle:
         raw_input = st.text_area(
             "Incolla le tue keyword (una per riga)",
@@ -350,16 +362,29 @@ elif st.session_state.step == 4:
             placeholder="keyword1\nkeyword2\nkeyword3",
             key="raw_custom_kw"
         )
-        # le raw keywords verranno processate in seguito
         st.session_state.raw_custom_keywords = raw_input.splitlines()
 
-    # Informazioni aggiuntive
-    st.text_input(
-        "Informazioni aggiuntive",
-        key="additional_info"
-    )
+    # CAMPO PER TOV / STILE CLIENTE
+    if tov_toggle:
+        tov_input = st.text_area(
+            "Incolla qui esempi di ToV / Stile del Cliente",
+            height=150,
+            placeholder="Esempio testo 1...\nEsempio testo 2...",
+            key="raw_tov_input"
+        )
+        st.session_state.raw_tov_text = tov_input
 
-    # Pulsante Indietro
+    # CAMPO PER INFORMAZIONI AGGIUNTIVE
+    if info_toggle:
+        info_input = st.text_area(
+            "Inserisci ulteriori informazioni",
+            height=150,
+            placeholder="Dettagli aggiuntivi...",
+            key="raw_info_input"
+        )
+        st.session_state.raw_additional_info = info_input
+
+    # PULSANTE DI NAVIGAZIONE
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
     st.markdown("</div>", unsafe_allow_html=True)
