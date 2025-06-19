@@ -300,7 +300,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
     with st.spinner("Semantic Content Analysis with NLU..."):
         resp1_text = run_nlu_strategica(prompt_strategica)
     st.subheader("Search Intent & Content Analysis with NLU")
-    st.markdown(resp1_text, unsafe_allow_html=False)
+    st.write(resp1_text)
 
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
     prompt_competitiva = f"""
