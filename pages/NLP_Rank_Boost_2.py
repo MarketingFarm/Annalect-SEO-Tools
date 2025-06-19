@@ -301,8 +301,8 @@ elif st.session_state.step == 3:
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
-    from streamlit_tags import st_tags  # Assicurati di aver aggiunto `streamlit-tags` in requirements.txt
-    
+    from streamlit_tags import st_tags  # pip install streamlit-tags
+
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown(
         '<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizza il Contenuto</h3>',
@@ -336,7 +336,7 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # Toggle con wrapper che aggiunge padding e applica lo scale
+    # Toggle per abilitare l’inserimento tag-based
     st.markdown('<div class="toggle-container" style="padding:0.75rem 0;">', unsafe_allow_html=True)
     custom_toggle = st.toggle(
         "Keyword Personalizzate",
@@ -345,17 +345,17 @@ elif st.session_state.step == 4:
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Campo di inserimento tag-based per le keyword custom
+    # Se attivo, uso lo st_tags per inserire i tag
     if custom_toggle:
         custom_keywords = st_tags(
             label="Inserisci Keyword Personalizzate",
             text="Digita e premi Invio per aggiungere",
-            value=[],
-            suggestions=[],
-            maxtags=50,
+            value=[],           # valori iniziali (opzionale)
+            suggestions=[],     # suggerimenti (opzionale)
+            maxtags=-1,         # -1 per tags illimitati
             key="custom_kw_tags"
         )
-        # Salvo le keyword in session_state se necessario
+        # Se ti serve nel resto del flusso:
         st.session_state.custom_keywords = custom_keywords
 
     # Informazioni aggiuntive
@@ -368,4 +368,3 @@ elif st.session_state.step == 4:
     st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
     st.button("Indietro", on_click=go_back, key="back_btn_4")
     st.markdown("</div>", unsafe_allow_html=True)
-
