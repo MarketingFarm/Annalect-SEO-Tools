@@ -304,46 +304,57 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
 
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
     prompt_competitiva = f"""
-## ANALISI COMPETITIVA E CONTENT GAP ##
-**RUOLO:** Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva.
+RUOLO: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
 
-**CONTESTO:** Obiettivo: superare i primi 3 competitor per la keyword target. Analizza i loro testi.
+CONTESTO: L'obiettivo primario è superare i principali competitor per una keyword target specifica. Per raggiungere ciò, è fondamentale analizzare in profondità i testi dei competitor forniti, identificando e categorizzando le entità semantiche rilevanti.
 
-**COMPITO:** Analizza i testi competitor:
----
+COMPITO: Esegui un'analisi semantica dettagliata dei testi dei competitor forniti, seguendo scrupolosamente questi passaggi:
+
+1. Named Entity Recognition (NER): Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
+
+2. Identificazione Entità Mancanti (Content Gap): Sulla base delle entità rilevate e della tua conoscenza del settore, identifica entità strategiche che sono assenti nei testi dei competitor ma che sarebbero rilevanti per la keyword target.
+
+3. Categorizzazione delle Entità: Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+
+4. Assegnazione Rilevanza Strategica: Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media, Medio/Bassa, Bassa.
+
+5. Filtro Rilevanza: Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
+
+6. Raggruppamento Entità: Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da un punto e virgola (;).
+
+7. Formattazione Output: Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito, senza alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente dalla riga dell'header di ciascuna tabella.
+
+### TABELLA 1: Entità
+| Categoria | Entità | Rilevanza Strategica |
+| :--- | :--- | :--- |
+
+### TABELLA 2: Entità Mancanti (Content Gap)
+| Categoria | Entità | Rilevanza Strategica |
+| :--- | :--- | :--- |
+
+TESTI DEI COMPETITORS:
 {joined_texts}
-
-1. Identifica l'**Entità Centrale** condivisa da tutti i testi.
-2. Definisci il **Search Intent Primario** a cui i competitor rispondono.
-3. Crea DUE tabelle Markdown separate:
-
-### TABELLA 1: Common Ground Analysis
-| Entità | Rilevanza Strategica | Azione SEO Strategica |
-| :--- | :--- | :--- |
-
-### TABELLA 2: Content Gap Opportunity
-| Entità da Aggiungere | Motivazione dell'Inclusione | Azione SEO Strategica |
-| :--- | :--- | :--- |
-
-OUTPUT: Genera **ESCLUSIVAMENTE** le due tabelle Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
-    with st.spinner("Entity & Semantic Gap Extraction..."):
+    with st.spinner("Entity & Content Gap Analysis..."):
         resp2_text = run_nlu_competitiva(prompt_competitiva)
+
+    # estraggo i due blocchi tabella Markdown
+    import re
     pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
     table_blocks = re.findall(pattern, resp2_text)
+
     if len(table_blocks) >= 2:
-        table1_entities = table_blocks[0].strip()
-        table2_gaps = table_blocks[1].strip()
-        st.subheader("Semantic Common Ground Analysis")
-        st.markdown(table1_entities, unsafe_allow_html=True)
-        st.subheader("Semantic Content Gap Opportunity")
-        st.markdown(table2_gaps, unsafe_allow_html=True)
+        table_entities   = table_blocks[0].strip()
+        table_contentgap = table_blocks[1].strip()
+
+        st.subheader("Entità Rilevanti (Common Ground)")
+        st.markdown(table_entities, unsafe_allow_html=True)
+
+        st.subheader("Entità Mancanti (Content Gap)")
+        st.markdown(table_contentgap, unsafe_allow_html=True)
     else:
-        st.subheader("Errore nell'estrazione delle tabelle NLU")
-        st.error("Non sono state trovate due tabelle nel testo restituito da Gemini. Ecco il testo completo:")
+        st.error("Non sono state trovate due tabelle nel risultato NLU.")
         st.text(resp2_text)
-        table1_entities = ""
-        table2_gaps = ""
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
