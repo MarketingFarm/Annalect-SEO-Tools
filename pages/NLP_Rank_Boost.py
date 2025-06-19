@@ -7,6 +7,7 @@ import pandas as pd
 from urllib.parse import urlparse, urlunparse
 from streamlit_quill import st_quill
 from google import genai
+from concurrent.futures import ThreadPoolExecutor
 
 # --- SESSIONE HTTP GLOBALE PER RIUSO CONNESSIONE ---
 session = requests.Session()
@@ -264,7 +265,7 @@ if st.session_state['analysis_started']:
         else:
             st.write("Nessuna sezione Ricerche correlate trovata.")
 
-    # --- STEP NLU: analisi strategica e gap di contenuto ---
+    # --- PREPARAZIONE TEXTI E PROMPT ---
     separator = "\n\n--- SEPARATORE TESTO ---\n\n"
     competitor_texts = [
         str(st.session_state.get(f"comp_quill_{i}", "") or "")
@@ -303,12 +304,6 @@ Compila la seguente tabella. Per ogni colonna, analizza TUTTI i testi e sintetiz
 
 OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra, iniziando dalla riga dell’header e **senza** alcuna introduzione o testo aggiuntivo.
 """
-    with st.spinner("Semantic Content Analysis with NLU..."):
-        resp1_text = run_nlu_strategica(prompt_strategica)
-    st.subheader("Search Intent & Content Analysis with NLU")
-    st.markdown(resp1_text, unsafe_allow_html=False)
-
-    # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
     prompt_competitiva = f"""
 RUOLO: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
 
@@ -341,12 +336,23 @@ COMPITO: Esegui un'analisi semantica dettagliata dei testi dei competitor fornit
 TESTI DEI COMPETITOR:
 {joined_texts}
 """
-    with st.spinner("Entity & Content Gap Analysis..."):
-        resp2_text = run_nlu_competitiva(prompt_competitiva)
 
+    # --- STEP 2: parallelizzo le due chiamate NLU indipendenti ---
+    with st.spinner("Esecuzione parallela delle analisi NLU..."):
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            fut1 = executor.submit(run_nlu_strategica, prompt_strategica)
+            fut2 = executor.submit(run_nlu_competitiva, prompt_competitiva)
+            resp1_text = fut1.result()
+            resp2_text = fut2.result()
+
+    # Rendering strategica
+    st.subheader("Search Intent & Content Analysis with NLU")
+    st.markdown(resp1_text, unsafe_allow_html=False)
+
+    # Rendering competitiva
     tables = extract_markdown_tables(resp2_text)
     if len(tables) >= 2:
-        table_entities = tables[0]
+        table_entities   = tables[0]
         table_contentgap = tables[1]
         st.subheader("Entità Rilevanti (Common Ground)")
         st.markdown(table_entities, unsafe_allow_html=True)
@@ -361,7 +367,7 @@ TESTI DEI COMPETITOR:
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
     table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
-    table4_paa = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
+    table4_paa     = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
