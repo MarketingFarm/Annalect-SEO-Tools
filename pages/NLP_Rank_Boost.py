@@ -332,29 +332,26 @@ COMPITO: Esegui un'analisi semantica dettagliata dei testi dei competitor fornit
 | Categoria | Entità | Rilevanza Strategica |
 | :--- | :--- | :--- |
 
-TESTI DEI COMPETITORS:
+TESTI DEI COMPETITOR:
 {joined_texts}
 """
     with st.spinner("Entity & Content Gap Analysis..."):
         resp2_text = run_nlu_competitiva(prompt_competitiva)
 
-    # estraggo i due blocchi tabella Markdown
-    import re
     pattern = r"(\|[^\n]+\n(?:\|[^\n]+\n?)+)"
     table_blocks = re.findall(pattern, resp2_text)
-
     if len(table_blocks) >= 2:
         table_entities   = table_blocks[0].strip()
         table_contentgap = table_blocks[1].strip()
-
         st.subheader("Entità Rilevanti (Common Ground)")
         st.markdown(table_entities, unsafe_allow_html=True)
-
         st.subheader("Entità Mancanti (Content Gap)")
         st.markdown(table_contentgap, unsafe_allow_html=True)
     else:
         st.error("Non sono state trovate due tabelle nel risultato NLU.")
         st.text(resp2_text)
+        table_entities = ""
+        table_contentgap = ""
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
@@ -370,9 +367,9 @@ TESTI DEI COMPETITORS:
 * **Lingua:** {language}  
 * **Testi Completi dei Competitor:** {joined_texts}  
 * **Tabella 1: Entità Principali Estratte dai Competitor:**  
-{table1_entities}  
+{table_entities}  
 * **Tabella 2: Entità Mancanti / Content Gap:**  
-{table2_gaps}  
+{table_contentgap}  
 * **Tabella 3: Ricerche Correlate dalla SERP:**  
 {table3_related_searches}  
 * **Tabella 4: People Anche Ask (PAA) dalla SERP:**  
@@ -387,7 +384,7 @@ TESTI DEI COMPETITORS:
 2. **Aggregazione e Sintesi:** Raggruppa tutti gli elementi identificati nelle categorie richieste dal formato di output.
 3. **Formattazione dell'Output:** Produci l'output finale nell'unica tabella specificata, seguendo queste regole di formattazione:
     * Usa la virgola come separatore per le liste.
-    * **IMPORTANTE:** Scrivi tutte le keyword e i concetti in minuscolo. Fai eccezione solo per la lettera iniziale delle "Domande degli Utenti", che deve essere maiuscola.
+    * **IMPORTANT:** Scrivi tutte le keyword e i concetti in minuscolo. Fai eccezione solo per la lettera iniziale delle "Domande degli Utenti", che deve essere maiuscola.
 
 </TASK>
 
@@ -402,8 +399,6 @@ TESTI DEI COMPETITORS:
 | **Domande degli Utenti (FAQ)**    | _(elenca domande, prima lettera maiuscola)_| _(Informazionale (Specifico))_|
 </OUTPUT_FORMAT>
 """
-
-    # --- Semantic Keyword Mining con cache in session_state ---
     if 'resp3_text' not in st.session_state:
         with st.spinner("Semantic Keyword Mining..."):
             st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
@@ -432,16 +427,14 @@ TESTI DEI COMPETITORS:
 
     st.subheader("Semantic Keyword Mining with NLP")
     if table_mining:
-        # qui table_mining è già una stringa con vere newline 
         st.markdown(table_mining)
     else:
-        # se non trova la tabella, mostriamo comunque il testo grezzo
         st.markdown(resp3_text)
 
     # --- Costruzione export JSON strutturato ---
     analisi_struct = parse_md_table(resp1_text)
-    common_ground_struct = parse_md_table(table1_entities)
-    content_gap_struct = parse_md_table(table2_gaps)
+    common_ground_struct = parse_md_table(table_entities)
+    content_gap_struct = parse_md_table(table_contentgap)
     keyword_mining_struct = parse_md_table(table_mining or resp3_text)
 
     export_data = {
