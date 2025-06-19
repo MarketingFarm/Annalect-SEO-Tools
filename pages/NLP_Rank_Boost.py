@@ -132,9 +132,14 @@ if not api_key:
     st.stop()
 client = genai.Client(api_key=api_key)
 
-# === SESSION STATE PER CHIUDERE EXPANDER DOPO ANALISI ===
+# === SESSION STATE PER CHIUDERE EXPANDER DOPO ANALISI E CACHE NLU ===
 if 'analysis_started' not in st.session_state:
     st.session_state['analysis_started'] = False
+
+# Inizializziamo le cache delle risposte NLU
+for key in ['resp1_text', 'resp2_text', 'resp3_text']:
+    if key not in st.session_state:
+        st.session_state[key] = None
 
 def start_analysis():
     st.session_state['analysis_started'] = True
@@ -142,8 +147,7 @@ def start_analysis():
 # --- HELPER PER TABELLE MARKDOWN ---
 def extract_markdown_tables(text: str) -> list[str]:
     lines = text.splitlines()
-    tables = []
-    buf = []
+    tables, buf = [], []
     for line in lines:
         if line.strip().startswith("|"):
             buf.append(line)
@@ -157,8 +161,7 @@ def extract_markdown_tables(text: str) -> list[str]:
 
 def parse_md_table(md: str) -> list[dict]:
     lines = [l for l in md.splitlines() if l.strip()]
-    if len(lines) < 2:
-        return []
+    if len(lines) < 2: return []
     header = [h.strip().strip('* ') for h in lines[0].split('|')[1:-1]]
     rows = []
     for line in lines[2:]:
