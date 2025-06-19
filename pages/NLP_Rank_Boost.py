@@ -18,7 +18,6 @@ def run_nlu(prompt: str) -> str:
         contents=[prompt]
     ).text
 
-# wrapper per mantenere le funzioni originali
 def run_nlu_strategica(prompt: str) -> str:
     return run_nlu(prompt)
 
@@ -150,7 +149,6 @@ count = int(num_comp) if isinstance(num_comp, int) else 0
 
 st.markdown("---")
 
-# Step 1c: editor in expander
 with st.expander(
     "Testi dei Competitor",
     expanded=not st.session_state['analysis_started']
@@ -185,7 +183,7 @@ def extract_markdown_tables(text: str) -> list[str]:
         tables.append("\n".join(buf))
     return tables
 
-# parsing generico Markdown→lista di dict
+# parsing generic Markdown→lista di dict
 def parse_md_table(md: str) -> list[dict]:
     lines = [l for l in md.splitlines() if l.strip()]
     if len(lines) < 2:
@@ -309,6 +307,7 @@ OUTPUT: Genera **ESCLUSIVAMENTE** la tabella Markdown con la struttura qui sopra
     st.markdown(resp1_text, unsafe_allow_html=False)
 
     # --- STEP ENTITÀ FONDAMENTALI & CONTENT GAP ---
+    # aggiorno il prompt per usare la virgola come separatore
     prompt_competitiva = f"""
 RUOLO: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
 
@@ -326,7 +325,7 @@ COMPITO: Esegui un'analisi semantica dettagliata dei testi dei competitor fornit
 
 5. Filtro Rilevanza: Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
 
-6. Raggruppamento Entità: Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da un punto e virgola (;).
+6. Raggruppamento Entità: Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da virgola (,).
 
 7. Formattazione Output: Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito, senza alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente dalla riga dell'header di ciascuna tabella.
 
@@ -346,22 +345,42 @@ TESTI DEI COMPETITOR:
 
     tables = extract_markdown_tables(resp2_text)
     if len(tables) >= 2:
-        table_entities = tables[0]
-        table_contentgap = tables[1]
+        table_entities_md   = tables[0]
+        table_contentgap_md = tables[1]
+
+        # parsing in DataFrame
+        df_entities   = pd.DataFrame(parse_md_table(table_entities_md))
+        df_contentgap = pd.DataFrame(parse_md_table(table_contentgap_md))
+
+        # applico grassetto alla prima colonna e evidenzio in verde la seconda
+        for df in (df_entities, df_contentgap):
+            first_col = df.columns[0]
+            second_col = df.columns[1]
+            df[first_col] = df[first_col].apply(lambda x: f"**{x}**")
+        styled_entities = (
+            df_entities.style
+            .set_properties(subset=[df_entities.columns[1]], **{'background-color': '#d4edda'})
+        )
+        styled_contentgap = (
+            df_contentgap.style
+            .set_properties(subset=[df_contentgap.columns[1]], **{'background-color': '#d4edda'})
+        )
+
         st.subheader("Entità Rilevanti (Common Ground)")
-        st.markdown(table_entities, unsafe_allow_html=True)
+        st.markdown(styled_entities.to_html(escape=False), unsafe_allow_html=True)
+
         st.subheader("Entità Mancanti (Content Gap)")
-        st.markdown(table_contentgap, unsafe_allow_html=True)
+        st.markdown(styled_contentgap.to_html(escape=False), unsafe_allow_html=True)
     else:
         st.error("Non sono state trovate due tabelle nel risultato NLU.")
         st.text(resp2_text)
-        table_entities = ""
-        table_contentgap = ""
+        table_entities_md = ""
+        table_contentgap_md = ""
 
     # --- STEP BANCA DATI KEYWORD STRATEGICHE ---
     keyword_principale = query
     table3_related = pd.DataFrame({'Query Correlata': related}).to_markdown(index=False)
-    table4_paa = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
+    table4_paa     = pd.DataFrame({'Domanda': paa_list}).to_markdown(index=False)
 
     prompt_bank = f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
@@ -372,9 +391,9 @@ TESTI DEI COMPETITOR:
 * **Lingua:** {language}  
 * **Testi Completi dei Competitor:** {joined_texts}  
 * **Tabella 1: Entità Principali Estratte dai Competitor:**  
-{table_entities}  
+{table_entities_md}  
 * **Tabella 2: Entità Mancanti / Content Gap:**  
-{table_contentgap}  
+{table_contentgap_md}  
 * **Tabella 3: Ricerche Correlate dalla SERP:**  
 {table3_related}  
 * **Tabella 4: People Anche Ask (PAA) dalla SERP:**  
@@ -409,21 +428,20 @@ TESTI DEI COMPETITOR:
             st.session_state['resp3_text'] = run_nlu_mining(prompt_bank)
     resp3_text = st.session_state['resp3_text']
 
-    # estrazione della prima tabella trovata
     tables_mining = extract_markdown_tables(resp3_text)
     if tables_mining:
-        table_mining = tables_mining[0]
+        table_mining_md = tables_mining[0]
         st.subheader("Semantic Keyword Mining with NLP")
-        st.markdown(table_mining)
+        st.markdown(table_mining_md, unsafe_allow_html=True)
     else:
         st.subheader("Semantic Keyword Mining with NLP")
         st.markdown(resp3_text)
 
     # --- Costruzione export JSON strutturato ---
     analisi_struct        = parse_md_table(resp1_text)
-    common_ground_struct  = parse_md_table(table_entities)
-    content_gap_struct    = parse_md_table(table_contentgap)
-    keyword_mining_struct = parse_md_table(table_mining if tables_mining else resp3_text)
+    common_ground_struct  = parse_md_table(table_entities_md)
+    content_gap_struct    = parse_md_table(table_contentgap_md)
+    keyword_mining_struct = parse_md_table(table_mining_md if tables_mining else resp3_text)
 
     export_data = {
         "query": query,
