@@ -4,6 +4,22 @@ import re
 import pandas as pd
 from urllib.parse import urlparse
 
+# Utility per creare uno slug coerente dal label, inclusi eventuali contenuti tra parentesi
+def slugify_label(raw_label):
+    # Rimuove eventuali asterischi
+    label = re.sub(r"\*+", "", raw_label).strip()
+    # Se c'è una parte tra parentesi, la include nel slug
+    m = re.match(r"(.+?)\s*\(([^)]+)\)$", label)
+    if m:
+        base = m.group(1).strip()
+        paren = m.group(2).strip()
+        combined = f"{base} {paren}"
+    else:
+        combined = label
+    # Sostituisce tutto ciò che non è alfanumerico con underscore
+    slug = re.sub(r"[^0-9A-Za-z]+", "_", combined).strip("_")
+    return slug
+
 # --- Assumo st.set_page_config già invocato nel file principale ---
 
 # Titolo e descrizione
@@ -244,19 +260,15 @@ elif st.session_state.step == 2:
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
         for entry in keyword_mining:
-            # Rimuovo asterischi ma mantengo parentesi nel raw_label
-            raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
-            # Costruisco lo slug per la key
-            slug = re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
-            widget_key = f"ms_{slug}"
-            # Lista di keywords / concetti / domande
+            raw_label = entry.get("Categoria Keyword", "")
+            raw_label = re.sub(r"\*+", "", raw_label).strip()
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
-            # Mostro l'intestazione esattamente come appare nel JSON (senza asterischi)
+            slug = slugify_label(raw_label)
+            widget_key = f"ms_{slug}"
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
                 unsafe_allow_html=True
             )
-            # Multiselect con key dinamica
             st.multiselect("", options=kws, default=kws, key=widget_key)
         c1, c2 = st.columns(2)
         with c1:
@@ -307,49 +319,32 @@ elif st.session_state.step == 3:
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
     st.markdown(separator, unsafe_allow_html=True)
-    st.markdown(
-        '<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizzazione Contenuto</h3>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizzazione Contenuto</h3>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2, gap="small")
     with col1:
-        context = st.selectbox(
-            "Contesto",
-            ["-- Seleziona --", "E-commerce", "Magazine / Testata Giornalistica"],
-            key="context_select"
-        )
+        context = st.selectbox("Contesto",
+                               ["-- Seleziona --", "E-commerce", "Magazine / Testata Giornalistica"],
+                               key="context_select")
     with col2:
         dest_options = {
             "-- Seleziona --": ["-- Seleziona --"],
-            "E-commerce": [
-                "-- Seleziona --",
-                "Product Listing Page (PLP)",
-                "Product Detail Page (PDP)",
-                "Guida all'Acquisto",
-                "Articolo del Blog"
-            ],
+            "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)", "Guida all'Acquisto",
+                           "Articolo del Blog"],
             "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
-        destino = st.selectbox(
-            "Destinazione Contenuto",
-            dest_options.get(context, ["-- Seleziona --"]),
-            key="dest_select"
-        )
+        destino = st.selectbox("Destinazione Contenuto", dest_options.get(context, ["-- Seleziona --"]),
+                               key="dest_select")
 
     custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
     if custom_toggle:
-        raw_input = st.text_area(
-            "Incolla le tue keyword (una per riga)",
-            height=120,
-            placeholder="keyword1\nkeyword2\nkeyword3",
-            key="raw_custom_kw"
-        )
+        raw_input = st.text_area("Incolla le tue keyword (una per riga)", height=120,
+                                 placeholder="keyword1\nkeyword2\nkeyword3", key="raw_custom_kw")
         st.session_state.raw_custom_keywords = raw_input.splitlines()
 
     tov_toggle = st.toggle("ToV / Stile del Cliente", value=False, key="tov_toggle")
     if tov_toggle:
-        num_tov = st.selectbox("Quanti esempi di ToV vuoi inserire?", list(range(1,7)), index=0, key="tov_count")
+        num_tov = st.selectbox("Quanti esempi di ToV vuoi inserire?", list(range(1, 7)), index=0, key="tov_count")
         rows = (num_tov + 1) // 2
         idx = 1
         for _ in range(rows):
@@ -358,12 +353,13 @@ elif st.session_state.step == 4:
                 if idx <= num_tov:
                     col.text_area(f"Esempio ToV #{idx}", height=120, key=f"tov_example_{idx}")
                     idx += 1
-        tov_list = [st.session_state.get(f"tov_example_{i}", "") for i in range(1, num_tov+1)]
+        tov_list = [st.session_state.get(f"tov_example_{i}", "") for i in range(1, num_tov + 1)]
         st.session_state.raw_tov_text = tov_list
 
     info_toggle = st.toggle("Informazioni Aggiuntive", value=False, key="info_toggle")
     if info_toggle:
-        info_input = st.text_area("Inserisci ulteriori informazioni", height=120, placeholder="Dettagli aggiuntivi...", key="raw_info_input")
+        info_input = st.text_area("Inserisci ulteriori informazioni", height=120,
+                                  placeholder="Dettagli aggiuntivi...", key="raw_info_input")
         st.session_state.raw_additional_info = info_input
 
     c1, c2 = st.columns(2)
@@ -384,7 +380,6 @@ elif st.session_state.step == 5:
         for item in analysis_list
     }
 
-    # Recupero selezioni Common Ground e Content Gap
     edited_common = st.session_state.get("edited_common", pd.DataFrame())
     edited_gap    = st.session_state.get("edited_gap", pd.DataFrame())
     common_selected = (
@@ -420,8 +415,9 @@ elif st.session_state.step == 5:
 
     # Aggiungo le selezioni di keyword mining con i nomi esatti dal JSON
     for entry in data.get("keyword_mining", []):
-        raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
-        slug = re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
+        raw_label = entry.get("Categoria Keyword", "")
+        raw_label = re.sub(r"\*+", "", raw_label).strip()
+        slug = slugify_label(raw_label)
         widget_key = f"ms_{slug}"
         selected = st.session_state.get(widget_key, [])
         recap[f"{raw_label} Selezionate"] = ", ".join(selected)
