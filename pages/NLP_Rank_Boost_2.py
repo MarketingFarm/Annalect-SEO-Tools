@@ -278,6 +278,8 @@ elif st.session_state.step == 3:
         hide_index=True,
         key="editor_common"
     )
+    # salvo la versione modificata in session_state
+    st.session_state.edited_common = edited_common
 
     df_gap = pd.DataFrame(gap)
     df_gap.insert(0, "Seleziona", False)
@@ -289,6 +291,8 @@ elif st.session_state.step == 3:
         hide_index=True,
         key="editor_gap"
     )
+    # salvo la versione modificata in session_state
+    st.session_state.edited_gap = edited_gap
 
     c1, c2 = st.columns(2)
     with c1:
@@ -378,13 +382,19 @@ elif st.session_state.step == 5:
         for item in analysis_list
     }
 
-    # Ricostruisco df_common e df_gap
-    common = data.get("common_ground", [])
-    df_common = pd.DataFrame(common)
-    df_common.insert(0, "Seleziona", False)
-    gap = data.get("content_gap", [])
-    df_gap = pd.DataFrame(gap)
-    df_gap.insert(0, "Seleziona", False)
+    # Recupero le selezioni da Common Ground e Content Gap
+    edited_common = st.session_state.get("edited_common", pd.DataFrame())
+    edited_gap    = st.session_state.get("edited_gap", pd.DataFrame())
+    common_selected = (
+        edited_common[edited_common["Seleziona"]==True]
+        .to_dict(orient="records")
+        if not edited_common.empty else []
+    )
+    gap_selected = (
+        edited_gap[edited_gap["Seleziona"]==True]
+        .to_dict(orient="records")
+        if not edited_gap.empty else []
+    )
 
     # Raccogliere tutte le informazioni
     recap = {
@@ -403,9 +413,9 @@ elif st.session_state.step == 5:
         "Keywords Principali Selezionate": ", ".join(st.session_state.get("ms_Keyword_Principale", [])),
         "Keywords Secondarie Selezionate": ", ".join(st.session_state.get("ms_Keyword_Secondarie", [])),
         "Keywords Correlate Selezionate": ", ".join(st.session_state.get("ms_Keyword_Correlate_e_Varianti", [])),
-        "Domande Utenti Selezionate": ", ".join(st.session_state.get("ms_Domande_degli_Utenti_FAQ", [])),
-        "Righe Common Ground Selezionate": ", ".join(str(r) for r in df_common[df_common["Seleziona"]==True].to_dict(orient="records")),
-        "Righe Content Gap Selezionate": ", ".join(str(r) for r in df_gap[df_gap["Seleziona"]==True].to_dict(orient="records")),
+        "Domande Utenti Selezionate": ", ".join(st.session_state.get("ms_Domande_degli_Utenti", [])),
+        "Righe Common Ground Selezionate": ", ".join(str(r) for r in common_selected),
+        "Righe Content Gap Selezionate": ", ".join(str(r) for r in gap_selected),
         "Contesto": st.session_state.get("context_select",""),
         "Destinazione": st.session_state.get("dest_select",""),
         "Keyword Personalizzate": ", ".join(st.session_state.get("raw_custom_keywords", [])),
