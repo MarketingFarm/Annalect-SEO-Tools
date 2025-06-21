@@ -88,7 +88,7 @@ if "step" not in st.session_state:
     st.session_state.step = 1
 
 def go_next():
-    st.session_state.step = min(st.session_state.step + 1, 4)
+    st.session_state.step = min(st.session_state.step + 1, 5)
 
 def go_back():
     st.session_state.step = max(st.session_state.step - 1, 1)
@@ -236,7 +236,6 @@ if st.session_state.step == 1:
 
     st.button("Avanti", on_click=go_next, key="next_btn")
 
-
 # === STEP 2 ===
 elif st.session_state.step == 2:
     st.markdown(separator, unsafe_allow_html=True)
@@ -252,7 +251,7 @@ elif st.session_state.step == 2:
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>',
                 unsafe_allow_html=True
             )
-            st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(" ", "_")}")
+            st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(' ', '_')}")
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -260,7 +259,6 @@ elif st.session_state.step == 2:
             st.button("Avanti", on_click=go_next, key="next2_btn")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
-
 
 # === STEP 3: Common Ground & Content Gap ===
 elif st.session_state.step == 3:
@@ -297,7 +295,6 @@ elif st.session_state.step == 3:
         st.button("Indietro", on_click=go_back, key="back_btn_3")
     with c2:
         st.button("Avanti", on_click=go_next, key="next3_btn")
-
 
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
@@ -354,13 +351,32 @@ elif st.session_state.step == 4:
         key="tov_toggle"
     )
     if tov_toggle:
-        tov_input = st.text_area(
-            "Incolla esempi di ToV / Stile del Cliente",
-            height=120,
-            placeholder="Esempio testo 1...\nEsempio testo 2...",
-            key="raw_tov_input"
+        # numero di blocchi di contenuto
+        num_tov = st.selectbox(
+            "Quanti esempi di ToV vuoi inserire?",
+            list(range(1,7)),
+            index=0,
+            key="tov_count"
         )
-        st.session_state.raw_tov_text = tov_input
+        # generazione dinamica di text_area in due colonne
+        rows = (num_tov + 1) // 2
+        idx = 1
+        for _ in range(rows):
+            cols = st.columns(2, gap="small")
+            for col in cols:
+                if idx <= num_tov:
+                    col.text_area(
+                        f"Esempio ToV #{idx}",
+                        height=120,
+                        key=f"tov_example_{idx}"
+                    )
+                    idx += 1
+        # raccogliere i valori
+        tov_list = [
+            st.session_state.get(f"tov_example_{i}", "")
+            for i in range(1, num_tov+1)
+        ]
+        st.session_state.raw_tov_text = tov_list
 
     info_toggle = st.toggle(
         "Informazioni Aggiuntive",
@@ -376,7 +392,57 @@ elif st.session_state.step == 4:
         )
         st.session_state.raw_additional_info = info_input
 
-    # Pulsante "Indietro"
-    st.markdown("<div style='margin-top:1rem; text-align:right;'>", unsafe_allow_html=True)
-    st.button("Indietro", on_click=go_back, key="back_btn_4")
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Pulsanti di navigazione
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button("Indietro", on_click=go_back, key="back_btn_4")
+    with c2:
+        st.button("Avanti", on_click=go_next, key="next4_btn")
+
+# === STEP 5: Recap Finale ===
+elif st.session_state.step == 5:
+    st.markdown(separator, unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
+
+    # Raccogliere tutte le informazioni
+    recap = {
+        "Query": data.get("query",""),
+        "Country": data.get("country",""),
+        "Language": data.get("language",""),
+        "Segnali E-E-A-T": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Segnali E-E-A-T","")).strip(),
+        "Search Intent Primario": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Search Intent Primario","")).strip(),
+        "Search Intent Secondario": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Search Intent Secondario","")).strip(),
+        "Target Audience & Leggibilità": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Target Audience & Leggibilità","")).strip(),
+        "Tone of Voice (ToV)": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Tone of Voice (ToV)","")).strip(),
+        "People Also Ask": ", ".join(data.get("people_also_ask", [])),
+        "Ricerche Correlate": ", ".join(data.get("related_searches", [])),
+        "Organic Titles": "; ".join([it.get("Meta Title","") for it in data.get("organic",[])[:10]]),
+        "Organic Descriptions": "; ".join([it.get("Meta Description","") for it in data.get("organic",[])[:10]]),
+        "Keywords Principali Selezionate": ", ".join(st.session_state.get("ms_Keyword_Principale", [])),
+        "Keywords Secondarie Selezionate": ", ".join(st.session_state.get("ms_Keyword_Secondarie", [])),
+        "Keywords Correlate Selezionate": ", ".join(st.session_state.get("ms_Keyword_Correlate_e_Varianti", [])),
+        "Domande Utenti Selezionate": ", ".join(st.session_state.get("ms_Domande_degli_Utenti_FAQ", [])),
+        "Righe Common Ground Selezionate": ", ".join(
+            df_common[df_common["Seleziona"] == True]
+            .apply(lambda row: row.to_dict(), axis=1)
+            .astype(str)
+            .tolist()
+        ),
+        "Righe Content Gap Selezionate": ", ".join(
+            df_gap[df_gap["Seleziona"] == True]
+            .apply(lambda row: row.to_dict(), axis=1)
+            .astype(str)
+            .tolist()
+        ),
+        "Contesto": context,
+        "Destinazione": destino,
+        "Keyword Personalizzate": ", ".join(st.session_state.get("raw_custom_keywords", [])),
+        "ToV Personalizzato": "; ".join(st.session_state.get("raw_tov_text", [])),
+        "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
+    }
+
+    df_recap = pd.DataFrame([recap]).T.reset_index()
+    df_recap.columns = ["Voce", "Valore"]
+    st.table(df_recap)
+
+    st.button("Indietro", on_click=go_back, key="back_btn_5")
