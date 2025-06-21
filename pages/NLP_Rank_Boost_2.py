@@ -330,12 +330,7 @@ elif st.session_state.step == 4:
             key="dest_select"
         )
 
-    # Toggle e campi uno sotto l'altro
-    custom_toggle = st.toggle(
-        "Keyword Personalizzate",
-        value=False,
-        key="custom_kw_toggle"
-    )
+    custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
     if custom_toggle:
         raw_input = st.text_area(
             "Incolla le tue keyword (una per riga)",
@@ -345,54 +340,25 @@ elif st.session_state.step == 4:
         )
         st.session_state.raw_custom_keywords = raw_input.splitlines()
 
-    tov_toggle = st.toggle(
-        "ToV / Stile del Cliente",
-        value=False,
-        key="tov_toggle"
-    )
+    tov_toggle = st.toggle("ToV / Stile del Cliente", value=False, key="tov_toggle")
     if tov_toggle:
-        # numero di blocchi di contenuto
-        num_tov = st.selectbox(
-            "Quanti esempi di ToV vuoi inserire?",
-            list(range(1,7)),
-            index=0,
-            key="tov_count"
-        )
-        # generazione dinamica di text_area in due colonne
+        num_tov = st.selectbox("Quanti esempi di ToV vuoi inserire?", list(range(1,7)), index=0, key="tov_count")
         rows = (num_tov + 1) // 2
         idx = 1
         for _ in range(rows):
             cols = st.columns(2, gap="small")
             for col in cols:
                 if idx <= num_tov:
-                    col.text_area(
-                        f"Esempio ToV #{idx}",
-                        height=120,
-                        key=f"tov_example_{idx}"
-                    )
+                    col.text_area(f"Esempio ToV #{idx}", height=120, key=f"tov_example_{idx}")
                     idx += 1
-        # raccogliere i valori
-        tov_list = [
-            st.session_state.get(f"tov_example_{i}", "")
-            for i in range(1, num_tov+1)
-        ]
+        tov_list = [st.session_state.get(f"tov_example_{i}", "") for i in range(1, num_tov+1)]
         st.session_state.raw_tov_text = tov_list
 
-    info_toggle = st.toggle(
-        "Informazioni Aggiuntive",
-        value=False,
-        key="info_toggle"
-    )
+    info_toggle = st.toggle("Informazioni Aggiuntive", value=False, key="info_toggle")
     if info_toggle:
-        info_input = st.text_area(
-            "Inserisci ulteriori informazioni",
-            height=120,
-            placeholder="Dettagli aggiuntivi...",
-            key="raw_info_input"
-        )
+        info_input = st.text_area("Inserisci ulteriori informazioni", height=120, placeholder="Dettagli aggiuntivi...", key="raw_info_input")
         st.session_state.raw_additional_info = info_input
 
-    # Pulsanti di navigazione
     c1, c2 = st.columns(2)
     with c1:
         st.button("Indietro", on_click=go_back, key="back_btn_4")
@@ -404,7 +370,7 @@ elif st.session_state.step == 5:
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
 
-    # Ricostruisco analysis_map per poterlo usare qui
+    # Ricostruisco analysis_map
     analysis_list = data.get("analysis_strategica", [])
     analysis_map = {
         re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
@@ -412,7 +378,7 @@ elif st.session_state.step == 5:
         for item in analysis_list
     }
 
-    # Ricostruisco df_common e df_gap per accesso alle righe originali
+    # Ricostruisco df_common e df_gap
     common = data.get("common_ground", [])
     df_common = pd.DataFrame(common)
     df_common.insert(0, "Seleziona", False)
@@ -438,16 +404,8 @@ elif st.session_state.step == 5:
         "Keywords Secondarie Selezionate": ", ".join(st.session_state.get("ms_Keyword_Secondarie", [])),
         "Keywords Correlate Selezionate": ", ".join(st.session_state.get("ms_Keyword_Correlate_e_Varianti", [])),
         "Domande Utenti Selezionate": ", ".join(st.session_state.get("ms_Domande_degli_Utenti_FAQ", [])),
-        "Righe Common Ground Selezionate": ", ".join(
-            df_common[df_common["Seleziona"]==True]
-            .to_dict(orient="records")
-            .astype(str)
-        ),
-        "Righe Content Gap Selezionate": ", ".join(
-            df_gap[df_gap["Seleziona"]==True]
-            .to_dict(orient="records")
-            .astype(str)
-        ),
+        "Righe Common Ground Selezionate": ", ".join(str(r) for r in df_common[df_common["Seleziona"]==True].to_dict(orient="records")),
+        "Righe Content Gap Selezionate": ", ".join(str(r) for r in df_gap[df_gap["Seleziona"]==True].to_dict(orient="records")),
         "Contesto": st.session_state.get("context_select",""),
         "Destinazione": st.session_state.get("dest_select",""),
         "Keyword Personalizzate": ", ".join(st.session_state.get("raw_custom_keywords", [])),
