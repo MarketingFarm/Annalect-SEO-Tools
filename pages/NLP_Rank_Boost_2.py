@@ -244,15 +244,19 @@ elif st.session_state.step == 2:
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
         for entry in keyword_mining:
-            base_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
-            display_label = re.sub(r"\s*\([^)]*\)", "", base_label).strip()
-            slug = re.sub(r"[^0-9A-Za-z]+", "_", base_label).strip("_")
+            # Rimuovo asterischi ma mantengo parentesi nel raw_label
+            raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+            # Costruisco lo slug per la key
+            slug = re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
             widget_key = f"ms_{slug}"
+            # Lista di keywords / concetti / domande
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
+            # Mostro l'intestazione esattamente come appare nel JSON (senza asterischi)
             st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>',
+                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
                 unsafe_allow_html=True
             )
+            # Multiselect con key dinamica
             st.multiselect("", options=kws, default=kws, key=widget_key)
         c1, c2 = st.columns(2)
         with c1:
@@ -380,6 +384,7 @@ elif st.session_state.step == 5:
         for item in analysis_list
     }
 
+    # Recupero selezioni Common Ground e Content Gap
     edited_common = st.session_state.get("edited_common", pd.DataFrame())
     edited_gap    = st.session_state.get("edited_gap", pd.DataFrame())
     common_selected = (
@@ -413,14 +418,13 @@ elif st.session_state.step == 5:
         "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
     }
 
-    # Aggiungo dinamicamente le selezioni di keyword mining
+    # Aggiungo le selezioni di keyword mining con i nomi esatti dal JSON
     for entry in data.get("keyword_mining", []):
-        base_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
-        display_label = re.sub(r"\s*\([^)]*\)", "", base_label).strip()
-        slug = re.sub(r"[^0-9A-Za-z]+", "_", base_label).strip("_")
+        raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+        slug = re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
         widget_key = f"ms_{slug}"
         selected = st.session_state.get(widget_key, [])
-        recap[f"{display_label} Selezionate"] = ", ".join(selected)
+        recap[f"{raw_label} Selezionate"] = ", ".join(selected)
 
     df_recap = pd.DataFrame([recap]).T.reset_index()
     df_recap.columns = ["Voce", "Valore"]
