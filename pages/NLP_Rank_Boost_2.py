@@ -243,15 +243,28 @@ elif st.session_state.step == 2:
 
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
+        # Per sicurezza, manteniamo traccia delle label
+        st.session_state["keyword_labels"] = []
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip())
+            # pulisco parentesi, asterischi ecc.
+            label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip()).strip()
+            st.session_state["keyword_labels"].append(label)
             kws     = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>',
                 unsafe_allow_html=True
             )
-            st.multiselect(label="", options=kws, default=kws, key=f"ms_{label.replace(' ', '_')}")
+            # multiselect con key dinamica
+            selected = st.multiselect(
+                label="",
+                options=kws,
+                default=kws,
+                key=f"ms_{label.replace(' ', '_')}"
+            )
+            # (opzionale) salvo anche in un dict in session_state
+            # st.session_state.setdefault("selected_keywords", {})[label] = selected
+
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -278,7 +291,6 @@ elif st.session_state.step == 3:
         hide_index=True,
         key="editor_common"
     )
-    # salvo la versione modificata in session_state
     st.session_state.edited_common = edited_common
 
     df_gap = pd.DataFrame(gap)
@@ -291,7 +303,6 @@ elif st.session_state.step == 3:
         hide_index=True,
         key="editor_gap"
     )
-    # salvo la versione modificata in session_state
     st.session_state.edited_gap = edited_gap
 
     c1, c2 = st.columns(2)
@@ -396,7 +407,7 @@ elif st.session_state.step == 5:
         if not edited_gap.empty else []
     )
 
-    # Raccogliere tutte le informazioni
+    # Raccogliere tutte le informazioni statiche
     recap = {
         "Query": data.get("query",""),
         "Country": data.get("country",""),
@@ -410,10 +421,6 @@ elif st.session_state.step == 5:
         "Ricerche Correlate": ", ".join(data.get("related_searches", [])),
         "Organic Titles": "; ".join([it.get("Meta Title","") for it in data.get("organic",[])[:10]]),
         "Organic Descriptions": "; ".join([it.get("Meta Description","") for it in data.get("organic",[])[:10]]),
-        "Keywords Principali Selezionate": ", ".join(st.session_state.get("ms_Keyword_Principale", [])),
-        "Keywords Secondarie Selezionate": ", ".join(st.session_state.get("ms_Keyword_Secondarie", [])),
-        "Keywords Correlate Selezionate": ", ".join(st.session_state.get("ms_Keyword_Correlate_e_Varianti", [])),
-        "Domande Utenti Selezionate": ", ".join(st.session_state.get("ms_Domande_degli_Utenti", [])),
         "Righe Common Ground Selezionate": ", ".join(str(r) for r in common_selected),
         "Righe Content Gap Selezionate": ", ".join(str(r) for r in gap_selected),
         "Contesto": st.session_state.get("context_select",""),
@@ -423,6 +430,15 @@ elif st.session_state.step == 5:
         "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
     }
 
+    # Aggiungo dinamicamente le selezioni di keyword mining
+    for entry in data.get("keyword_mining", []):
+        raw_cat = entry.get("Categoria Keyword", "")
+        label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip()).strip()
+        key     = f"ms_{label.replace(' ', '_')}"
+        selected = st.session_state.get(key, [])
+        recap[f"{label} Selezionate"] = ", ".join(selected)
+
+    # Creo e mostro la tabella di recap
     df_recap = pd.DataFrame([recap]).T.reset_index()
     df_recap.columns = ["Voce", "Valore"]
     st.table(df_recap)
