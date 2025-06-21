@@ -177,7 +177,6 @@ if st.session_state.step == 1:
 """, unsafe_allow_html=True)
     st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
 
-    # SERP + PAA + Correlate
     st.markdown("""
 <div style="
   border-top:1px solid #ECEDEE;
@@ -269,7 +268,7 @@ elif st.session_state.step == 2:
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
                 unsafe_allow_html=True
             )
-            st.multiselect("", options=kws, default=kws, key=widget_key)
+            st.multiselect(label="", options=kws, default=kws, key=widget_key)
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -329,22 +328,24 @@ elif st.session_state.step == 4:
     with col2:
         dest_options = {
             "-- Seleziona --": ["-- Seleziona --"],
-            "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)", "Guida all'Acquisto",
-                           "Articolo del Blog"],
+            "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)", "Guida all'Acquisto", "Articolo del Blog"],
             "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
-        destino = st.selectbox("Destinazione Contenuto", dest_options.get(context, ["-- Seleziona --"]),
+        destino = st.selectbox("Destinazione Contenuto",
+                               dest_options.get(context, ["-- Seleziona --"]),
                                key="dest_select")
 
     custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
     if custom_toggle:
-        raw_input = st.text_area("Incolla le tue keyword (una per riga)", height=120,
-                                 placeholder="keyword1\nkeyword2\nkeyword3", key="raw_custom_kw")
+        raw_input = st.text_area("Incolla le tue keyword (una per riga)",
+                                 height=120,
+                                 placeholder="keyword1\nkeyword2\nkeyword3",
+                                 key="raw_custom_kw")
         st.session_state.raw_custom_keywords = raw_input.splitlines()
 
     tov_toggle = st.toggle("ToV / Stile del Cliente", value=False, key="tov_toggle")
     if tov_toggle:
-        num_tov = st.selectbox("Quanti esempi di ToV vuoi inserire?", list(range(1, 7)), index=0, key="tov_count")
+        num_tov = st.selectbox("Quanti esempi di ToV vuoi inserire?", list(range(1,7)), index=0, key="tov_count")
         rows = (num_tov + 1) // 2
         idx = 1
         for _ in range(rows):
@@ -353,13 +354,15 @@ elif st.session_state.step == 4:
                 if idx <= num_tov:
                     col.text_area(f"Esempio ToV #{idx}", height=120, key=f"tov_example_{idx}")
                     idx += 1
-        tov_list = [st.session_state.get(f"tov_example_{i}", "") for i in range(1, num_tov + 1)]
+        tov_list = [st.session_state.get(f"tov_example_{i}", "") for i in range(1, num_tov+1)]
         st.session_state.raw_tov_text = tov_list
 
     info_toggle = st.toggle("Informazioni Aggiuntive", value=False, key="info_toggle")
     if info_toggle:
-        info_input = st.text_area("Inserisci ulteriori informazioni", height=120,
-                                  placeholder="Dettagli aggiuntivi...", key="raw_info_input")
+        info_input = st.text_area("Inserisci ulteriori informazioni",
+                                  height=120,
+                                  placeholder="Dettagli aggiuntivi...",
+                                  key="raw_info_input")
         st.session_state.raw_additional_info = info_input
 
     c1, c2 = st.columns(2)
