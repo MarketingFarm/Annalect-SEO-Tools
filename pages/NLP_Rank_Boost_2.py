@@ -244,16 +244,16 @@ elif st.session_state.step == 2:
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
         for entry in keyword_mining:
-            raw_cat = entry.get("Categoria Keyword", "")
-            raw_label = raw_cat.strip("* ").strip()
-            display_label = re.sub(r"\s*\([^)]*\)", "", raw_label).strip()
-            widget_key = "ms_" + re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
+            base_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+            display_label = re.sub(r"\s*\([^)]*\)", "", base_label).strip()
+            slug = re.sub(r"[^0-9A-Za-z]+", "_", base_label).strip("_")
+            widget_key = f"ms_{slug}"
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>',
                 unsafe_allow_html=True
             )
-            st.multiselect(label="", options=kws, default=kws, key=widget_key)
+            st.multiselect("", options=kws, default=kws, key=widget_key)
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -415,10 +415,10 @@ elif st.session_state.step == 5:
 
     # Aggiungo dinamicamente le selezioni di keyword mining
     for entry in data.get("keyword_mining", []):
-        raw_cat = entry.get("Categoria Keyword", "")
-        raw_label = raw_cat.strip("* ").strip()
-        display_label = re.sub(r"\s*\([^)]*\)", "", raw_label).strip()
-        widget_key = "ms_" + re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
+        base_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+        display_label = re.sub(r"\s*\([^)]*\)", "", base_label).strip()
+        slug = re.sub(r"[^0-9A-Za-z]+", "_", base_label).strip("_")
+        widget_key = f"ms_{slug}"
         selected = st.session_state.get(widget_key, [])
         recap[f"{display_label} Selezionate"] = ", ".join(selected)
 
