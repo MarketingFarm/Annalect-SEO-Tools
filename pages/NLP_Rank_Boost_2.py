@@ -404,6 +404,22 @@ elif st.session_state.step == 5:
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
 
+    # Ricostruisco analysis_map per poterlo usare qui
+    analysis_list = data.get("analysis_strategica", [])
+    analysis_map = {
+        re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
+        re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
+        for item in analysis_list
+    }
+
+    # Ricostruisco df_common e df_gap per accesso alle righe originali
+    common = data.get("common_ground", [])
+    df_common = pd.DataFrame(common)
+    df_common.insert(0, "Seleziona", False)
+    gap = data.get("content_gap", [])
+    df_gap = pd.DataFrame(gap)
+    df_gap.insert(0, "Seleziona", False)
+
     # Raccogliere tutte le informazioni
     recap = {
         "Query": data.get("query",""),
@@ -423,19 +439,17 @@ elif st.session_state.step == 5:
         "Keywords Correlate Selezionate": ", ".join(st.session_state.get("ms_Keyword_Correlate_e_Varianti", [])),
         "Domande Utenti Selezionate": ", ".join(st.session_state.get("ms_Domande_degli_Utenti_FAQ", [])),
         "Righe Common Ground Selezionate": ", ".join(
-            df_common[df_common["Seleziona"] == True]
-            .apply(lambda row: row.to_dict(), axis=1)
+            df_common[df_common["Seleziona"]==True]
+            .to_dict(orient="records")
             .astype(str)
-            .tolist()
         ),
         "Righe Content Gap Selezionate": ", ".join(
-            df_gap[df_gap["Seleziona"] == True]
-            .apply(lambda row: row.to_dict(), axis=1)
+            df_gap[df_gap["Seleziona"]==True]
+            .to_dict(orient="records")
             .astype(str)
-            .tolist()
         ),
-        "Contesto": context,
-        "Destinazione": destino,
+        "Contesto": st.session_state.get("context_select",""),
+        "Destinazione": st.session_state.get("dest_select",""),
         "Keyword Personalizzate": ", ".join(st.session_state.get("raw_custom_keywords", [])),
         "ToV Personalizzato": "; ".join(st.session_state.get("raw_tov_text", [])),
         "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
