@@ -243,28 +243,17 @@ elif st.session_state.step == 2:
 
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
-        # Per sicurezza, manteniamo traccia delle label
-        st.session_state["keyword_labels"] = []
         for entry in keyword_mining:
             raw_cat = entry.get("Categoria Keyword", "")
-            # pulisco parentesi, asterischi ecc.
-            label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip()).strip()
-            st.session_state["keyword_labels"].append(label)
-            kws     = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
+            raw_label = raw_cat.strip("* ").strip()
+            display_label = re.sub(r"\s*\([^)]*\)", "", raw_label).strip()
+            widget_key = "ms_" + re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
+            kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{label}</p>',
+                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>',
                 unsafe_allow_html=True
             )
-            # multiselect con key dinamica
-            selected = st.multiselect(
-                label="",
-                options=kws,
-                default=kws,
-                key=f"ms_{label.replace(' ', '_')}"
-            )
-            # (opzionale) salvo anche in un dict in session_state
-            # st.session_state.setdefault("selected_keywords", {})[label] = selected
-
+            st.multiselect(label="", options=kws, default=kws, key=widget_key)
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -319,7 +308,6 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
 
-    # CONTEXT E DESTINATION
     col1, col2 = st.columns(2, gap="small")
     with col1:
         context = st.selectbox(
@@ -385,7 +373,6 @@ elif st.session_state.step == 5:
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
 
-    # Ricostruisco analysis_map
     analysis_list = data.get("analysis_strategica", [])
     analysis_map = {
         re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
@@ -393,21 +380,17 @@ elif st.session_state.step == 5:
         for item in analysis_list
     }
 
-    # Recupero le selezioni da Common Ground e Content Gap
     edited_common = st.session_state.get("edited_common", pd.DataFrame())
     edited_gap    = st.session_state.get("edited_gap", pd.DataFrame())
     common_selected = (
-        edited_common[edited_common["Seleziona"]==True]
-        .to_dict(orient="records")
+        edited_common[edited_common["Seleziona"]==True].to_dict(orient="records")
         if not edited_common.empty else []
     )
     gap_selected = (
-        edited_gap[edited_gap["Seleziona"]==True]
-        .to_dict(orient="records")
+        edited_gap[edited_gap["Seleziona"]==True].to_dict(orient="records")
         if not edited_gap.empty else []
     )
 
-    # Raccogliere tutte le informazioni statiche
     recap = {
         "Query": data.get("query",""),
         "Country": data.get("country",""),
@@ -433,12 +416,12 @@ elif st.session_state.step == 5:
     # Aggiungo dinamicamente le selezioni di keyword mining
     for entry in data.get("keyword_mining", []):
         raw_cat = entry.get("Categoria Keyword", "")
-        label   = re.sub(r"\(.*", "", raw_cat.strip("* ").strip()).strip()
-        key     = f"ms_{label.replace(' ', '_')}"
-        selected = st.session_state.get(key, [])
-        recap[f"{label} Selezionate"] = ", ".join(selected)
+        raw_label = raw_cat.strip("* ").strip()
+        display_label = re.sub(r"\s*\([^)]*\)", "", raw_label).strip()
+        widget_key = "ms_" + re.sub(r"[^0-9A-Za-z]+", "_", raw_label).strip("_")
+        selected = st.session_state.get(widget_key, [])
+        recap[f"{display_label} Selezionate"] = ", ".join(selected)
 
-    # Creo e mostro la tabella di recap
     df_recap = pd.DataFrame([recap]).T.reset_index()
     df_recap.columns = ["Voce", "Valore"]
     st.table(df_recap)
