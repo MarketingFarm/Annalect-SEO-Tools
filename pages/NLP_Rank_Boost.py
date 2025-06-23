@@ -12,18 +12,19 @@ from streamlit_quill import st_quill
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
 
-# Configura il client Gemini (fallisce subito se la chiave non è presente)
-try:
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-except KeyError:
-    st.error("GEMINI_API_KEY non trovata. Imposta la variabile d'ambiente.")
-    st.stop()
-
 # Configura le credenziali DataForSEO
 try:
     DFS_AUTH = (st.secrets["dataforseo"]["username"], st.secrets["dataforseo"]["password"])
 except (KeyError, FileNotFoundError):
     st.error("Credenziali DataForSEO non trovate negli secrets di Streamlit.")
+    st.stop()
+
+# Configura il client Gemini (con il metodo compatibile)
+try:
+    GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+except KeyError:
+    st.error("GEMINI_API_KEY non trovata. Imposta la variabile d'ambiente.")
     st.stop()
 
 # Sessione HTTP globale per riutilizzo connessioni
@@ -43,6 +44,7 @@ def get_api_data(url: str, result_key: str, name_key: str) -> list[str]:
         response = session.get(url)
         response.raise_for_status()
         results = response.json()["tasks"][0]["result"]
+        # Aggiunto un filtro per escludere 'Country' se non è un paese (es. per le lingue)
         return sorted(item[name_key] for item in results if item.get("location_type") != "Continent")
     except (requests.RequestException, KeyError, IndexError) as e:
         st.error(f"Impossibile recuperare i dati da {url}. Errore: {e}")
@@ -56,11 +58,7 @@ def clean_url(url: str) -> str:
 @st.cache_data(ttl=600)
 def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
     """Esegue la chiamata API a DataForSEO per ottenere i dati della SERP."""
-    payload = [{
-        "keyword": query,
-        "location_name": country,
-        "language_name": language,
-    }]
+    payload = [{"keyword": query, "location_name": country, "language_name": language}]
     try:
         response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=payload)
         response.raise_for_status()
@@ -75,10 +73,13 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         return None
 
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
-    """Esegue una singola chiamata al modello Gemini e restituisce il testo."""
-    model = genai.GenerativeModel(model_name)
+    """Esegue una singola chiamata al modello Gemini usando il client."""
     try:
-        response = model.generate_content(prompt)
+        # Usa la sintassi con il client, compatibile con il tuo ambiente
+        response = gemini_client.models.generate_content(
+            model=model_name,
+            contents=[prompt]
+        )
         return response.text
     except Exception as e:
         st.error(f"Errore durante la chiamata a Gemini: {e}")
@@ -90,18 +91,14 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     dataframes = []
     for table_md in tables_md:
         lines = [l.strip() for l in table_md.strip().splitlines()]
-        if len(lines) < 2:
-            continue
+        if len(lines) < 2: continue
         
         header = [h.strip() for h in lines[0].split('|')[1:-1]]
-        # Rimuovi la linea di separazione '---'
         rows_data = [
             [cell.strip() for cell in row.split('|')[1:-1]]
             for row in lines[2:]
+            if len(row.split('|')) == len(header) + 2 # Assicura che la riga abbia il numero corretto di colonne
         ]
-        
-        # Filtra righe che non hanno il numero corretto di colonne
-        rows_data = [row for row in rows_data if len(row) == len(header)]
         
         if rows_data:
             dataframes.append(pd.DataFrame(rows_data, columns=header))
@@ -110,9 +107,9 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 
 # --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ---
+# (Queste funzioni rimangono invariate)
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
-    """Costruisce il prompt per l'analisi strategica."""
     return f"""
 **PERSONA:** Agisci come un Lead SEO Strategist con 15 anni di esperienza.
 **CONTESTO:** Ho estratto i testi dei top-ranking per la query '{keyword}'. Identifica le loro caratteristiche comuni e le lacune per surclassarli.
@@ -128,7 +125,6 @@ def get_strategica_prompt(keyword: str, texts: str) -> str:
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
-    """Costruisce il prompt per l'analisi competitiva (entità)."""
     return f"""
 **RUOLO**: Agisci come un analista SEO d'élite specializzato in analisi semantica competitiva.
 **CONTESTO**: L'obiettivo è superare i competitor per la keyword '{keyword}' identificando le entità semantiche rilevanti e quelle mancanti.
@@ -148,7 +144,6 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
 """
 
 def get_mining_prompt(**kwargs) -> str:
-    """Costruisce il prompt per il keyword mining."""
     return f"""
 **PERSONA:** Agisci come un Semantic SEO Data-Miner il cui scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP.
 **DATI DI INPUT:**
@@ -190,7 +185,6 @@ with st.container():
 
 with st.expander("Testi dei Competitor", expanded=not st.session_state.analysis_started):
     if not st.session_state.analysis_started:
-        # Crea dinamicamente gli editor di testo per i competitor
         for i in range(1, num_comp + 1):
             st_quill(key=f"comp_quill_{i}", html=False, placeholder=f"Incolla qui il testo del Competitor #{i}")
 
@@ -205,33 +199,17 @@ st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
 # --- ESECUZIONE ANALISI ---
 if st.session_state.analysis_started:
     
-    # 1. Fetch e analisi SERP
     with st.spinner("Recupero e analisi dati SERP..."):
-        serp_result = fetch_serp(query, country, language)
+        serp_result = fetch_serp_data(query, country, language)
         if not serp_result:
             st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
             st.stop()
-
         items = serp_result.get('items', [])
-        
-        # Estrazione Dati Strutturati
         organic_results = [item for item in items if item.get("type") == "organic"][:10]
         paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
         related_list = list(dict.fromkeys(s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", []) if s.get("query")))
+        df_org = pd.DataFrame([{"URL": clean_url(r.get("url", "")), "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")), "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))} for r in organic_results])
 
-        # Preparazione DataFrame Organici
-        df_org = pd.DataFrame([
-            {
-                "URL": clean_url(r.get("url", "")),
-                "Meta Title": r.get("title", ""),
-                "Lunghezza Title": len(r.get("title", "")),
-                "Meta Description": r.get("description", ""),
-                "Lunghezza Description": len(r.get("description", "")),
-            }
-            for r in organic_results
-        ])
-
-    # Visualizzazione Dati SERP
     st.subheader("Risultati Organici (Top 10)")
     st.dataframe(df_org, use_container_width=True, hide_index=True)
     
@@ -241,7 +219,6 @@ if st.session_state.analysis_started:
     col_rel.subheader("Ricerche Correlate")
     col_rel.dataframe(pd.DataFrame(related_list, columns=["Query Correlata"]), use_container_width=True, hide_index=True)
 
-    # 2. Analisi NLU in parallelo
     competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, num_comp + 1)]
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
 
@@ -249,11 +226,9 @@ if st.session_state.analysis_started:
         with ThreadPoolExecutor() as executor:
             future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
             future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
-            
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
 
-    # Parsing e visualizzazione risultati NLU
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     st.subheader("Analisi Strategica (Intento, Audience, ToV)")
     st.dataframe(dfs_strat[0] if dfs_strat else pd.DataFrame(), use_container_width=True, hide_index=True)
@@ -267,23 +242,21 @@ if st.session_state.analysis_started:
     st.subheader("Entità Mancanti (Content Gap)")
     st.dataframe(df_gap, use_container_width=True, hide_index=True)
 
-    # 3. Keyword Mining
     with st.spinner("Esecuzione NLU per Keyword Mining..."):
         prompt_mining_args = {
             "keyword": query, "country": country, "language": language, "texts": joined_texts,
             "entities_table": df_entities.to_markdown(index=False),
             "gap_table": df_gap.to_markdown(index=False),
-            "related_table": pd.DataFrame(related_list).to_markdown(index=False),
-            "paa_table": pd.DataFrame(paa_list).to_markdown(index=False)
+            "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
+            "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
         }
         nlu_mining_text = run_nlu(get_mining_prompt(**prompt_mining_args))
     
     dfs_mining = parse_markdown_tables(nlu_mining_text)
-    st.subheader("Semantic Keyword Mining")
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
+    st.subheader("Semantic Keyword Mining")
     st.dataframe(df_mining, use_container_width=True, hide_index=True)
 
-    # 4. Preparazione e download JSON
     export_data = {
         "query": query, "country": country, "language": language,
         "num_competitor": num_comp, "competitor_texts": competitor_texts_list,
@@ -297,7 +270,6 @@ if st.session_state.analysis_started:
     
     def reset_analysis():
         st.session_state.analysis_started = False
-        # Potresti voler pulire anche altri campi qui
         
     col_btn1, col_btn2 = st.columns(2)
     col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
