@@ -146,13 +146,6 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
-
-**Parte 3: Descrizione Buyer Personas**
-Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
-Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
-Esempio:
-* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
-* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
@@ -334,18 +327,12 @@ if st.session_state.analysis_started:
     st.subheader("Analisi Strategica")
     
     audience_detail_text = ""
-    personas_text = ""
-    table_text = nlu_strat_text
+table_text = nlu_strat_text
 
-    if "### Descrizione Buyer Personas ###" in nlu_strat_text:
-        parts = nlu_strat_text.split("### Descrizione Buyer Personas ###")
-        personas_text = parts[1].strip() if len(parts) > 1 else ""
-        table_text = parts[0]
-
-    if "### Analisi Approfondita Audience ###" in table_text:
-        parts = table_text.split("### Analisi Approfondita Audience ###")
-        table_text = parts[0]
-        audience_detail_text = parts[1].strip().removeprefix('---').strip()
+if "### Analisi Approfondita Audience ###" in nlu_strat_text:
+    parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
+    table_text = parts[0]
+    audience_detail_text = parts[1].strip().removeprefix('---').strip()
 
     dfs_strat = parse_markdown_tables(table_text)
     
@@ -372,11 +359,6 @@ if st.session_state.analysis_started:
                 st.divider()
                 st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
                 st.write(audience_detail_text)
-
-            if personas_text:
-                st.divider()
-                st.markdown("<h5>Potenziali Buyer Personas</h5>", unsafe_allow_html=True)
-                st.markdown(personas_text)
 
         else:
             st.warning("La tabella di analisi strategica non ha il formato atteso.")
