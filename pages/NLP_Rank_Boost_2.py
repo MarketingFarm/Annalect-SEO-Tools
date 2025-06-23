@@ -50,6 +50,7 @@ if "data" not in st.session_state:
     st.session_state.data = None
 if "step" not in st.session_state:
     st.session_state.step = 1
+# Mappa per le keyword: la chiave è l'indice, il valore è l'etichetta
 if "keyword_widgets_map" not in st.session_state:
     st.session_state.keyword_widgets_map = {}
 
@@ -63,7 +64,7 @@ if st.session_state.data is None:
             # Pulisce tutto lo stato vecchio per evitare conflitti
             keys_to_clear = list(st.session_state.keys())
             for key in keys_to_clear:
-                if key != 'data' and key != 'step':
+                if key not in ['data', 'step']:
                     del st.session_state[key]
             st.rerun()
         except json.JSONDecodeError as e:
@@ -85,7 +86,7 @@ def go_back():
 st.markdown(f"## Step {st.session_state.step}")
 st.markdown(separator, unsafe_allow_html=True)
 
-# ==================== STEP 1 ====================
+# ==================== STEP 1: Dettagli Query ====================
 if st.session_state.step == 1:
     query = data.get("query", "")
     st.markdown(f"### Dati relativi alla query: *{query}*")
@@ -119,64 +120,33 @@ if st.session_state.step == 1:
         for q in data.get("people_also_ask", []): st.markdown(f"- {q}")
         st.markdown('<h5 style="margin-top:1.5rem;">Ricerche Correlate</h5>', unsafe_allow_html=True)
         for r in data.get("related_searches", []): st.markdown(f"- {r}")
-    st.button("Avanti", on_click=go_next, key="next_btn", type="primary")
+    st.button("Avanti", on_click=go_next, key="next_btn_1", type="primary")
 
-# ==================== STEP 2 ====================
+# ==================== STEP 2: Analisi Semantica (Ex-Step 3) ====================
 elif st.session_state.step == 2:
-    st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
-    keyword_mining = data.get("keyword_mining", [])
-    if keyword_mining:
-        st.session_state.keyword_widgets_map = {}
-        for i, entry in enumerate(keyword_mining):
-            display_label = clean_label(entry.get("Categoria Keyword", ""))
-            kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
-            widget_key = f"ms_keyword_{i}"
-            st.session_state.keyword_widgets_map[widget_key] = display_label
-            st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>', unsafe_allow_html=True)
-            st.multiselect(label="", options=kws, default=kws, key=widget_key)
-        c1, c2, _ = st.columns([1,1,6])
-        c1.button("Indietro", on_click=go_back, key="back_btn")
-        c2.button("Avanti", on_click=go_next, key="next2_btn", type="primary")
-    else:
-        st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
-        st.button("Indietro", on_click=go_back, key="back_btn_empty")
-
-# ==================== STEP 3 ====================
-elif st.session_state.step == 3:
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>', unsafe_allow_html=True)
-
-    # Prepara i dati iniziali per i data_editor
     df_common_initial = pd.DataFrame(data.get("common_ground", []))
     if not df_common_initial.empty:
         df_common_initial.insert(0, "Seleziona", False)
-
     df_gap_initial = pd.DataFrame(data.get("content_gap", []))
     if not df_gap_initial.empty:
         df_gap_initial.insert(0, "Seleziona", False)
-
     st.subheader("Common Ground Analysis")
     st.data_editor(df_common_initial, use_container_width=True, hide_index=True, key="editor_common", height=300)
-
     st.subheader("Content Gap Opportunity")
     st.data_editor(df_gap_initial, use_container_width=True, hide_index=True, key="editor_gap", height=300)
-    
     c1, c2, _ = st.columns([1,1,6])
-    c1.button("Indietro", on_click=go_back, key="back_btn_3")
-    c2.button("Avanti", on_click=go_next, key="next3_btn", type="primary")
+    c1.button("Indietro", on_click=go_back, key="back_btn_2")
+    c2.button("Avanti", on_click=go_next, key="next_btn_2", type="primary")
 
-# ==================== STEP 4 ====================
-elif st.session_state.step == 4:
+# ==================== STEP 3: Contestualizzazione (Ex-Step 4) ====================
+elif st.session_state.step == 3:
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizzazione Contenuto</h3>', unsafe_allow_html=True)
     col1, col2 = st.columns(2, gap="small")
     dest_options = {"-- Seleziona --": ["-- Seleziona --"], "E-commerce": ["-- Seleziona --", "PLP", "PDP", "Guida Acquisto", "Articolo Blog"], "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo Blog"]}
-    
-    # Inizializza le chiavi se non esistono
-    if 'context_select' not in st.session_state:
-        st.session_state.context_select = "-- Seleziona --"
-
+    if 'context_select' not in st.session_state: st.session_state.context_select = "-- Seleziona --"
     col1.selectbox("Contesto", dest_options.keys(), key="context_select")
     col2.selectbox("Destinazione Contenuto", dest_options.get(st.session_state.context_select, ["-- Seleziona --"]), key="dest_select")
-    
     st.markdown("---")
     if st.toggle("Aggiungi Keyword Personalizzate", key="custom_kw_toggle"):
         st.text_area("Incolla le tue keyword (una per riga)", height=120, placeholder="keyword1\nkeyword2\nkeyword3", key="raw_custom_keywords")
@@ -186,15 +156,33 @@ elif st.session_state.step == 4:
     st.markdown("---")
     if st.toggle("Aggiungi Informazioni Aggiuntive", key="info_toggle"):
         st.text_area("Inserisci ulteriori informazioni (es. dettagli sul brand, obiettivi specifici, ecc.)", height=150, key="raw_additional_info")
-        
     c1, c2, _ = st.columns([1,1,6])
-    c1.button("Indietro", on_click=go_back, key="back_btn_4")
-    c2.button("Avanti", on_click=go_next, key="next4_btn", type="primary")
+    c1.button("Indietro", on_click=go_back, key="back_btn_3")
+    c2.button("Avanti", on_click=go_next, key="next_btn_3", type="primary")
 
-# ==================== STEP 5 ====================
+# ==================== STEP 4: Selezione Keywords (Ex-Step 2) ====================
+elif st.session_state.step == 4:
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
+    keyword_mining = data.get("keyword_mining", [])
+    if keyword_mining:
+        st.session_state.keyword_widgets_map.clear()
+        for i, entry in enumerate(keyword_mining):
+            display_label = clean_label(entry.get("Categoria Keyword", ""))
+            kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
+            widget_key = f"ms_keyword_{i}"
+            st.session_state.keyword_widgets_map[widget_key] = display_label
+            st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>', unsafe_allow_html=True)
+            st.multiselect(label="", options=kws, default=kws, key=widget_key)
+        c1, c2, _ = st.columns([1,1,6])
+        c1.button("Indietro", on_click=go_back, key="back_btn_4")
+        c2.button("Avanti", on_click=go_next, key="next_btn_4", type="primary")
+    else:
+        st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
+        st.button("Indietro", on_click=go_back, key="back_btn_empty")
+
+# ==================== STEP 5: Riepilogo Finale ====================
 elif st.session_state.step == 5:
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
-    
     recap_data = {"Query": data.get("query", "")}
     
     # Keyword Mining
