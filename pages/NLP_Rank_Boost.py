@@ -114,6 +114,7 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
+    # MODIFICA 1: Rimosse le istruzioni per le Buyer Personas
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -146,17 +147,11 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
-
-**Parte 3: Descrizione Buyer Personas**
-Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
-Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
-Esempio:
-* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
-* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi competitiva (entità)."""
+    # MODIFICA 2: Rimosse le istruzioni per le Entità Mancanti
     return f"""
 **RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
 
@@ -175,24 +170,20 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
 **COMPITO**: Esegui un'analisi semantica dettagliata dei testi contenuti tra i delimitatori `### INIZIO TESTI DA ANALIZZARE ###` e `### FINE TESTI DA ANALIZZARE ###`, seguendo scrupolosamente questi passaggi:
 
 1.  **Named Entity Recognition (NER):** Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
-2.  **Identificazione Entità Mancanti (Content Gap):** Sulla base delle entità rilevate e della tua conoscenza del settore, identifica entità strategiche che sono assenti nei testi dei competitor ma che sarebbero rilevanti per la keyword target.
-3.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
-4.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media, Medio/Bassa, Bassa.
-5.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
-6.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (,).
-7.  **Formattazione Output:** Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente con la prima tabella.
+2.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+3.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media.
+4.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica inferiore a "Media".
+5.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (,).
+6.  **Formattazione Output:** Genera ESCLUSIVAMENTE la tabella Markdown richiesta, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti.
 
-### TABELLA 1: Entità
-| Categoria | Entità | Rilevanza Strategica |
-| :--- | :--- | :--- |
-
-### TABELLA 2: Entità Mancanti (Content Gap)
+### TABELLA DELLE ENTITÀ
 | Categoria | Entità | Rilevanza Strategica |
 | :--- | :--- | :--- |
 """
 
 def get_mining_prompt(**kwargs) -> str:
     """Costruisce il prompt per il keyword mining."""
+    # MODIFICA 2: Rimosso il riferimento alla tabella del content gap
     return f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
@@ -213,11 +204,9 @@ def get_mining_prompt(**kwargs) -> str:
 **3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
 * **Tabella 1: Entità Principali Estratte dai Competitor:**
     {kwargs.get('entities_table', '')}
-* **Tabella 2: Entità Mancanti / Content Gap:**
-    {kwargs.get('gap_table', '')}
-* **Tabella 3: Ricerche Correlate dalla SERP:**
+* **Tabella 2: Ricerche Correlate dalla SERP:**
     {kwargs.get('related_table', '')}
-* **Tabella 4: People Also Ask (PAA) dalla SERP:**
+* **Tabella 3: People Also Ask (PAA) dalla SERP:**
     {kwargs.get('paa_table', '')}
 
 ---
@@ -298,27 +287,10 @@ if st.session_state.analysis_started:
             
         items = serp_result.get('items', [])
         organic_results = [item for item in items if item.get("type") == "organic"][:10]
-        paa_list = list(dict.fromkeys(
-            q.get("title", "") 
-            for item in items if item.get("type") == "people_also_ask" 
-            for q in item.get("items", []) if q.get("title")
-        ))
-        
-        related_raw = []
-        for item in items:
-            if item.get("type") in ("related_searches", "related_search"):
-                for s in item.get("items", []):
-                    term = s if isinstance(s, str) else s.get("query", "")
-                    if term:
-                        related_raw.append(term)
-        related_list = list(dict.fromkeys(related_raw))
-
-        df_org_export = pd.DataFrame([
-            {"URL": clean_url(r.get("url", "")), 
-             "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")),
-             "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))}
-            for r in organic_results
-        ])
+        paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
+        related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
+        related_list = list(dict.fromkeys(filter(None, related_raw)))
+        df_org_export = pd.DataFrame([{"URL": clean_url(r.get("url", "")), "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")), "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))} for r in organic_results])
 
     competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
@@ -333,16 +305,9 @@ if st.session_state.analysis_started:
     st.subheader("Analisi Strategica")
     
     audience_detail_text = ""
-    personas_text = ""
     table_text = nlu_strat_text
-
-    if "### Descrizione Buyer Personas ###" in nlu_strat_text:
-        parts = nlu_strat_text.split("### Descrizione Buyer Personas ###")
-        personas_text = parts[1].strip() if len(parts) > 1 else ""
-        table_text = parts[0]
-
-    if "### Analisi Approfondita Audience ###" in table_text:
-        parts = table_text.split("### Analisi Approfondita Audience ###")
+    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
         table_text = parts[0]
         audience_detail_text = parts[1].strip().removeprefix('---').strip()
 
@@ -353,27 +318,15 @@ if st.session_state.analysis_started:
         if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
             df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
             analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
-            
             labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
-            
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
                 value = analysis_map.get(label, "N/D").replace('`', '')
-                col.markdown(f"""
-                <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
-                  <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
-                  <div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div>
-                </div>""", unsafe_allow_html=True)
-            
+                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
             if audience_detail_text:
                 st.divider()
                 st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
                 st.write(audience_detail_text)
-
-            if personas_text:
-                st.divider()
-                st.markdown("<h5>Potenziali Buyer Personas</h5>", unsafe_allow_html=True)
-                st.markdown(personas_text)
         else:
             st.dataframe(df_strat)
     else:
@@ -425,24 +378,28 @@ if st.session_state.analysis_started:
     st.divider()
     
     dfs_comp = parse_markdown_tables(nlu_comp_text)
-    
-    # --- INTEGRAZIONE DATA EDITOR ---
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
-    df_gap = dfs_comp[1] if len(dfs_comp) > 1 else pd.DataFrame()
     
     st.subheader("Entità Rilevanti (Common Ground)")
     st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
-    edited_df_entities = st.data_editor(df_entities, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_entities")
     
-    st.subheader("Entità Mancanti (Content Gap)")
-    st.info("ℹ️ Anche questa tabella è modificabile.")
-    edited_df_gap = st.data_editor(df_gap, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_gap")
-
+    # MODIFICA 3: Nasconde la colonna "Rilevanza Strategica" dalla vista
+    edited_df_entities = st.data_editor(
+        df_entities,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="dynamic",
+        key="editor_entities",
+        column_config={
+            "Rilevanza Strategica": None
+        }
+    )
+    
     with st.spinner("Esecuzione NLU per Keyword Mining..."):
+        # MODIFICA 2: Rimosso "gap_table" dagli argomenti
         prompt_mining_args = {
             "keyword": query, "country": country, "language": language, "texts": joined_texts,
             "entities_table": edited_df_entities.to_markdown(index=False),
-            "gap_table": edited_df_gap.to_markdown(index=False),
             "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
             "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
         }
@@ -462,7 +419,7 @@ if st.session_state.analysis_started:
         "people_also_ask": paa_list, "related_searches": related_list,
         "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
         "common_ground": edited_df_entities.to_dict(orient="records"),
-        "content_gap": edited_df_gap.to_dict(orient="records"),
+        # MODIFICA 2: Rimosso "content_gap" dall'export
         "keyword_mining": edited_df_mining.to_dict(orient="records")
     }
     
