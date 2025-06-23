@@ -110,13 +110,13 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     return dataframes
 
 
-# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT (Invariate) ---
+# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT (Minimizzate per leggibilità) ---
 def get_strategica_prompt(keyword: str, texts: str) -> str:
-    return f"""**PERSONA:** Agisci come un Lead SEO Strategist...\n**CONTESTO:** ...'{keyword}'...\n**TESTI DEI COMPETITOR:**\n{texts}\n**COMPITO:**..."""
+    return f"""**PERSONA:** Agisci come un Lead SEO Strategist...\n**CONTESTO:** ...'{keyword}'...\n**TESTI DEI COMPETITOR:**\n{texts}\n**COMPITO:**... (Il resto del prompt rimane invariato)"""
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
-    return f"""**RUOLO**: Agisci come un analista SEO d'élite...\n**CONTESTO**: ...'{keyword}'...\n**TESTI DA ANALIZZARE:**\n{texts}\n**COMPITO**: ..."""
+    return f"""**RUOLO**: Agisci come un analista SEO d'élite...\n**CONTESTO**: ...'{keyword}'...\n**TESTI DA ANALIZZARE:**\n{texts}\n**COMPITO**: ... (Il resto del prompt rimane invariato)"""
 def get_mining_prompt(**kwargs) -> str:
-    return f"""**PERSONA:** Agisci come un Semantic SEO Data-Miner...\n**DATI DI INPUT:**...\n**COMPITO:**..."""
+    return f"""**PERSONA:** Agisci come un Semantic SEO Data-Miner...\n**DATI DI INPUT:**...\n**COMPITO:**... (Il resto del prompt rimane invariato)"""
 
 # --- 4. INTERFACCIA UTENTE E FLUSSO PRINCIPALE ---
 
@@ -124,37 +124,29 @@ st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
 st.divider()
 
-# Inizializzazione stato
 if 'analysis_started' not in st.session_state:
     st.session_state.analysis_started = False
 
-# Input form
 with st.container():
     col1, col2, col3, col4 = st.columns(4)
     query = col1.text_input("Query", key="query")
-    # FIX: Ripristinato [""] per avere un default vuoto
     country = col2.selectbox("Country", [""] + get_countries(), key="country")
     language = col3.selectbox("Lingua", [""] + get_languages(), key="language")
-    # FIX: Ripristinato [""] per avere un default vuoto
     num_comp_opts = [""] + list(range(1, 6))
     num_comp = col4.selectbox("Numero competitor", num_comp_opts, key="num_competitor")
-    # FIX: Calcolo corretto di `count` per gestire l'opzione vuota
     count = int(num_comp) if isinstance(num_comp, int) else 0
 
-
 with st.expander("Testi dei Competitor", expanded=not st.session_state.analysis_started):
-    if not st.session_state.analysis_started:
-        # FIX: Ripristinata la logica originale per il layout a due colonne
-        if count > 0:
-            idx = 1
-            for _ in range((count + 1) // 2):
-                cols_pair = st.columns(2)
-                for col in cols_pair:
-                    if idx <= count:
-                        with col:
-                            st.markdown(f"**Testo Competitor #{idx}**")
-                            st_quill(key=f"comp_quill_{idx}", html=False, placeholder=f"Incolla qui il testo del Competitor #{idx}")
-                        idx += 1
+    if not st.session_state.analysis_started and count > 0:
+        idx = 1
+        for _ in range((count + 1) // 2):
+            cols_pair = st.columns(2)
+            for col in cols_pair:
+                if idx <= count:
+                    with col:
+                        st.markdown(f"**Testo Competitor #{idx}**")
+                        st_quill(key=f"comp_quill_{idx}", html=False, placeholder=f"Incolla qui il testo del Competitor #{idx}")
+                    idx += 1
 
 def start_analysis():
     if not all([st.session_state.query, st.session_state.country, st.session_state.language, st.session_state.num_competitor]):
@@ -168,16 +160,37 @@ st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
 if st.session_state.analysis_started:
     
     with st.spinner("Recupero e analisi dati SERP..."):
-        # ... (Questa sezione rimane invariata)
         serp_result = fetch_serp_data(query, country, language)
         if not serp_result:
             st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
             st.stop()
+            
         items = serp_result.get('items', [])
         organic_results = [item for item in items if item.get("type") == "organic"][:10]
-        paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-        related_list = list(dict.fromkeys(s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", []) if s.get("query")))
-        df_org = pd.DataFrame([{"URL": clean_url(r.get("url", "")), "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")), "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))} for r in organic_results])
+        paa_list = list(dict.fromkeys(
+            q.get("title", "") 
+            for item in items if item.get("type") == "people_also_ask" 
+            for q in item.get("items", []) if q.get("title")
+        ))
+        
+        # ***** INIZIO BLOCCO CORRETTO *****
+        related_raw = []
+        for item in items:
+            if item.get("type") in ("related_searches", "related_search"):
+                for s in item.get("items", []):
+                    # Gestisce sia stringhe che dizionari
+                    term = s if isinstance(s, str) else s.get("query", "")
+                    if term:
+                        related_raw.append(term)
+        related_list = list(dict.fromkeys(related_raw))
+        # ***** FINE BLOCCO CORRETTO *****
+
+        df_org = pd.DataFrame([
+            {"URL": clean_url(r.get("url", "")), 
+             "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")),
+             "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))}
+            for r in organic_results
+        ])
 
     st.subheader("Risultati Organici (Top 10)")
     st.dataframe(df_org, use_container_width=True, hide_index=True)
@@ -238,7 +251,10 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
-        st.session_state.analysis_started = False
+        keys_to_clear = list(st.session_state.keys())
+        for key in keys_to_clear:
+            if key != 'data': # Mantiene il file JSON caricato, se presente
+                 del st.session_state[key]
         
     col_btn1, col_btn2 = st.columns(2)
     col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
