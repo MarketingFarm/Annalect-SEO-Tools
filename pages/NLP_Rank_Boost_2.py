@@ -262,6 +262,16 @@ elif st.session_state.step == 2:
             raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             widget_key = f"kw_{i}"
+# solo la prima volta inizializzo lo stato
+if widget_key not in st.session_state:
+    st.session_state[widget_key] = kws  
+# ora creo il widget: default verrà preso da session_state
+selections = st.multiselect(
+    label="",
+    options=kws,
+    default=st.session_state[widget_key],
+    key=widget_key
+)
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
                 unsafe_allow_html=True
