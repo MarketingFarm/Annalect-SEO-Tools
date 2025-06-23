@@ -204,8 +204,8 @@ if st.session_state.step == 1:
                     '<div style="margin-bottom:2rem;">'
                       '<div style="display:flex;align-items:center;margin-bottom:0.2rem;">'
                         f'<img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" '
-                           'onerror="this.src=\'https://www.google.com/favicon.ico\';" '
-                           'style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/>'
+                            'onerror="this.src=\'https://www.google.com/favicon.ico\';" '
+                            'style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/>'
                         '<div>'
                           f'<div style="color:#202124;font-size:16px;line-height:20px;">{name}</div>'
                           f'<div style="color:#4d5156;font-size:14px;line-height:18px;">{pretty}</div>'
@@ -258,20 +258,21 @@ elif st.session_state.step == 2:
 
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
-        for i, entry in enumerate(keyword_mining):
-            raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+        for entry in keyword_mining:
+            original_label = entry.get("Categoria Keyword", "")
+            display_label = re.sub(r"\*+", "", original_label).strip()
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
-            widget_key = f"kw_{i}"
-            # Prepopolazione solo la prima volta
-            if widget_key not in st.session_state:
-                st.session_state[widget_key] = kws
+            
+            # Passa l'etichetta originale a slugify per coerenza
+            slug = slugify_label(original_label)
+            widget_key = f"ms_{slug}"
+            
             st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
+                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>',
                 unsafe_allow_html=True
             )
-            # Il default viene preso da session_state
-            st.multiselect(label="", options=kws, default=st.session_state[widget_key], key=widget_key)
-
+            st.multiselect(label="", options=kws, default=kws, key=widget_key)
+            
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -293,7 +294,7 @@ elif st.session_state.step == 3:
     st.subheader("Common Ground Analysis")
     edited_common = st.data_editor(
         df_common,
-        num_rows=len(df_common),
+        num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
         key="editor_common"
@@ -305,7 +306,7 @@ elif st.session_state.step == 3:
     st.subheader("Content Gap Opportunity")
     edited_gap = st.data_editor(
         df_gap,
-        num_rows=len(df_gap),
+        num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
         key="editor_gap"
@@ -334,7 +335,9 @@ elif st.session_state.step == 4:
             "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)", "Guida all'Acquisto", "Articolo del Blog"],
             "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
-        destino = st.selectbox("Destinazione Contenido", dest_options.get(context, ["-- Seleziona --"]), key="dest_select")
+        destino = st.selectbox("Destinazione Contenuto",
+                               dest_options.get(context, ["-- Seleziona --"]),
+                               key="dest_select")
 
     custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
     if custom_toggle:
@@ -417,12 +420,23 @@ elif st.session_state.step == 5:
         "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
     }
 
-    # Aggiungo le selezioni di keyword mining con i nomi esatti dal JSON
-    for i, entry in enumerate(data.get("keyword_mining", [])):
-        raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
-        widget_key = f"kw_{i}"
-        selected = st.session_state.get(widget_key, [])
-        recap[f"{raw_label} Selezionate"] = ", ".join(selected)
+    # Aggiungo le selezioni di keyword mining in modo robusto
+    for entry in data.get("keyword_mining", []):
+        # Prendi l'etichetta originale e non pulita direttamente dal JSON
+        original_label = entry.get("Categoria Keyword", "")
+
+        # Crea lo 'slug' e la chiave del widget passando l'etichetta originale.
+        slug = slugify_label(original_label)
+        widget_key = f"ms_{slug}"
+
+        # Recupera i valori dallo stato della sessione usando la chiave corretta
+        selected_keywords = st.session_state.get(widget_key, [])
+
+        # Pulisci l'etichetta solo per la visualizzazione nella tabella di recap
+        display_label = re.sub(r"\*+", "", original_label).strip()
+        
+        # Aggiungi i dati al dizionario di recap
+        recap[f"{display_label} Selezionate"] = ", ".join(selected_keywords)
 
     df_recap = pd.DataFrame([recap]).T.reset_index()
     df_recap.columns = ["Voce", "Valore"]
