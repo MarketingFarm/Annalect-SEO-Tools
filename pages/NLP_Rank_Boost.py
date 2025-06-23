@@ -32,7 +32,7 @@ session = requests.Session()
 session.auth = DFS_AUTH
 
 # Modello Gemini da utilizzare
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-1.5-pro-latest"
 
 
 # --- 2. FUNZIONI DI UTILITY E API ---
@@ -114,7 +114,6 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
-    # MODIFICA 2: Aggiunta istruzione per l'analisi approfondita dell'audience
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -146,7 +145,14 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
-Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter. Non aggiungere altre intestazioni o testo dopo questo paragrafo.
+Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
+
+**Parte 3: Descrizione Buyer Personas**
+Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
+Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
+Esempio:
+* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
+* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
@@ -324,17 +330,22 @@ if st.session_state.analysis_started:
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
 
-    # --- BLOCCO ANALISI STRATEGICA CON CARD E TESTO APPROFONDITO ---
+    # --- BLOCCO ANALISI STRATEGICA CON CARD E TESTI APPROFONDITI ---
     st.subheader("Analisi Strategica")
     
-    # Estrae l'analisi approfondita e la tabella dalla risposta NLU
     audience_detail_text = ""
-    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
-        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
+    personas_text = ""
+    table_text = nlu_strat_text
+
+    if "### Descrizione Buyer Personas ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Descrizione Buyer Personas ###")
+        personas_text = parts[1].strip() if len(parts) > 1 else ""
         table_text = parts[0]
-        audience_detail_text = parts[1].strip() if len(parts) > 1 else ""
-    else:
-        table_text = nlu_strat_text
+
+    if "### Analisi Approfondita Audience ###" in table_text:
+        parts = table_text.split("### Analisi Approfondita Audience ###")
+        table_text = parts[0]
+        audience_detail_text = parts[1].strip().removeprefix('---').strip()
 
     dfs_strat = parse_markdown_tables(table_text)
     
@@ -348,9 +359,10 @@ if st.session_state.analysis_started:
             
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
-                value = analysis_map.get(label, "N/D")
-                # MODIFICA 1: Aggiunge l'asterisco alla card del Target Audience
-                display_value = f"{value} (*)" if label == "Target Audience & Leggibilità" else value
+                # MODIFICA 2: Rimuove gli apici dal valore
+                value = analysis_map.get(label, "N/D").replace('`', '')
+                # MODIFICA 1: Rimuove l'asterisco
+                display_value = value
                 
                 col.markdown(f"""
                 <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
@@ -358,9 +370,16 @@ if st.session_state.analysis_started:
                   <div style="font-size:1rem; color:#202124; font-weight:500;">{display_value}</div>
                 </div>""", unsafe_allow_html=True)
             
-            # MODIFICA 2: Mostra il testo di approfondimento se esiste
+            # MODIFICA 3: Aggiunge un separatore e formatta il testo come paragrafo
             if audience_detail_text:
-                st.markdown(f"* {audience_detail_text}")
+                st.divider()
+                st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
+                st.write(audience_detail_text)
+
+            if personas_text:
+                st.divider()
+                st.markdown("<h5>Potenziali Buyer Personas</h5>", unsafe_allow_html=True)
+                st.markdown(personas_text)
 
         else:
             st.warning("La tabella di analisi strategica non ha il formato atteso.")
@@ -378,28 +397,13 @@ if st.session_state.analysis_started:
         if organic_results:
             html = '<div style="padding-right:3.5rem;">'
             for it in organic_results:
-                url_raw = it.get("url", "")
-                p = urlparse(url_raw)
-                base = f"{p.scheme}://{p.netloc}"
-                segs = [s for s in p.path.split("/") if s]
+                url_raw, p = it.get("url", ""), urlparse(it.get("url", ""))
+                base, segs = f"{p.scheme}://{p.netloc}", [s for s in p.path.split("/") if s]
                 pretty = base + (" › " + " › ".join(segs) if segs else "")
                 hn = p.netloc.split('.')
                 name = (hn[1] if len(hn) > 2 else hn[0]).replace('-', ' ').title()
-                title = it.get("title", "")
-                desc = it.get("description", "")
-                html += (
-                    '<div style="margin-bottom:2rem;">'
-                      '<div style="display:flex;align-items:center;margin-bottom:0.2rem;">'
-                        f'<img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" onerror="this.src=\'https://www.google.com/favicon.ico\';" style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/>'
-                        '<div>'
-                          f'<div style="color:#202124;font-size:16px;line-height:20px;">{name}</div>'
-                          f'<div style="color:#4d5156;font-size:14px;line-height:18px;">{pretty}</div>'
-                        '</div>'
-                      '</div>'
-                      f'<a href="{url_raw}" style="color:#1a0dab;text-decoration:none;font-size:23px;font-weight:500;">{title}</a>'
-                      f'<div style="font-size:16px;line-height:22px;color:#474747;">{desc}</div>'
-                    '</div>'
-                )
+                title, desc = it.get("title", ""), it.get("description", "")
+                html += (f'<div style="margin-bottom:2rem;"><div style="display:flex;align-items:center;margin-bottom:0.2rem;"><img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" onerror="this.src=\'https://www.google.com/favicon.ico\';" style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/><div><div style="color:#202124;font-size:16px;line-height:20px;">{name}</div><div style="color:#4d5156;font-size:14px;line-height:18px;">{pretty}</div></div></div><a href="{url_raw}" style="color:#1a0dab;text-decoration:none;font-size:23px;font-weight:500;">{title}</a><div style="font-size:16px;line-height:22px;color:#474747;">{desc}</div></div>')
             html += '</div>'
             st.markdown(html, unsafe_allow_html=True)
         else:
