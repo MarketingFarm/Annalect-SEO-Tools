@@ -268,7 +268,6 @@ elif st.session_state.step == 2:
             )
             # Salvo il return esplicitamente in session_state
             selections = st.multiselect(label="", options=kws, default=kws, key=widget_key)
-            st.session_state[widget_key] = selections
 
         c1, c2 = st.columns(2)
         with c1:
