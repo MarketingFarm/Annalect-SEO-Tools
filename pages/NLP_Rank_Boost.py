@@ -110,13 +110,132 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     return dataframes
 
 
-# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT (Invariate) ---
+# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ---
+
 def get_strategica_prompt(keyword: str, texts: str) -> str:
-    return f"""## PROMPT: NLU Semantic Content Intelligence ##\n\n**PERSONA:** Agisci come un **Lead SEO Strategist**... (omesso per brevità)"""
+    """Costruisce il prompt per l'analisi strategica."""
+    return f"""
+## PROMPT: NLU Semantic Content Intelligence ##
+
+**PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
+
+**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per la query strategica specificata di seguito. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni e, soprattutto, le loro lacune.
+
+**QUERY STRATEGICA:** {keyword}
+
+### INIZIO TESTI DEI COMPETITOR DA ANALIZZARE ###
+
+<TESTI>
+{texts}
+</TESTI>
+
+---
+
+**COMPITO E FORMATO DI OUTPUT:**
+
+Analizza in modo aggregato tutti i testi forniti tra i delimitatori `### INIZIO` e `### FINE`. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi. Se noti forti divergenze, segnalale nel campo "Giustificazione e Dettagli".
+
+Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header e **senza** alcuna introduzione, commento o testo conclusivo.
+
+| Caratteristica SEO | Analisi Sintetica | Giustificazione e Dettagli |
+| :--- | :--- | :--- |
+| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` | `[Spiega perché, es: "L'utente cerca definizioni, guide e 'come fare', indicando una fase di apprendimento."]` |
+| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente inizia a confrontare soluzioni e prodotti."]` |
+| **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` | `[Stima il livello di complessità, es: "Linguaggio semplice e accessibile, evita gergo tecnico. Adatto a non addetti ai lavori."]` |
+| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]` | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]` |
+"""
+
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
-    return f"""**RUOLO**: Agisci come un analista SEO d'élite... (omesso per brevità)"""
+    """Costruisce il prompt per l'analisi competitiva (entità)."""
+    return f"""
+**RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
+
+**CONTESTO**: L'obiettivo primario è superare i principali competitor per la keyword target. Per raggiungere ciò, è fondamentale analizzare in profondità i testi dei competitor forniti, identificando e categorizzando le entità semantiche rilevanti.
+
+**KEYWORD TARGET**: {keyword}
+
+### INIZIO TESTI DA ANALIZZARE ###
+
+<TESTI>
+{texts}
+</TESTI>
+
+### FINE TESTI DA ANALIZZARE ###
+
+**COMPITO**: Esegui un'analisi semantica dettagliata dei testi contenuti tra i delimitatori `### INIZIO TESTI DA ANALIZZARE ###` e `### FINE TESTI DA ANALIZZARE ###`, seguendo scrupolosamente questi passaggi:
+
+1.  **Named Entity Recognition (NER):** Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
+2.  **Identificazione Entità Mancanti (Content Gap):** Sulla base delle entità rilevate e della tua conoscenza del settore, identifica entità strategiche che sono assenti nei testi dei competitor ma che sarebbero rilevanti per la keyword target.
+3.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+4.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media, Medio/Bassa, Bassa.
+5.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
+6.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (,).
+7.  **Formattazione Output:** Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente con la prima tabella.
+
+### TABELLA 1: Entità
+| Categoria | Entità | Rilevanza Strategica |
+| :--- | :--- | :--- |
+
+### TABELLA 2: Entità Mancanti (Content Gap)
+| Categoria | Entità | Rilevanza Strategica |
+| :--- | :--- | :--- |
+"""
+
 def get_mining_prompt(**kwargs) -> str:
-    return f"""## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##\n\n**PERSONA:** Agisci come un **Semantic SEO Data-Miner**... (omesso per brevità)"""
+    """Costruisce il prompt per il keyword mining."""
+    return f"""
+## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
+
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
+
+---
+### DATI DI INPUT ###
+
+**1. CONTESTO DI BASE**
+* **Keyword Principale:** {kwargs.get('keyword', '')}
+* **Country:** {kwargs.get('country', '')}
+* **Lingua:** {kwargs.get('language', '')}
+
+**2. CONTENUTI GREZZI DA ANALIZZARE**
+* **Testi Completi dei Competitor:**
+    {kwargs.get('texts', '')}
+
+**3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
+* **Tabella 1: Entità Principali Estratte dai Competitor:**
+    {kwargs.get('entities_table', '')}
+* **Tabella 2: Entità Mancanti / Content Gap:**
+    {kwargs.get('gap_table', '')}
+* **Tabella 3: Ricerche Correlate dalla SERP:**
+    {kwargs.get('related_table', '')}
+* **Tabella 4: People Also Ask (PAA) dalla SERP:**
+    {kwargs.get('paa_table', '')}
+
+---
+
+### COMPITO E FORMATO DI OUTPUT ###
+
+**PROCESSO DI ESECUZIONE (In ordine rigoroso):**
+
+1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
+2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di **keyword secondarie, varianti della keyword principale, sinonimi, termini semanticamente correlati** e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
+    * Alta rilevanza semantica con la **Keyword Principale**.
+    * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
+    * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
+3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
+    * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
+    * **IMPORTANTE:** Scrivi tutte le keyword e i concenti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
+
+Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
+
+### Semantic Keyword Mining with NLP
+
+| Categoria Keyword | Keywords / Concetti / Domande | Intento Prevalente |
+| :--- | :--- | :--- |
+| **Keyword Principale** | `{kwargs.get('keyword', '').lower()}` | _(determina e inserisci l'intento primario)_ |
+| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_ | _(Informazionale / Commerciale ecc.)_ |
+| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ | _(Supporto all'intento)_ |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_ | _(Informazionale (Specifico))_ |
+"""
 
 
 # --- 4. INTERFACCIA UTENTE E FLUSSO PRINCIPALE ---
@@ -183,7 +302,6 @@ if st.session_state.analysis_started:
                         related_raw.append(term)
         related_list = list(dict.fromkeys(related_raw))
 
-        # Dati per l'esportazione JSON (creati qui per coerenza)
         df_org_export = pd.DataFrame([
             {"URL": clean_url(r.get("url", "")), 
              "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")),
@@ -191,7 +309,6 @@ if st.session_state.analysis_started:
             for r in organic_results
         ])
 
-    # --- INIZIO BLOCCO VISUALIZZAZIONE SERP (MODIFICATO) ---
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
     
     col_org, col_paa = st.columns([2, 1], gap="large")
@@ -241,7 +358,6 @@ if st.session_state.analysis_started:
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
-    # --- FINE BLOCCO VISUALIZZAZIONE SERP ---
 
     st.divider()
 
