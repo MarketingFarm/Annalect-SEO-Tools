@@ -114,6 +114,7 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
+    # MODIFICA 2: Aggiunta istruzione per l'analisi approfondita dell'audience
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -133,9 +134,8 @@ def get_strategica_prompt(keyword: str, texts: str) -> str:
 
 **COMPITO E FORMATO DI OUTPUT:**
 
-Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi.
-
-Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header e **senza** alcuna introduzione, commento o testo conclusivo.
+**Parte 1: Tabella Sintetica**
+Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi. Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header.
 
 | Caratteristica SEO | Analisi Sintetica |
 | :--- | :--- |
@@ -143,6 +143,10 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga del
 | **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` |
 | **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` |
 | **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave, es: "Didattico, professionale, autorevole"]` |
+
+**Parte 2: Analisi Approfondita Audience**
+Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
+Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter. Non aggiungere altre intestazioni o testo dopo questo paragrafo.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
@@ -319,14 +323,24 @@ if st.session_state.analysis_started:
             future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
-    
-    # --- BLOCCO ANALISI STRATEGICA (ORA PRIMA DELLA SERP) ---
+
+    # --- BLOCCO ANALISI STRATEGICA CON CARD E TESTO APPROFONDITO ---
     st.subheader("Analisi Strategica")
-    dfs_strat = parse_markdown_tables(nlu_strat_text)
+    
+    # Estrae l'analisi approfondita e la tabella dalla risposta NLU
+    audience_detail_text = ""
+    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
+        table_text = parts[0]
+        audience_detail_text = parts[1].strip() if len(parts) > 1 else ""
+    else:
+        table_text = nlu_strat_text
+
+    dfs_strat = parse_markdown_tables(table_text)
+    
     if dfs_strat and not dfs_strat[0].empty:
         df_strat = dfs_strat[0]
         if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
-            # FIX: Pulisce gli asterischi dalla colonna prima di creare il dizionario
             df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
             analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
             
@@ -335,15 +349,21 @@ if st.session_state.analysis_started:
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
                 value = analysis_map.get(label, "N/D")
-                cleaned_value = re.sub(r"\s*\([^)]*\)", "", value).strip()
+                # MODIFICA 1: Aggiunge l'asterisco alla card del Target Audience
+                display_value = f"{value} (*)" if label == "Target Audience & Leggibilità" else value
                 
                 col.markdown(f"""
                 <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
                   <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
-                  <div style="font-size:1rem; color:#202124; font-weight:500;">{cleaned_value}</div>
+                  <div style="font-size:1rem; color:#202124; font-weight:500;">{display_value}</div>
                 </div>""", unsafe_allow_html=True)
+            
+            # MODIFICA 2: Mostra il testo di approfondimento se esiste
+            if audience_detail_text:
+                st.markdown(f"* {audience_detail_text}")
+
         else:
-            st.warning("La tabella di analisi strategica non ha il formato atteso. Mostro i dati grezzi.")
+            st.warning("La tabella di analisi strategica non ha il formato atteso.")
             st.dataframe(df_strat)
     else:
         st.error("Nessuna tabella di analisi strategica trovata nella risposta NLU.")
