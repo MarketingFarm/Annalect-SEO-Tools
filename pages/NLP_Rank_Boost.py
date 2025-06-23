@@ -295,12 +295,19 @@ if st.session_state.analysis_started:
     competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
 
-    with st.spinner("Esecuzione analisi NLU..."):
+    # Controlla se i risultati NLU sono già stati calcolati e salvati in questa sessione
+if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
+    with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
         with ThreadPoolExecutor() as executor:
             future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
             future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
-            nlu_strat_text = future_strat.result()
-            nlu_comp_text = future_comp.result()
+            # Salva i risultati nella sessione per evitare di rieseguirli
+            st.session_state.nlu_strat_text = future_strat.result()
+            st.session_state.nlu_comp_text = future_comp.result()
+
+# Ora, lavora sempre con i dati salvati nella sessione
+nlu_strat_text = st.session_state.nlu_strat_text
+nlu_comp_text = st.session_state.nlu_comp_text
     
     st.subheader("Analisi Strategica")
     
@@ -424,8 +431,19 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
-        st.session_state.analysis_started = False
-        st.rerun()
+    # Elenca tutte le chiavi da rimuovere per un reset pulito
+    keys_to_clear = [
+        'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 
+        'editor_entities', 'editor_gap', 'editor_mining'
+    ]
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+    # Pulisce anche i testi dei competitor
+    for i in range(1, count + 1):
+        if f"comp_quill_{i}" in st.session_state:
+            del st.session_state[f"comp_quill_{i}"]
+    st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
     col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
