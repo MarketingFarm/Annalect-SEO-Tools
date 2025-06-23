@@ -292,9 +292,8 @@ if st.session_state.analysis_started:
     competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
 
-    # ***** INIZIO BLOCCO CON INDENTAZIONE CORRETTA *****
     if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
-        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
+        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva..."):
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
                 future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
@@ -391,20 +390,27 @@ if st.session_state.analysis_started:
         hide_index=True,
         num_rows="dynamic",
         key="editor_entities",
-        column_config={
-            "Rilevanza Strategica": None
-        }
+        column_config={ "Rilevanza Strategica": None }
     )
+
+    def regenerate_keywords():
+        """Forza la rigenerazione delle keyword eliminando la chiave dalla sessione."""
+        if 'nlu_mining_text' in st.session_state:
+            del st.session_state['nlu_mining_text']
+
+    st.button("🔄 Rigenera Keyword dalle Entità Modificate", on_click=regenerate_keywords)
     
-    with st.spinner("Esecuzione NLU per Keyword Mining..."):
-        prompt_mining_args = {
-            "keyword": query, "country": country, "language": language, "texts": joined_texts,
-            "entities_table": edited_df_entities.to_markdown(index=False),
-            "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
-            "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
-        }
-        nlu_mining_text = run_nlu(get_mining_prompt(**prompt_mining_args))
+    if 'nlu_mining_text' not in st.session_state:
+        with st.spinner("Esecuzione NLU per Keyword Mining..."):
+            prompt_mining_args = {
+                "keyword": query, "country": country, "language": language, "texts": joined_texts,
+                "entities_table": edited_df_entities.to_markdown(index=False),
+                "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
+                "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
+            }
+            st.session_state.nlu_mining_text = run_nlu(get_mining_prompt(**prompt_mining_args))
     
+    nlu_mining_text = st.session_state.nlu_mining_text
     dfs_mining = parse_markdown_tables(nlu_mining_text)
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
     
@@ -424,7 +430,7 @@ if st.session_state.analysis_started:
     
     def reset_analysis():
         keys_to_clear = [
-            'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 
+            'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
             'editor_entities', 'editor_mining'
         ]
         for key in keys_to_clear:
