@@ -146,6 +146,13 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
+
+**Parte 3: Descrizione Buyer Personas**
+Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
+Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
+Esempio:
+* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
+* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
@@ -316,23 +323,28 @@ if st.session_state.analysis_started:
     competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
 
-    with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
+    with st.spinner("Esecuzione analisi NLU..."):
         with ThreadPoolExecutor() as executor:
             future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
             future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
-
-    # --- BLOCCO ANALISI STRATEGICA CON CARD E TESTI APPROFONDITI ---
+    
     st.subheader("Analisi Strategica")
     
     audience_detail_text = ""
-table_text = nlu_strat_text
+    personas_text = ""
+    table_text = nlu_strat_text
 
-if "### Analisi Approfondita Audience ###" in nlu_strat_text:
-    parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
-    table_text = parts[0]
-    audience_detail_text = parts[1].strip().removeprefix('---').strip()
+    if "### Descrizione Buyer Personas ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Descrizione Buyer Personas ###")
+        personas_text = parts[1].strip() if len(parts) > 1 else ""
+        table_text = parts[0]
+
+    if "### Analisi Approfondita Audience ###" in table_text:
+        parts = table_text.split("### Analisi Approfondita Audience ###")
+        table_text = parts[0]
+        audience_detail_text = parts[1].strip().removeprefix('---').strip()
 
     dfs_strat = parse_markdown_tables(table_text)
     
@@ -347,12 +359,10 @@ if "### Analisi Approfondita Audience ###" in nlu_strat_text:
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
                 value = analysis_map.get(label, "N/D").replace('`', '')
-                display_value = value
-                
                 col.markdown(f"""
                 <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
                   <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
-                  <div style="font-size:1rem; color:#202124; font-weight:500;">{display_value}</div>
+                  <div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div>
                 </div>""", unsafe_allow_html=True)
             
             if audience_detail_text:
@@ -360,14 +370,15 @@ if "### Analisi Approfondita Audience ###" in nlu_strat_text:
                 st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
                 st.write(audience_detail_text)
 
+            if personas_text:
+                st.divider()
+                st.markdown("<h5>Potenziali Buyer Personas</h5>", unsafe_allow_html=True)
+                st.markdown(personas_text)
         else:
-            st.warning("La tabella di analisi strategica non ha il formato atteso.")
             st.dataframe(df_strat)
     else:
-        st.error("Nessuna tabella di analisi strategica trovata nella risposta NLU.")
         st.text(nlu_strat_text)
     
-    # --- BLOCCO SERP DISPLAY ---
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
     
     col_org, col_paa = st.columns([2, 1], gap="large")
@@ -395,7 +406,6 @@ if "### Analisi Approfondita Audience ###" in nlu_strat_text:
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna PAA trovata_")
-            
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
         if related_list:
             pills = ""
@@ -415,19 +425,24 @@ if "### Analisi Approfondita Audience ###" in nlu_strat_text:
     st.divider()
     
     dfs_comp = parse_markdown_tables(nlu_comp_text)
+    
+    # --- INTEGRAZIONE DATA EDITOR ---
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
     df_gap = dfs_comp[1] if len(dfs_comp) > 1 else pd.DataFrame()
     
     st.subheader("Entità Rilevanti (Common Ground)")
-    st.dataframe(df_entities, use_container_width=True, hide_index=True)
+    st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
+    edited_df_entities = st.data_editor(df_entities, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_entities")
+    
     st.subheader("Entità Mancanti (Content Gap)")
-    st.dataframe(df_gap, use_container_width=True, hide_index=True)
+    st.info("ℹ️ Anche questa tabella è modificabile.")
+    edited_df_gap = st.data_editor(df_gap, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_gap")
 
     with st.spinner("Esecuzione NLU per Keyword Mining..."):
         prompt_mining_args = {
             "keyword": query, "country": country, "language": language, "texts": joined_texts,
-            "entities_table": df_entities.to_markdown(index=False),
-            "gap_table": df_gap.to_markdown(index=False),
+            "entities_table": edited_df_entities.to_markdown(index=False),
+            "gap_table": edited_df_gap.to_markdown(index=False),
             "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
             "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
         }
@@ -435,8 +450,10 @@ if "### Analisi Approfondita Audience ###" in nlu_strat_text:
     
     dfs_mining = parse_markdown_tables(nlu_mining_text)
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
+    
     st.subheader("Semantic Keyword Mining")
-    st.dataframe(df_mining, use_container_width=True, hide_index=True)
+    st.info("ℹ️ Puoi modificare o eliminare le keyword e le categorie prima di esportare i dati.")
+    edited_df_mining = st.data_editor(df_mining, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_mining")
 
     export_data = {
         "query": query, "country": country, "language": language,
@@ -444,9 +461,9 @@ if "### Analisi Approfondita Audience ###" in nlu_strat_text:
         "organic": df_org_export.to_dict(orient="records"),
         "people_also_ask": paa_list, "related_searches": related_list,
         "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
-        "common_ground": df_entities.to_dict(orient="records"),
-        "content_gap": df_gap.to_dict(orient="records"),
-        "keyword_mining": df_mining.to_dict(orient="records")
+        "common_ground": edited_df_entities.to_dict(orient="records"),
+        "content_gap": edited_df_gap.to_dict(orient="records"),
+        "keyword_mining": edited_df_mining.to_dict(orient="records")
     }
     
     def reset_analysis():
