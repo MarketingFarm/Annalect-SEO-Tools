@@ -6,19 +6,12 @@ from urllib.parse import urlparse
 
 # Utility per creare uno slug coerente dal label, inclusi eventuali contenuti tra parentesi
 def slugify_label(raw_label):
-    # Rimuove eventuali asterischi
-    label = re.sub(r"\*+", "", raw_label).strip()
-    # Se c'è una parte tra parentesi, la include nel slug
-    m = re.match(r"(.+?)\s*\(([^)]+)\)$", label)
-    if m:
-        base = m.group(1).strip()
-        paren = m.group(2).strip()
-        combined = f"{base} {paren}"
-    else:
-        combined = label
-    # Sostituisce tutto ciò che non è alfanumerico con underscore
-    slug = re.sub(r"[^0-9A-Za-z]+", "_", combined).strip("_")
-    return slug
+    # Pulisce l'etichetta rimuovendo asterischi e spazi extra
+    cleaned = re.sub(r'\*+', '', raw_label).strip()
+    # Sostituisce qualsiasi sequenza di caratteri non alfanumerici con un singolo underscore
+    slug = re.sub(r'[^a-zA-Z0-9]+', '_', cleaned)
+    # Rimuove eventuali underscore all'inizio o alla fine del risultato
+    return slug.strip('_')
 
 # --- Assumo st.set_page_config già invocato nel file principale ---
 
