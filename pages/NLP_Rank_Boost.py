@@ -114,13 +114,13 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
-    # MODIFICA 2: Rimuove la colonna "Giustificazione e Dettagli"
+    # MODIFICA 2: Prompt aggiornato per generare solo le due colonne necessarie per le card
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
 **PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
 
-**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per la query strategica specificata di seguito. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni e, soprattutto, le loro lacune.
+**CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per la query strategica specificata di seguito. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni.
 
 **QUERY STRATEGICA:** {keyword}
 
@@ -134,7 +134,7 @@ def get_strategica_prompt(keyword: str, texts: str) -> str:
 
 **COMPITO E FORMATO DI OUTPUT:**
 
-Analizza in modo aggregato tutti i testi forniti tra i delimitatori `### INIZIO` e `### FINE`. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi.
+Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi.
 
 Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header e **senza** alcuna introduzione, commento o testo conclusivo.
 
@@ -184,7 +184,6 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
 
 def get_mining_prompt(**kwargs) -> str:
     """Costruisce il prompt per il keyword mining."""
-    # MODIFICA 3: Rimuove i backtick dall'esempio della keyword principale
     return f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
@@ -276,7 +275,9 @@ def start_analysis():
     else:
         st.session_state.analysis_started = True
 
-st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
+# MODIFICA 1: Nasconde il pulsante se l'analisi è già iniziata
+if not st.session_state.analysis_started:
+    st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
 
 # --- ESECUZIONE ANALISI ---
 if st.session_state.analysis_started:
@@ -356,13 +357,11 @@ if st.session_state.analysis_started:
             
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
         if related_list:
-            # MODIFICA 1: Logica per il grassetto sulle ricerche correlate
             pills = ""
             pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
             for r in related_list:
                 txt = r.strip()
                 if pat and (m := pat.search(txt)):
-                    # Se trova la query, mette in grassetto il resto
                     pre, suf = txt[:m.end()], txt[m.end():]
                     formatted_txt = pre + (f"<strong>{suf}</strong>" if suf else "")
                 else:
@@ -384,10 +383,32 @@ if st.session_state.analysis_started:
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
 
+    # --- INIZIO BLOCCO VISUALIZZAZIONE STRATEGICA (MODIFICATO) ---
+    st.subheader("Analisi Strategica")
     dfs_strat = parse_markdown_tables(nlu_strat_text)
-    st.subheader("Analisi Strategica (Intento, Audience, ToV)")
-    # La visualizzazione si adatta automaticamente alle colonne del DataFrame generato dal prompt modificato
-    st.dataframe(dfs_strat[0] if dfs_strat else pd.DataFrame(), use_container_width=True, hide_index=True)
+    if dfs_strat and not dfs_strat[0].empty:
+        df_strat = dfs_strat[0]
+        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
+            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]
+            
+            cols = st.columns(len(labels_to_display))
+            for col, label in zip(cols, labels_to_display):
+                value = analysis_map.get(label, "N/D")
+                cleaned_value = re.sub(r"\s*\([^)]*\)", "", value).strip()
+                
+                col.markdown(f"""
+                <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
+                  <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
+                  <div style="font-size:1rem; color:#202124; font-weight:500;">{cleaned_value}</div>
+                </div>""", unsafe_allow_html=True)
+        else:
+            st.warning("La tabella di analisi strategica non ha il formato atteso. Mostro i dati grezzi.")
+            st.dataframe(df_strat)
+    else:
+        st.error("Nessuna tabella di analisi strategica trovata nella risposta NLU.")
+        st.text(nlu_strat_text)
+    # --- FINE BLOCCO VISUALIZZAZIONE STRATEGICA ---
     
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
@@ -411,7 +432,6 @@ if st.session_state.analysis_started:
     dfs_mining = parse_markdown_tables(nlu_mining_text)
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
     st.subheader("Semantic Keyword Mining")
-    # La visualizzazione qui non richiede modifiche, il prompt corretto genererà output senza apici
     st.dataframe(df_mining, use_container_width=True, hide_index=True)
 
     export_data = {
@@ -426,10 +446,8 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
-        keys_to_clear = list(st.session_state.keys())
-        for key in keys_to_clear:
-            if key != 'data': 
-                 del st.session_state[key]
+        st.session_state.analysis_started = False
+        st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
     col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
