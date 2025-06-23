@@ -114,7 +114,6 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
-    # MODIFICA 2: Prompt aggiornato per generare solo le due colonne necessarie per le card
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -275,7 +274,6 @@ def start_analysis():
     else:
         st.session_state.analysis_started = True
 
-# MODIFICA 1: Nasconde il pulsante se l'analisi è già iniziata
 if not st.session_state.analysis_started:
     st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
 
@@ -312,6 +310,46 @@ if st.session_state.analysis_started:
             for r in organic_results
         ])
 
+    competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
+    joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
+
+    with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
+        with ThreadPoolExecutor() as executor:
+            future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
+            future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
+            nlu_strat_text = future_strat.result()
+            nlu_comp_text = future_comp.result()
+
+    # --- INIZIO BLOCCO SPOSTATO: ANALISI STRATEGICA ---
+    st.subheader("Analisi Strategica")
+    dfs_strat = parse_markdown_tables(nlu_strat_text)
+    if dfs_strat and not dfs_strat[0].empty:
+        df_strat = dfs_strat[0]
+        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.strip()).to_dict()
+            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]
+            
+            cols = st.columns(len(labels_to_display))
+            for col, label in zip(cols, labels_to_display):
+                # Rimuove ** dal label per la ricerca nel dizionario
+                clean_label_lookup = label.replace('*', '').strip()
+                value = analysis_map.get(clean_label_lookup, "N/D")
+                cleaned_value = re.sub(r"\s*\([^)]*\)", "", value).strip()
+                
+                col.markdown(f"""
+                <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
+                  <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
+                  <div style="font-size:1rem; color:#202124; font-weight:500;">{cleaned_value}</div>
+                </div>""", unsafe_allow_html=True)
+        else:
+            st.warning("La tabella di analisi strategica non ha il formato atteso. Mostro i dati grezzi.")
+            st.dataframe(df_strat)
+    else:
+        st.error("Nessuna tabella di analisi strategica trovata nella risposta NLU.")
+        st.text(nlu_strat_text)
+    # --- FINE BLOCCO ANALISI STRATEGICA ---
+
+    # --- BLOCCO SERP DISPLAY ---
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
     
     col_org, col_paa = st.columns([2, 1], gap="large")
@@ -372,43 +410,6 @@ if st.session_state.analysis_started:
             st.write("_Nessuna ricerca correlata trovata_")
 
     st.divider()
-
-    competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
-    joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
-
-    with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
-        with ThreadPoolExecutor() as executor:
-            future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
-            future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
-            nlu_strat_text = future_strat.result()
-            nlu_comp_text = future_comp.result()
-
-    # --- INIZIO BLOCCO VISUALIZZAZIONE STRATEGICA (MODIFICATO) ---
-    st.subheader("Analisi Strategica")
-    dfs_strat = parse_markdown_tables(nlu_strat_text)
-    if dfs_strat and not dfs_strat[0].empty:
-        df_strat = dfs_strat[0]
-        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
-            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
-            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]
-            
-            cols = st.columns(len(labels_to_display))
-            for col, label in zip(cols, labels_to_display):
-                value = analysis_map.get(label, "N/D")
-                cleaned_value = re.sub(r"\s*\([^)]*\)", "", value).strip()
-                
-                col.markdown(f"""
-                <div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
-                  <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
-                  <div style="font-size:1rem; color:#202124; font-weight:500;">{cleaned_value}</div>
-                </div>""", unsafe_allow_html=True)
-        else:
-            st.warning("La tabella di analisi strategica non ha il formato atteso. Mostro i dati grezzi.")
-            st.dataframe(df_strat)
-    else:
-        st.error("Nessuna tabella di analisi strategica trovata nella risposta NLU.")
-        st.text(nlu_strat_text)
-    # --- FINE BLOCCO VISUALIZZAZIONE STRATEGICA ---
     
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
@@ -446,7 +447,12 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
+        # Rimuove solo lo stato relativo all'analisi, non l'intero session_state
         st.session_state.analysis_started = False
+        # Rimuove anche i testi dei competitor per pulire l'interfaccia
+        for i in range(1, count + 1):
+            if f"comp_quill_{i}" in st.session_state:
+                del st.session_state[f"comp_quill_{i}"]
         st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
