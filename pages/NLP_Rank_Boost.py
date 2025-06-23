@@ -146,6 +146,13 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
+
+**Parte 3: Descrizione Buyer Personas**
+Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
+Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
+Esempio:
+* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
+* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
@@ -348,13 +355,11 @@ if st.session_state.analysis_started:
             df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
             analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
             
-            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]
+            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
             
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
-                # MODIFICA 2: Rimuove gli apici dal valore
                 value = analysis_map.get(label, "N/D").replace('`', '')
-                # MODIFICA 1: Rimuove l'asterisco
                 display_value = value
                 
                 col.markdown(f"""
@@ -363,7 +368,6 @@ if st.session_state.analysis_started:
                   <div style="font-size:1rem; color:#202124; font-weight:500;">{display_value}</div>
                 </div>""", unsafe_allow_html=True)
             
-            # MODIFICA 3: Aggiunge un separatore e formatta il testo come paragrafo
             if audience_detail_text:
                 st.divider()
                 st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
