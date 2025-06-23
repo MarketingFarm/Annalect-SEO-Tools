@@ -4,7 +4,7 @@ import re
 import pandas as pd
 from urllib.parse import urlparse
 
-# Funzione non più usata per le chiavi, ma mantenuta per pulizia generale
+# Funzione per pulire le etichette per la visualizzazione
 def clean_label(raw_label):
     return re.sub(r'\*+', '', raw_label).strip()
 
@@ -83,6 +83,7 @@ if st.session_state.data is None:
             # Resetta lo stato se un nuovo file viene caricato
             st.session_state.step = 1
             st.session_state.keyword_widgets_map = {}
+            st.warning("DEBUG: File caricato. Stato resettato. Forzo il refresh.")
             st.rerun() # Forza il refresh dell'app con i nuovi dati
         except json.JSONDecodeError as e:
             st.error(f"❌ Errore nel parsing del JSON: {e}")
@@ -105,6 +106,7 @@ st.markdown(f"## Step {st.session_state.step}", unsafe_allow_html=True)
 # === STEP 1 ===
 if st.session_state.step == 1:
     st.markdown(separator, unsafe_allow_html=True)
+    st.warning("DEBUG: Entrato in STEP 1.")
     query = data.get("query", "").strip()
     country = data.get("country", "").strip()
     lang = data.get("language", "").strip()
@@ -179,16 +181,23 @@ elif st.session_state.step == 2:
     st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
     keyword_mining = data.get("keyword_mining", [])
+    st.warning("DEBUG: Entrato in STEP 2.")
     if keyword_mining:
         st.session_state.keyword_widgets_map.clear()
+        st.warning("DEBUG: STEP 2 - La mappa `keyword_widgets_map` è stata pulita.")
         for i, entry in enumerate(keyword_mining):
             original_label = entry.get("Categoria Keyword", "")
             display_label = clean_label(original_label)
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             widget_key = f"ms_keyword_{i}"
             st.session_state.keyword_widgets_map[widget_key] = display_label
+            st.warning(f"DEBUG: STEP 2 - Ciclo {i}: Chiave generata='{widget_key}', Etichetta='{display_label}'")
             st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>', unsafe_allow_html=True)
             st.multiselect(label="", options=kws, default=kws, key=widget_key)
+        
+        st.warning("DEBUG: STEP 2 - Stato della sessione DOPO la creazione dei widget:")
+        st.json(st.session_state.to_dict())
+
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -201,6 +210,8 @@ elif st.session_state.step == 2:
 # === STEP 3: Common Ground & Content Gap ===
 elif st.session_state.step == 3:
     st.markdown(separator, unsafe_allow_html=True)
+    st.warning("DEBUG: Entrato in STEP 3. Stato attuale delle chiavi keyword:")
+    st.json({k: v for k, v in st.session_state.items() if 'keyword' in k.lower()})
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>', unsafe_allow_html=True)
     df_common = pd.DataFrame(data.get("common_ground", []))
     if not df_common.empty:
@@ -221,6 +232,8 @@ elif st.session_state.step == 3:
 # === STEP 4: Contestualizzazione e keyword personalizzate ===
 elif st.session_state.step == 4:
     st.markdown(separator, unsafe_allow_html=True)
+    st.warning("DEBUG: Entrato in STEP 4. Stato attuale delle chiavi keyword:")
+    st.json({k: v for k, v in st.session_state.items() if 'keyword' in k.lower()})
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizzazione Contenuto</h3>', unsafe_allow_html=True)
     col1, col2 = st.columns(2, gap="small")
     with col1:
@@ -245,10 +258,11 @@ elif st.session_state.step == 4:
 # === STEP 5: Recap Finale ===
 elif st.session_state.step == 5:
     st.markdown(separator, unsafe_allow_html=True)
+    st.warning("DEBUG: Entrato in STEP 5. Stato COMPLETO della sessione PRIMA del recupero:")
+    st.json(st.session_state.to_dict())
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
     analysis_list = data.get("analysis_strategica", [])
     analysis_map = {clean_label(item.get("Caratteristica SEO", "")): clean_label(item.get("Analisi Sintetica", "")) for item in analysis_list}
-    
     recap_data = {
         "Query": data.get("query", ""),
         "Country": data.get("country", ""),
@@ -263,14 +277,16 @@ elif st.session_state.step == 5:
         "Organic Titles": "; ".join([it.get("Meta Title", "") for it in data.get("organic", [])[:10]]),
         "Organic Descriptions": "; ".join([it.get("Meta Description", "") for it in data.get("organic", [])[:10]])
     }
-
-    # APPROCCIO DEFINITIVO: Itera sulla mappa di widget salvata
-    if "keyword_widgets_map" in st.session_state:
+    
+    st.warning("DEBUG: STEP 5 - Inizio recupero keyword dalla mappa salvata.")
+    if "keyword_widgets_map" in st.session_state and st.session_state.keyword_widgets_map:
         for widget_key, display_label in st.session_state.keyword_widgets_map.items():
             selected_keywords = st.session_state.get(widget_key, [])
+            st.warning(f"DEBUG: STEP 5 - Leggo chiave='{widget_key}' (etichetta='{display_label}'). Valore trovato: {selected_keywords}")
             recap_data[f"{display_label} Selezionate"] = ", ".join(selected_keywords)
-            
-    # BUG FIX: Usa la chiave corretta per recuperare i dati dall'editor
+    else:
+        st.warning("DEBUG: STEP 5 - ERRORE CRITICO: La mappa `keyword_widgets_map` è vuota o non esiste in sessione.")
+
     edited_common = st.session_state.get("editor_common", pd.DataFrame())
     if not edited_common.empty and "Seleziona" in edited_common.columns:
         common_selected = edited_common[edited_common["Seleziona"] == True].to_dict(orient="records")
@@ -286,6 +302,9 @@ elif st.session_state.step == 5:
     recap_data["Keyword Personalizzate"] = ", ".join(st.session_state.get("raw_custom_keywords", []))
     recap_data["ToV Personalizzato"] = "; ".join(st.session_state.get("raw_tov_text", []))
     recap_data["Informazioni Aggiuntive"] = st.session_state.get("raw_additional_info", "")
+    
+    st.warning("DEBUG: STEP 5 - Dizionario 'recap_data' finale PRIMA della visualizzazione:")
+    st.json(recap_data)
 
     df_recap = pd.DataFrame(recap_data.items(), columns=["Voce", "Valore"])
     st.table(df_recap)
