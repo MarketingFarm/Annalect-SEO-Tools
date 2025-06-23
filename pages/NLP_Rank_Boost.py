@@ -140,19 +140,12 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 | :--- | :--- |
 | **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` |
 | **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` |
-| **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` |
+| **Target Audience** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` |
 | **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave, es: "Didattico, professionale, autorevole"]` |
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
-
-**Parte 3: Descrizione Buyer Personas**
-Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
-Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
-Esempio:
-* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
-* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
