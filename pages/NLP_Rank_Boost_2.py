@@ -258,17 +258,18 @@ elif st.session_state.step == 2:
 
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
-        for entry in keyword_mining:
-            raw_label = entry.get("Categoria Keyword", "")
-            raw_label = re.sub(r"\*+", "", raw_label).strip()
+        for i, entry in enumerate(keyword_mining):
+            raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
-            slug = slugify_label(raw_label)
-            widget_key = f"ms_{slug}"
+            widget_key = f"kw_{i}"
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
                 unsafe_allow_html=True
             )
-            st.multiselect(label="", options=kws, default=kws, key=widget_key)
+            # Salvo il return esplicitamente in session_state
+            selections = st.multiselect(label="", options=kws, default=kws, key=widget_key)
+            st.session_state[widget_key] = selections
+
         c1, c2 = st.columns(2)
         with c1:
             st.button("Indietro", on_click=go_back, key="back_btn")
@@ -416,25 +417,12 @@ elif st.session_state.step == 5:
         "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
     }
 
-    # Aggiungo le selezioni di keyword mining in modo robusto
-for entry in data.get("keyword_mining", []):
-    # 1. Prendi l'etichetta originale e non pulita direttamente dal JSON
-    original_label = entry.get("Categoria Keyword", "")
-
-    # 2. Crea lo 'slug' e la chiave del widget passando l'etichetta originale.
-    #    La funzione slugify_label è già progettata per pulire l'input.
-    #    Questo garantisce che la chiave sia IDENTICA a quella generata nello Step 2.
-    slug = slugify_label(original_label)
-    widget_key = f"ms_{slug}"
-
-    # 3. Recupera i valori dallo stato della sessione usando la chiave corretta
-    selected_keywords = st.session_state.get(widget_key, [])
-
-    # 4. Pulisci l'etichetta solo per la visualizzazione nella tabella di recap
-    display_label = re.sub(r"\*+", "", original_label).strip()
-    
-    # 5. Aggiungi i dati al dizionario di recap
-    recap[f"{display_label} Selezionate"] = ", ".join(selected_keywords)
+    # Aggiungo le selezioni di keyword mining con i nomi esatti dal JSON
+    for i, entry in enumerate(data.get("keyword_mining", [])):
+        raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+        widget_key = f"kw_{i}"
+        selected = st.session_state.get(widget_key, [])
+        recap[f"{raw_label} Selezionate"] = ", ".join(selected)
 
     df_recap = pd.DataFrame([recap]).T.reset_index()
     df_recap.columns = ["Voce", "Valore"]
