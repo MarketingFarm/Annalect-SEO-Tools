@@ -416,14 +416,25 @@ elif st.session_state.step == 5:
         "Informazioni Aggiuntive": st.session_state.get("raw_additional_info", "")
     }
 
-    # Aggiungo le selezioni di keyword mining con i nomi esatti dal JSON
-    for entry in data.get("keyword_mining", []):
-        raw_label = entry.get("Categoria Keyword", "")
-        raw_label = re.sub(r"\*+", "", raw_label).strip()
-        slug = slugify_label(raw_label)
-        widget_key = f"ms_{slug}"
-        selected = st.session_state.get(widget_key, [])
-        recap[f"{raw_label} Selezionate"] = ", ".join(selected)
+    # Aggiungo le selezioni di keyword mining in modo robusto
+for entry in data.get("keyword_mining", []):
+    # 1. Prendi l'etichetta originale e non pulita direttamente dal JSON
+    original_label = entry.get("Categoria Keyword", "")
+
+    # 2. Crea lo 'slug' e la chiave del widget passando l'etichetta originale.
+    #    La funzione slugify_label è già progettata per pulire l'input.
+    #    Questo garantisce che la chiave sia IDENTICA a quella generata nello Step 2.
+    slug = slugify_label(original_label)
+    widget_key = f"ms_{slug}"
+
+    # 3. Recupera i valori dallo stato della sessione usando la chiave corretta
+    selected_keywords = st.session_state.get(widget_key, [])
+
+    # 4. Pulisci l'etichetta solo per la visualizzazione nella tabella di recap
+    display_label = re.sub(r"\*+", "", original_label).strip()
+    
+    # 5. Aggiungi i dati al dizionario di recap
+    recap[f"{display_label} Selezionate"] = ", ".join(selected_keywords)
 
     df_recap = pd.DataFrame([recap]).T.reset_index()
     df_recap.columns = ["Voce", "Valore"]
