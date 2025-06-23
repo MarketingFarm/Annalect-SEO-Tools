@@ -228,12 +228,11 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 
 ### Semantic Keyword Mining with NLP
 
-| Categoria Keyword | Keywords / Concetti / Domande | Intento Prevalente |
-| :--- | :--- | :--- |
-| **Keyword Principale** | {kwargs.get('keyword', '').lower()} | _(determina e inserisci l'intento primario)_ |
-| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_ | _(Informazionale / Commerciale ecc.)_ |
-| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ | _(Supporto all'intento)_ |
-| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_ | _(Informazionale (Specifico))_ |
+| Categoria Keyword | Keywords / Concetti / Domande |
+| :--- | :--- |
+| **Keyword Principale** | {kwargs.get('keyword', '').lower()} |
+| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_ |
+| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ |
 """
 
 
