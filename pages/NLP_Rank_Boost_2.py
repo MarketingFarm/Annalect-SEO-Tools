@@ -262,22 +262,15 @@ elif st.session_state.step == 2:
             raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
             widget_key = f"kw_{i}"
-# solo la prima volta inizializzo lo stato
-if widget_key not in st.session_state:
-    st.session_state[widget_key] = kws  
-# ora creo il widget: default verrà preso da session_state
-selections = st.multiselect(
-    label="",
-    options=kws,
-    default=st.session_state[widget_key],
-    key=widget_key
-)
+            # Prepopolazione solo la prima volta
+            if widget_key not in st.session_state:
+                st.session_state[widget_key] = kws
             st.markdown(
                 f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
                 unsafe_allow_html=True
             )
-            # Salvo il return esplicitamente in session_state
-            selections = st.multiselect(label="", options=kws, default=kws, key=widget_key)
+            # Il default viene preso da session_state
+            st.multiselect(label="", options=kws, default=st.session_state[widget_key], key=widget_key)
 
         c1, c2 = st.columns(2)
         with c1:
@@ -341,9 +334,7 @@ elif st.session_state.step == 4:
             "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)", "Guida all'Acquisto", "Articolo del Blog"],
             "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
         }
-        destino = st.selectbox("Destinazione Contenuto",
-                               dest_options.get(context, ["-- Seleziona --"]),
-                               key="dest_select")
+        destino = st.selectbox("Destinazione Contenido", dest_options.get(context, ["-- Seleziona --"]), key="dest_select")
 
     custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
     if custom_toggle:
