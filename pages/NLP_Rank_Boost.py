@@ -319,21 +319,22 @@ if st.session_state.analysis_started:
             future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
-
-    # --- INIZIO BLOCCO SPOSTATO: ANALISI STRATEGICA ---
+    
+    # --- BLOCCO ANALISI STRATEGICA (ORA PRIMA DELLA SERP) ---
     st.subheader("Analisi Strategica")
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     if dfs_strat and not dfs_strat[0].empty:
         df_strat = dfs_strat[0]
         if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
-            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.strip()).to_dict()
+            # FIX: Pulisce gli asterischi dalla colonna prima di creare il dizionario
+            df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
+            
             labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]
             
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
-                # Rimuove ** dal label per la ricerca nel dizionario
-                clean_label_lookup = label.replace('*', '').strip()
-                value = analysis_map.get(clean_label_lookup, "N/D")
+                value = analysis_map.get(label, "N/D")
                 cleaned_value = re.sub(r"\s*\([^)]*\)", "", value).strip()
                 
                 col.markdown(f"""
@@ -347,8 +348,7 @@ if st.session_state.analysis_started:
     else:
         st.error("Nessuna tabella di analisi strategica trovata nella risposta NLU.")
         st.text(nlu_strat_text)
-    # --- FINE BLOCCO ANALISI STRATEGICA ---
-
+    
     # --- BLOCCO SERP DISPLAY ---
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
     
@@ -447,12 +447,7 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
-        # Rimuove solo lo stato relativo all'analisi, non l'intero session_state
         st.session_state.analysis_started = False
-        # Rimuove anche i testi dei competitor per pulire l'interfaccia
-        for i in range(1, count + 1):
-            if f"comp_quill_{i}" in st.session_state:
-                del st.session_state[f"comp_quill_{i}"]
         st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
