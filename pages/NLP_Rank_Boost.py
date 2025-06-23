@@ -114,6 +114,7 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
+    # MODIFICA 2: Rimuove la colonna "Giustificazione e Dettagli"
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -133,16 +134,16 @@ def get_strategica_prompt(keyword: str, texts: str) -> str:
 
 **COMPITO E FORMATO DI OUTPUT:**
 
-Analizza in modo aggregato tutti i testi forniti tra i delimitatori `### INIZIO` e `### FINE`. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi. Se noti forti divergenze, segnalale nel campo "Giustificazione e Dettagli".
+Analizza in modo aggregato tutti i testi forniti tra i delimitatori `### INIZIO` e `### FINE`. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi.
 
 Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header e **senza** alcuna introduzione, commento o testo conclusivo.
 
-| Caratteristica SEO | Analisi Sintetica | Giustificazione e Dettagli |
-| :--- | :--- | :--- |
-| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` | `[Spiega perché, es: "L'utente cerca definizioni, guide e 'come fare', indicando una fase di apprendimento."]` |
-| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` | `[Spiega il secondo livello di bisogno, es: "Dopo aver capito 'cos'è', l'utente inizia a confrontare soluzioni e prodotti."]` |
-| **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` | `[Stima il livello di complessità, es: "Linguaggio semplice e accessibile, evita gergo tecnico. Adatto a non addetti ai lavori."]` |
-| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante, es: "Didattico e professionale"]` | `[Elenca 3 aggettivi chiave che catturano l'essenza del ToV, es: "autorevole, chiaro, pragmatico".]` |
+| Caratteristica SEO | Analisi Sintetica |
+| :--- | :--- |
+| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` |
+| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` |
+| **Target Audience & Leggibilità** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` |
+| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave, es: "Didattico, professionale, autorevole"]` |
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
@@ -183,6 +184,7 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
 
 def get_mining_prompt(**kwargs) -> str:
     """Costruisce il prompt per il keyword mining."""
+    # MODIFICA 3: Rimuove i backtick dall'esempio della keyword principale
     return f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
@@ -231,7 +233,7 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 
 | Categoria Keyword | Keywords / Concetti / Domande | Intento Prevalente |
 | :--- | :--- | :--- |
-| **Keyword Principale** | `{kwargs.get('keyword', '').lower()}` | _(determina e inserisci l'intento primario)_ |
+| **Keyword Principale** | {kwargs.get('keyword', '').lower()} | _(determina e inserisci l'intento primario)_ |
 | **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_ | _(Informazionale / Commerciale ecc.)_ |
 | **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ | _(Supporto all'intento)_ |
 | **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_ | _(Informazionale (Specifico))_ |
@@ -354,7 +356,18 @@ if st.session_state.analysis_started:
             
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
         if related_list:
-            pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{r}</span>' for r in related_list)
+            # MODIFICA 1: Logica per il grassetto sulle ricerche correlate
+            pills = ""
+            pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
+            for r in related_list:
+                txt = r.strip()
+                if pat and (m := pat.search(txt)):
+                    # Se trova la query, mette in grassetto il resto
+                    pre, suf = txt[:m.end()], txt[m.end():]
+                    formatted_txt = pre + (f"<strong>{suf}</strong>" if suf else "")
+                else:
+                    formatted_txt = txt
+                pills += f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{formatted_txt}</span>'
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
@@ -373,6 +386,7 @@ if st.session_state.analysis_started:
 
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     st.subheader("Analisi Strategica (Intento, Audience, ToV)")
+    # La visualizzazione si adatta automaticamente alle colonne del DataFrame generato dal prompt modificato
     st.dataframe(dfs_strat[0] if dfs_strat else pd.DataFrame(), use_container_width=True, hide_index=True)
     
     dfs_comp = parse_markdown_tables(nlu_comp_text)
@@ -397,6 +411,7 @@ if st.session_state.analysis_started:
     dfs_mining = parse_markdown_tables(nlu_mining_text)
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
     st.subheader("Semantic Keyword Mining")
+    # La visualizzazione qui non richiede modifiche, il prompt corretto genererà output senza apici
     st.dataframe(df_mining, use_container_width=True, hide_index=True)
 
     export_data = {
