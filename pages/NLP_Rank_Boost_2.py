@@ -59,11 +59,11 @@ if st.session_state.data is None:
     if uploaded_file:
         try:
             st.session_state.data = json.load(uploaded_file)
-            # Resetta lo stato completo se un nuovo file viene caricato
             st.session_state.step = 1
-            keys_to_clear = ["keyword_widgets_map", "editor_common", "editor_gap", "raw_custom_keywords", "raw_tov_text", "raw_additional_info", "context_select", "dest_select"]
+            # Pulisce tutto lo stato vecchio per evitare conflitti
+            keys_to_clear = list(st.session_state.keys())
             for key in keys_to_clear:
-                if key in st.session_state:
+                if key != 'data' and key != 'step':
                     del st.session_state[key]
             st.rerun()
         except json.JSONDecodeError as e:
@@ -90,7 +90,6 @@ if st.session_state.step == 1:
     query = data.get("query", "")
     st.markdown(f"### Dati relativi alla query: *{query}*")
     st.markdown(separator, unsafe_allow_html=True)
-    # ... (Il resto dello step 1 rimane invariato)
     analysis_list = data.get("analysis_strategica", [])
     analysis_map = {clean_label(item.get("Caratteristica SEO", "")): clean_label(item.get("Analisi Sintetica", "")) for item in analysis_list}
     raw_signals = analysis_map.get("Segnali E-E-A-T", "")
@@ -127,7 +126,7 @@ elif st.session_state.step == 2:
     st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
-        st.session_state.keyword_widgets_map.clear()
+        st.session_state.keyword_widgets_map = {}
         for i, entry in enumerate(keyword_mining):
             display_label = clean_label(entry.get("Categoria Keyword", ""))
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
@@ -146,24 +145,20 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>', unsafe_allow_html=True)
 
-    # APPROCCIO ROBUSTO: Inizializza i DataFrame in session_state UNA SOLA VOLTA
-    if "editor_common" not in st.session_state:
-        df_common = pd.DataFrame(data.get("common_ground", []))
-        if not df_common.empty:
-            df_common.insert(0, "Seleziona", False)
-        st.session_state.editor_common = df_common
+    # Prepara i dati iniziali per i data_editor
+    df_common_initial = pd.DataFrame(data.get("common_ground", []))
+    if not df_common_initial.empty:
+        df_common_initial.insert(0, "Seleziona", False)
 
-    if "editor_gap" not in st.session_state:
-        df_gap = pd.DataFrame(data.get("content_gap", []))
-        if not df_gap.empty:
-            df_gap.insert(0, "Seleziona", False)
-        st.session_state.editor_gap = df_gap
-    
+    df_gap_initial = pd.DataFrame(data.get("content_gap", []))
+    if not df_gap_initial.empty:
+        df_gap_initial.insert(0, "Seleziona", False)
+
     st.subheader("Common Ground Analysis")
-    st.data_editor(st.session_state.editor_common, use_container_width=True, hide_index=True, key="editor_common", height=300)
+    st.data_editor(df_common_initial, use_container_width=True, hide_index=True, key="editor_common", height=300)
 
     st.subheader("Content Gap Opportunity")
-    st.data_editor(st.session_state.editor_gap, use_container_width=True, hide_index=True, key="editor_gap", height=300)
+    st.data_editor(df_gap_initial, use_container_width=True, hide_index=True, key="editor_gap", height=300)
     
     c1, c2, _ = st.columns([1,1,6])
     c1.button("Indietro", on_click=go_back, key="back_btn_3")
@@ -174,6 +169,11 @@ elif st.session_state.step == 4:
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizzazione Contenuto</h3>', unsafe_allow_html=True)
     col1, col2 = st.columns(2, gap="small")
     dest_options = {"-- Seleziona --": ["-- Seleziona --"], "E-commerce": ["-- Seleziona --", "PLP", "PDP", "Guida Acquisto", "Articolo Blog"], "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo Blog"]}
+    
+    # Inizializza le chiavi se non esistono
+    if 'context_select' not in st.session_state:
+        st.session_state.context_select = "-- Seleziona --"
+
     col1.selectbox("Contesto", dest_options.keys(), key="context_select")
     col2.selectbox("Destinazione Contenuto", dest_options.get(st.session_state.context_select, ["-- Seleziona --"]), key="dest_select")
     
@@ -208,7 +208,7 @@ elif st.session_state.step == 5:
     for key in ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]:
         recap_data[key] = re.sub(r"\s*\([^)]*\)", "", analysis_map.get(key, "")).strip()
 
-    # Common Ground e Content Gap (USA LA CHIAVE CORRETTA)
+    # Common Ground e Content Gap
     edited_common = st.session_state.get("editor_common", pd.DataFrame())
     if not edited_common.empty and "Seleziona" in edited_common.columns:
         recap_data["Righe Common Ground Selezionate"] = len(edited_common[edited_common["Seleziona"] == True])
@@ -224,6 +224,7 @@ elif st.session_state.step == 5:
     recap_data["ToV Personalizzato"] = st.session_state.get("raw_tov_text", "")
     recap_data["Informazioni Aggiuntive"] = st.session_state.get("raw_additional_info", "")
 
+    # Creazione DataFrame e visualizzazione
     df_recap = pd.DataFrame(recap_data.items(), columns=["Voce", "Valore"])
     st.table(df_recap)
     
