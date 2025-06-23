@@ -4,25 +4,12 @@ import re
 import pandas as pd
 from urllib.parse import urlparse
 
-# Utility per creare uno slug coerente dal label, inclusi eventuali contenuti tra parentesi
-def slugify_label(raw_label):
-    # Rimuove eventuali asterischi
-    label = re.sub(r"\*+", "", raw_label).strip()
-    # Se c'è una parte tra parentesi, la include nel slug
-    m = re.match(r"(.+?)\s*\(([^)]+)\)$", label)
-    if m:
-        base = m.group(1).strip()
-        paren = m.group(2).strip()
-        combined = f"{base} {paren}"
-    else:
-        combined = label
-    # Sostituisce tutto ciò che non è alfanumerico con underscore
-    slug = re.sub(r"[^0-9A-Za-z]+", "_", combined).strip("_")
-    return slug
+# Funzione per pulire le etichette per la visualizzazione
+def clean_label(raw_label):
+    return re.sub(r'\*+', '', raw_label).strip()
 
-# --- Assumo st.set_page_config già invocato nel file principale ---
-
-# Titolo e descrizione
+# --- Configurazione Pagina ---
+st.set_page_config(layout="wide")
 st.title("📝 Analisi e Scrittura Contenuti SEO")
 st.markdown(
     """
@@ -34,62 +21,51 @@ st.markdown(
     """
 )
 
-# --- Hack CSS per multiselect senza troncamento, label più grandi, e rimozione spazio vuoto ---
+# --- Stile CSS Personalizzato ---
 st.markdown(
     """
     <style>
-      /* Multiselect pill wrap */
       .stMultiSelect [data-baseweb="select"] span {
         max-width: none !important;
         white-space: normal !important;
         line-height: 1.3 !important;
       }
-      /* Aumenta font delle etichette multiselect */
       .stMultiSelect > label {
         font-size: 1.25rem !important;
         font-weight: 500 !important;
       }
-      /* Nasconde il label vuoto per evitare spazio extra */
       .stMultiSelect [data-testid="stWidgetLabel"] {
-        display: none !important;
-        margin: 0;
-        padding: 0;
-        height: 0;
-      }
-      .st-c6 {
-        padding: 10px;
-      }
-      .stMultiSelect [data-baseweb="select"] span {
-        background-color: rgb(84 87 101);
+        display: none !important; margin: 0; padding: 0; height: 0;
       }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- Separatore standardizzato ---
-separator = """
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1rem 0;
-  padding-top:1rem;
-"></div>
-"""
+# --- Elementi UI Standard ---
+separator = """<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0; padding-top:1rem;"></div>"""
 
-# --- Persistenza del JSON in session_state ---
+# --- Inizializzazione Session State ---
 if "data" not in st.session_state:
     st.session_state.data = None
+if "step" not in st.session_state:
+    st.session_state.step = 1
+if "keyword_widgets_map" not in st.session_state:
+    st.session_state.keyword_widgets_map = {}
 
-# --- Caricamento JSON (solo se non già caricato) ---
+# --- Logica di Caricamento File ---
 if st.session_state.data is None:
-    uploaded_file = st.file_uploader(
-        "Carica il file JSON",
-        type="json",
-        help="Carica qui il file JSON generato dalla pagina precedente"
-    )
+    uploaded_file = st.file_uploader("Carica il file JSON", type="json", help="Carica qui il file JSON generato dalla pagina precedente")
     if uploaded_file:
         try:
             st.session_state.data = json.load(uploaded_file)
+            # Resetta lo stato completo se un nuovo file viene caricato
+            st.session_state.step = 1
+            keys_to_clear = ["keyword_widgets_map", "editor_common", "editor_gap", "raw_custom_keywords", "raw_tov_text", "raw_additional_info", "context_select", "dest_select"]
+            for key in keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
         except json.JSONDecodeError as e:
             st.error(f"❌ Errore nel parsing del JSON: {e}")
             st.stop()
@@ -99,336 +75,157 @@ if st.session_state.data is None:
 
 data = st.session_state.data
 
-# --- Session state per multi-step ---
-if "step" not in st.session_state:
-    st.session_state.step = 1
-
+# --- Funzioni di Navigazione ---
 def go_next():
     st.session_state.step = min(st.session_state.step + 1, 5)
-
 def go_back():
     st.session_state.step = max(st.session_state.step - 1, 1)
 
-# --- Step indicator ---
-st.markdown(f"## Step {st.session_state.step}", unsafe_allow_html=True)
+# --- Indicatore di Step ---
+st.markdown(f"## Step {st.session_state.step}")
+st.markdown(separator, unsafe_allow_html=True)
 
-# === STEP 1 ===
+# ==================== STEP 1 ====================
 if st.session_state.step == 1:
+    query = data.get("query", "")
+    st.markdown(f"### Dati relativi alla query: *{query}*")
     st.markdown(separator, unsafe_allow_html=True)
-
-    query   = data.get("query", "").strip()
-    country = data.get("country", "").strip()
-    lang    = data.get("language", "").strip()
-
-    st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Dettagli della Query</h3>', unsafe_allow_html=True)
-
-    # Analisi strategica mappata
+    # ... (Il resto dello step 1 rimane invariato)
     analysis_list = data.get("analysis_strategica", [])
-    analysis_map = {
-        re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
-        re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
-        for item in analysis_list
-    }
-
-    # Segnali E-E-A-T no parentesi
+    analysis_map = {clean_label(item.get("Caratteristica SEO", "")): clean_label(item.get("Analisi Sintetica", "")) for item in analysis_list}
     raw_signals = analysis_map.get("Segnali E-E-A-T", "")
     signals_val = re.sub(r"\s*\([^)]*\)", "", raw_signals).strip()
-
+    st.markdown('<h5>Dettagli della Query</h5>', unsafe_allow_html=True)
     cols_main = st.columns(4, gap="small")
-    labels_main = ["Query","Country","Language","Segnali E-E-A-T"]
-    vals_main   = [query, country, lang, signals_val]
+    labels_main = ["Query", "Country", "Language", "Segnali E-E-A-T"]
+    vals_main = [data.get("query", ""), data.get("country", ""), data.get("language", ""), signals_val]
     for col, lbl, val in zip(cols_main, labels_main, vals_main):
-        col.markdown(f"""
-<div style="
-  padding: 0.75rem 1.5rem;
-  border: 1px solid rgb(255 166 166);
-  border-radius: 0.5rem;
-  background-color: rgb(255, 246, 246);
-  margin-bottom: 0.5rem;
-">
-  <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
-  <div style="font-size:1.1rem; color:#202124; font-weight:500;">{val}</div>
-</div>
-""", unsafe_allow_html=True)
-    st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
-
-    st.markdown('<h3 style="margin-top:1.5rem; padding-top:0;">Analisi Strategica</h3>', unsafe_allow_html=True)
-
-    labels_analysis = [
-        "Search Intent Primario",
-        "Search Intent Secondario",
-        "Target Audience & Leggibilità",
-        "Tone of Voice (ToV)"
-    ]
+        col.markdown(f"""<div style="padding: 0.75rem 1rem; border: 1px solid #dee2e6; border-radius: 0.5rem; background-color: #f8f9fa; margin-bottom: 1rem;"><div style="font-size:0.8rem; color: #6c757d;">{lbl}</div><div style="font-size:1.1rem; color:#212529; font-weight:500;">{val}</div></div>""", unsafe_allow_html=True)
+    st.markdown('<h5 style="margin-top:1rem;">Analisi Strategica</h5>', unsafe_allow_html=True)
+    labels_analysis = ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]
     cols2 = st.columns(len(labels_analysis), gap="small")
     for c, lbl in zip(cols2, labels_analysis):
         raw = analysis_map.get(lbl, "")
         v = re.sub(r"\s*\([^)]*\)", "", raw).strip()
-        c.markdown(f"""
-<div style="
-  padding: 0.75rem 1.5rem;
-  border: 1px solid rgb(255 166 166);
-  border-radius: 0.5rem;
-  background-color: rgb(255, 246, 246);
-">
-  <div style="font-size:0.8rem; color: rgb(255 70 70);">{lbl}</div>
-  <div style="font-size:1rem; color:#202124; font-weight:500;">{v}</div>
-</div>
-""", unsafe_allow_html=True)
-    st.markdown('<div style="margin-bottom:1rem;"></div>', unsafe_allow_html=True)
-
-    st.markdown("""
-<div style="
-  border-top:1px solid #ECEDEE;
-  margin: 1.5rem 0px 2rem 0rem;
-  padding-top:1rem;
-"></div>""", unsafe_allow_html=True)
-    col_org, col_paa = st.columns([2,1], gap="small")
-    with col_org:
-        st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
-        organic = data.get("organic", [])
-        if organic:
-            html = '<div style="padding-right:3.5rem;">'
-            for it in organic[:10]:
-                m   = re.search(r"href=[\'\"]([^\'\"]+)[\'\"]", it.get("URL",""))
-                url = m.group(1) if m else it.get("URL","")
-                p   = urlparse(url)
-                base = f"{p.scheme}://{p.netloc}"
-                segs = [s for s in p.path.split("/") if s]
-                pretty = base + (" › " + " › ".join(segs) if segs else "")
-                hn   = p.netloc.split('.')
-                name = (hn[1] if len(hn)>2 else hn[0]).replace('-', ' ').title()
-                title = it.get("Meta Title","")
-                desc  = it.get("Meta Description","")
-                html += (
-                    '<div style="margin-bottom:2rem;">'
-                      '<div style="display:flex;align-items:center;margin-bottom:0.2rem;">'
-                        f'<img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" '
-                           'onerror="this.src=\'https://www.google.com/favicon.ico\';" '
-                           'style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/>'
-                        '<div>'
-                          f'<div style="color:#202124;font-size:16px;line-height:20px;">{name}</div>'
-                          f'<div style="color:#4d5156;font-size:14px;line-height:18px;">{pretty}</div>'
-                        '</div>'
-                      '</div>'
-                      f'<a href="{url}" style="color:#1a0dab;text-decoration:none;font-size:23px;font-weight:500;">{title}</a>'
-                      f'<div style="font-size:16px;line-height:22px;color:#474747;">{desc}</div>'
-                    '</div>'
-                )
-            html += '</div>'
-            st.markdown(html, unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ Nessun risultato organico trovato.")
-    with col_paa:
-        st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
-        paa = data.get("people_also_ask", [])
-        if paa:
-            pills = ''.join(
-              f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{q}</span>'
-              for q in paa
-            )
-            st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{pills}</div>', unsafe_allow_html=True)
-        else:
-            st.write("_Nessuna PAA trovata_")
-        st.markdown('<h3 style="margin-top:1rem; padding-top:0;">Ricerche Correlate</h3>', unsafe_allow_html=True)
-        related = data.get("related_searches", [])
-        if related:
-            pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
-            spans = []
-            for r in related:
-                txt = r.strip()
-                if pat:
-                    m = pat.search(txt)
-                    if m:
-                        pre, suf = txt[:m.end()], txt[m.end():]
-                        txt = pre + (f"<strong>{suf}</strong>" if suf else "")
-                spans.append(
-                  f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-bottom:8px;">{txt}</span>'
-                )
-            st.markdown('<div style="display:flex;flex-wrap:wrap;gap:4px;">' + ''.join(spans) + '</div>', unsafe_allow_html=True)
-        else:
-            st.write("_Nessuna ricerca correlata trovata_")
-
-    st.button("Avanti", on_click=go_next, key="next_btn")
-
-# === STEP 2 ===
-elif st.session_state.step == 2:
+        c.markdown(f"""<div style="padding: 0.75rem 1rem; border: 1px solid #dee2e6; border-radius: 0.5rem; background-color: #f8f9fa;"><div style="font-size:0.8rem; color: #6c757d;">{lbl}</div><div style="font-size:1rem; color:#212529; font-weight:500;">{v}</div></div>""", unsafe_allow_html=True)
     st.markdown(separator, unsafe_allow_html=True)
-    st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
+    col_org, col_paa = st.columns([2, 1], gap="large")
+    with col_org:
+        st.markdown('<h5>Risultati Organici (Top 10)</h5>', unsafe_allow_html=True)
+        for it in data.get("organic", [])[:10]:
+            url_raw, p = it.get("URL", ""), urlparse(it.get("URL", ""))
+            st.markdown(f"""<div style="margin-bottom: 1.5rem;"><div style="display:flex; align-items:center; margin-bottom:0.2rem;"><img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=32" onerror="this.src='https://www.google.com/favicon.ico';" style="width:20px; height:20px; margin-right:0.5rem;"/><span style="font-size:14px; color:#4d5156;">{p.scheme}://{p.netloc}</span></div><a href="{url_raw}" style="color:#1a0dab; text-decoration:none; font-size:20px;">{it.get("Meta Title", "")}</a><div style="font-size:14px; color:#4d5156; line-height:1.4;">{it.get("Meta Description", "")}</div></div>""", unsafe_allow_html=True)
+    with col_paa:
+        st.markdown('<h5>People Also Ask</h5>', unsafe_allow_html=True)
+        for q in data.get("people_also_ask", []): st.markdown(f"- {q}")
+        st.markdown('<h5 style="margin-top:1.5rem;">Ricerche Correlate</h5>', unsafe_allow_html=True)
+        for r in data.get("related_searches", []): st.markdown(f"- {r}")
+    st.button("Avanti", on_click=go_next, key="next_btn", type="primary")
 
+# ==================== STEP 2 ====================
+elif st.session_state.step == 2:
+    st.markdown('<h3 style="margin-top:0; padding-top:0;">Seleziona le singole keywords per l\'analisi</h3>', unsafe_allow_html=True)
     keyword_mining = data.get("keyword_mining", [])
     if keyword_mining:
+        st.session_state.keyword_widgets_map.clear()
         for i, entry in enumerate(keyword_mining):
-            raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword", "")).strip()
+            display_label = clean_label(entry.get("Categoria Keyword", ""))
             kws = [k.strip(" `") for k in entry.get("Keywords / Concetti / Domande", "").split(",")]
-            widget_key = slugify_label(raw_label)
-            # Prepopolazione solo la prima volta
-            if widget_key not in st.session_state:
-                st.session_state[widget_key] = kws
-            st.markdown(
-                f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{raw_label}</p>',
-                unsafe_allow_html=True
-            )
-            st.multiselect(label="", options=kws, default=st.session_state[widget_key], key=widget_key)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.button("Indietro", on_click=go_back, key="back_btn")
-        with c2:
-            st.button("Avanti", on_click=go_next, key="next2_btn")
+            widget_key = f"ms_keyword_{i}"
+            st.session_state.keyword_widgets_map[widget_key] = display_label
+            st.markdown(f'<p style="font-size:1.25rem; font-weight:600; margin:1rem 0 0.75rem 0;">{display_label}</p>', unsafe_allow_html=True)
+            st.multiselect(label="", options=kws, default=kws, key=widget_key)
+        c1, c2, _ = st.columns([1,1,6])
+        c1.button("Indietro", on_click=go_back, key="back_btn")
+        c2.button("Avanti", on_click=go_next, key="next2_btn", type="primary")
     else:
         st.warning("⚠️ Non ho trovato la sezione di Keyword Mining nel JSON.")
+        st.button("Indietro", on_click=go_back, key="back_btn_empty")
 
-# === STEP 3: Common Ground & Content Gap ===
+# ==================== STEP 3 ====================
 elif st.session_state.step == 3:
-    st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Analisi Semantica Avanzata</h3>', unsafe_allow_html=True)
 
-    common = data.get("common_ground", [])
-    gap    = data.get("content_gap", [])
+    # APPROCCIO ROBUSTO: Inizializza i DataFrame in session_state UNA SOLA VOLTA
+    if "editor_common" not in st.session_state:
+        df_common = pd.DataFrame(data.get("common_ground", []))
+        if not df_common.empty:
+            df_common.insert(0, "Seleziona", False)
+        st.session_state.editor_common = df_common
 
-    df_common = pd.DataFrame(common)
-    df_common.insert(0, "Seleziona", False)
+    if "editor_gap" not in st.session_state:
+        df_gap = pd.DataFrame(data.get("content_gap", []))
+        if not df_gap.empty:
+            df_gap.insert(0, "Seleziona", False)
+        st.session_state.editor_gap = df_gap
+    
     st.subheader("Common Ground Analysis")
-    edited_common = st.data_editor(
-        df_common,
-        num_rows=len(df_common),
-        use_container_width=True,
-        hide_index=True,
-        key="editor_common"
-    )
-    st.session_state.edited_common = edited_common
+    st.data_editor(st.session_state.editor_common, use_container_width=True, hide_index=True, key="editor_common", height=300)
 
-    df_gap = pd.DataFrame(gap)
-    df_gap.insert(0, "Seleziona", False)
     st.subheader("Content Gap Opportunity")
-    edited_gap = st.data_editor(
-        df_gap,
-        num_rows=len(df_gap),
-        use_container_width=True,
-        hide_index=True,
-        key="editor_gap"
-    )
-    st.session_state.edited_gap = edited_gap
+    st.data_editor(st.session_state.editor_gap, use_container_width=True, hide_index=True, key="editor_gap", height=300)
+    
+    c1, c2, _ = st.columns([1,1,6])
+    c1.button("Indietro", on_click=go_back, key="back_btn_3")
+    c2.button("Avanti", on_click=go_next, key="next3_btn", type="primary")
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.button("Indietro", on_click=go_back, key="back_btn_3")
-    with c2:
-        st.button("Avanti", on_click=go_next, key="next3_btn")
-
-# === STEP 4: Contestualizzazione e keyword personalizzate ===
+# ==================== STEP 4 ====================
 elif st.session_state.step == 4:
-    st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Contestualizzazione Contenuto</h3>', unsafe_allow_html=True)
-
     col1, col2 = st.columns(2, gap="small")
-    with col1:
-        context = st.selectbox("Contesto",
-                               ["-- Seleziona --", "E-commerce", "Magazine / Testata Giornalistica"],
-                               key="context_select")
-    with col2:
-        dest_options = {
-            "-- Seleziona --": ["-- Seleziona --"],
-            "E-commerce": ["-- Seleziona --", "Product Listing Page (PLP)", "Product Detail Page (PDP)", "Guida all'Acquisto", "Articolo del Blog"],
-            "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo del Blog"]
-        }
-        dest = st.selectbox("Destinazione Contenuto",
-                            dest_options.get(context, ["-- Seleziona --"]),
-                            key="dest_select")
+    dest_options = {"-- Seleziona --": ["-- Seleziona --"], "E-commerce": ["-- Seleziona --", "PLP", "PDP", "Guida Acquisto", "Articolo Blog"], "Magazine / Testata Giornalistica": ["-- Seleziona --", "Articolo Blog"]}
+    col1.selectbox("Contesto", dest_options.keys(), key="context_select")
+    col2.selectbox("Destinazione Contenuto", dest_options.get(st.session_state.context_select, ["-- Seleziona --"]), key="dest_select")
+    
+    st.markdown("---")
+    if st.toggle("Aggiungi Keyword Personalizzate", key="custom_kw_toggle"):
+        st.text_area("Incolla le tue keyword (una per riga)", height=120, placeholder="keyword1\nkeyword2\nkeyword3", key="raw_custom_keywords")
+    st.markdown("---")
+    if st.toggle("Aggiungi ToV / Stile del Cliente", key="tov_toggle"):
+        st.text_area("Descrivi lo stile o incolla esempi di testo", height=150, key="raw_tov_text")
+    st.markdown("---")
+    if st.toggle("Aggiungi Informazioni Aggiuntive", key="info_toggle"):
+        st.text_area("Inserisci ulteriori informazioni (es. dettagli sul brand, obiettivi specifici, ecc.)", height=150, key="raw_additional_info")
+        
+    c1, c2, _ = st.columns([1,1,6])
+    c1.button("Indietro", on_click=go_back, key="back_btn_4")
+    c2.button("Avanti", on_click=go_next, key="next4_btn", type="primary")
 
-    custom_toggle = st.toggle("Keyword Personalizzate", value=False, key="custom_kw_toggle")
-    if custom_toggle:
-        raw_input = st.text_area("Incolla le tue keyword (una per riga)",
-                                 height=120,
-                                 placeholder="keyword1\nkeyword2\nkeyword3",
-                                 key="raw_custom_kw")
-        st.session_state.raw_custom_keywords = raw_input.splitlines()
-
-    tov_toggle = st.toggle("ToV / Stile del Cliente", value=False, key="tov_toggle")
-    if tov_toggle:
-        num_tov = st.selectbox("Quanti esempi di ToV vuoi inserire?", list(range(1,7)), index=0, key="tov_count")
-        rows = (num_tov + 1) // 2
-        idx = 1
-        for _ in range(rows):
-            cols = st.columns(2, gap="small")
-            for col in cols:
-                if idx <= num_tov:
-                    col.text_area(f"Esempio ToV #{idx}", height=120, key=f"tov_example_{idx}")
-                    idx += 1
-        tov_list = [st.session_state.get(f"tov_example_{i}", "") for i in range(1, num_tov+1)]
-        st.session_state.raw_tov_text = tov_list
-
-    info_toggle = st.toggle("Informazioni Aggiuntive", value=False, key="info_toggle")
-    if info_toggle:
-        info_input = st.text_area("Inserisci ulteriori informazioni",
-                                  height=120,
-                                  placeholder="Dettagli aggiuntivi...",
-                                  key="raw_info_input")
-        st.session_state.raw_additional_info = info_input
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.button("Indietro", on_click=go_back, key="back_btn_4")
-    with c2:
-        st.button("Avanti", on_click=go_next, key="next4_btn")
-
-# === STEP 5: Recap Finale ===
+# ==================== STEP 5 ====================
 elif st.session_state.step == 5:
-    st.markdown(separator, unsafe_allow_html=True)
     st.markdown('<h3 style="margin-top:0.5rem; padding-top:0;">Recap delle Scelte</h3>', unsafe_allow_html=True)
+    
+    recap_data = {"Query": data.get("query", "")}
+    
+    # Keyword Mining
+    if "keyword_widgets_map" in st.session_state:
+        for widget_key, display_label in st.session_state.keyword_widgets_map.items():
+            recap_data[f"{display_label} Selezionate"] = ", ".join(st.session_state.get(widget_key, []))
 
-    # Mappa analisi strategica
+    # Analisi Strategica
     analysis_list = data.get("analysis_strategica", [])
-    analysis_map = {
-        re.sub(r"\*+", "", item.get("Caratteristica SEO", "")).strip():
-        re.sub(r"\*+", "", item.get("Analisi Sintetica", "")).strip()
-        for item in analysis_list
-    }
+    analysis_map = {clean_label(item.get("Caratteristica SEO", "")): clean_label(item.get("Analisi Sintetica", "")) for item in analysis_list}
+    for key in ["Search Intent Primario", "Search Intent Secondario", "Target Audience & Leggibilità", "Tone of Voice (ToV)"]:
+        recap_data[key] = re.sub(r"\s*\([^)]*\)", "", analysis_map.get(key, "")).strip()
 
-    # Selezioni Common Ground & Content Gap
+    # Common Ground e Content Gap (USA LA CHIAVE CORRETTA)
     edited_common = st.session_state.get("editor_common", pd.DataFrame())
-    common_selected = (
-        edited_common[edited_common["Seleziona"]==True].to_dict(orient="records")
-        if not edited_common.empty else []
-    )
+    if not edited_common.empty and "Seleziona" in edited_common.columns:
+        recap_data["Righe Common Ground Selezionate"] = len(edited_common[edited_common["Seleziona"] == True])
+    
     edited_gap = st.session_state.get("editor_gap", pd.DataFrame())
-    gap_selected = (
-        edited_gap[edited_gap["Seleziona"]==True].to_dict(orient="records")
-        if not edited_gap.empty else []
-    )
+    if not edited_gap.empty and "Seleziona" in edited_gap.columns:
+        recap_data["Righe Content Gap Selezionate"] = len(edited_gap[edited_gap["Seleziona"] == True])
 
-    recap = {
-        "Query": data.get("query",""),
-        "Country": data.get("country",""),
-        "Language": data.get("language",""),
-        "Segnali E-E-A-T": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Segnali E-E-A-T","")).strip(),
-        "Search Intent Primario": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Search Intent Primario","")).strip(),
-        "Search Intent Secondario": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Search Intent Secondario","")).strip(),
-        "Target Audience & Leggibilità": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Target Audience & Leggibilità","")).strip(),
-        "Tone of Voice (ToV)": re.sub(r"\s*\([^)]*\)","", analysis_map.get("Tone of Voice (ToV)","")).strip(),
-        "People Also Ask": ", ".join(data.get("people_also_ask", [])),
-        "Ricerche Correlate": ", ".join(data.get("related_searches", [])),
-        "Organic Titles": "; ".join([it.get("Meta Title","") for it in data.get("organic",[])[:10]]),
-        "Organic Descriptions": "; ".join([it.get("Meta Description","") for it in data.get("organic",[])[:10]]),
-        "Righe Common Ground Selezionate": str(common_selected),
-        "Righe Content Gap Selezionate": str(gap_selected),
-        "Contesto": st.session_state.get("context_select",""),
-        "Destinazione": st.session_state.get("dest_select",""),
-        "Keyword Personalizzate": ", ".join(st.session_state.get("raw_custom_keywords", [])),
-        "ToV Personalizzato": "; ".join(st.session_state.get("raw_tov_text", [])),
-        "Informazioni Aggiuntive": st.session_state.get("raw_info_input","")
-    }
+    # Contestualizzazione
+    recap_data["Contesto"] = st.session_state.get("context_select", "Non specificato")
+    recap_data["Destinazione"] = st.session_state.get("dest_select", "Non specificato")
+    recap_data["Keyword Personalizzate"] = st.session_state.get("raw_custom_keywords", "").replace('\n', ', ')
+    recap_data["ToV Personalizzato"] = st.session_state.get("raw_tov_text", "")
+    recap_data["Informazioni Aggiuntive"] = st.session_state.get("raw_additional_info", "")
 
-    # Aggiungo le selezioni di keyword mining
-    for entry in data.get("keyword_mining", []):
-        raw_label = re.sub(r"\*+", "", entry.get("Categoria Keyword","")).strip()
-        widget_key = slugify_label(raw_label)
-        selected = st.session_state.get(widget_key, [])
-        recap[f"{raw_label} Selezionate"] = ", ".join(selected)
-
-    df_recap = pd.DataFrame([recap]).T.reset_index()
-    df_recap.columns = ["Voce", "Valore"]
+    df_recap = pd.DataFrame(recap_data.items(), columns=["Voce", "Valore"])
     st.table(df_recap)
-
-    st.button("Indietro", on_click=go_back, key="back_btn_5")
+    
+    c1, c2, _ = st.columns([1,1,6])
+    c1.button("Indietro", on_click=go_back, key="back_btn_5")
