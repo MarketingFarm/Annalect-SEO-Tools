@@ -114,6 +114,7 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
+    # MODIFICA 2: Aggiunta istruzione per l'analisi approfondita dell'audience
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -145,27 +146,99 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
-Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
-
-**Parte 3: Descrizione Buyer Personas**
-Dopo l'analisi dell'audience, inserisci un altro separatore `---` seguito dalla descrizione di 1 o 2 possibili buyer personas. Inizia questa sezione con l'intestazione esatta: `### Descrizione Buyer Personas ###`.
-Per ogni persona, fornisci un breve profilo che includa un nome fittizio, il suo obiettivo principale legato alla query e la sua sfida o problema principale.
-Esempio:
-* **Persona 1: Marco, l'Appassionato di Cucina.** Obiettivo: Trovare un olio di altissima qualità per elevare i suoi piatti. Sfida: Districarsi tra le etichette e capire le differenze reali tra i prodotti.
-* **Persona 2: Giulia, la Salutista.** Obiettivo: Acquistare un olio con il massimo contenuto di antiossidanti e benefici per la salute. Sfida: Verificare l'autenticità delle certificazioni biologiche e dei valori nutrizionali.
+Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter. Non aggiungere altre intestazioni o testo dopo questo paragrafo.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi competitiva (entità)."""
     return f"""
-**RUOLO**: Agisci come un analista SEO d'élite... (omesso per brevità)
+**RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
+
+**CONTESTO**: L'obiettivo primario è superare i principali competitor per la keyword target. Per raggiungere ciò, è fondamentale analizzare in profondità i testi dei competitor forniti, identificando e categorizzando le entità semantiche rilevanti.
+
+**KEYWORD TARGET**: {keyword}
+
+### INIZIO TESTI DA ANALIZZARE ###
+
+<TESTI>
+{texts}
+</TESTI>
+
+### FINE TESTI DA ANALIZZARE ###
+
+**COMPITO**: Esegui un'analisi semantica dettagliata dei testi contenuti tra i delimitatori `### INIZIO TESTI DA ANALIZZARE ###` e `### FINE TESTI DA ANALIZZARE ###`, seguendo scrupolosamente questi passaggi:
+
+1.  **Named Entity Recognition (NER):** Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
+2.  **Identificazione Entità Mancanti (Content Gap):** Sulla base delle entità rilevate e della tua conoscenza del settore, identifica entità strategiche che sono assenti nei testi dei competitor ma che sarebbero rilevanti per la keyword target.
+3.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+4.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media, Medio/Bassa, Bassa.
+5.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica "Medio/Bassa" e "Bassa" dalle liste finali.
+6.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (,).
+7.  **Formattazione Output:** Genera ESCLUSIVAMENTE due tabelle in formato Markdown, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti. Inizia direttamente con la prima tabella.
+
+### TABELLA 1: Entità
+| Categoria | Entità | Rilevanza Strategica |
+| :--- | :--- | :--- |
+
+### TABELLA 2: Entità Mancanti (Content Gap)
+| Categoria | Entità | Rilevanza Strategica |
+| :--- | :--- | :--- |
 """
 
 def get_mining_prompt(**kwargs) -> str:
     """Costruisce il prompt per il keyword mining."""
     return f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
-**PERSONA:** Agisci come un **Semantic SEO Data-Miner**... (omesso per brevità)
+
+**PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
+
+---
+### DATI DI INPUT ###
+
+**1. CONTESTO DI BASE**
+* **Keyword Principale:** {kwargs.get('keyword', '')}
+* **Country:** {kwargs.get('country', '')}
+* **Lingua:** {kwargs.get('language', '')}
+
+**2. CONTENUTI GREZZI DA ANALIZZARE**
+* **Testi Completi dei Competitor:**
+    {kwargs.get('texts', '')}
+
+**3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
+* **Tabella 1: Entità Principali Estratte dai Competitor:**
+    {kwargs.get('entities_table', '')}
+* **Tabella 2: Entità Mancanti / Content Gap:**
+    {kwargs.get('gap_table', '')}
+* **Tabella 3: Ricerche Correlate dalla SERP:**
+    {kwargs.get('related_table', '')}
+* **Tabella 4: People Also Ask (PAA) dalla SERP:**
+    {kwargs.get('paa_table', '')}
+
+---
+
+### COMPITO E FORMATO DI OUTPUT ###
+
+**PROCESSO DI ESECUZIONE (In ordine rigoroso):**
+
+1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
+2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di **keyword secondarie, varianti della keyword principale, sinonimi, termini semanticamente correlati** e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
+    * Alta rilevanza semantica con la **Keyword Principale**.
+    * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
+    * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
+3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
+    * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
+    * **IMPORTANTE:** Scrivi tutte le keyword e i concenti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
+
+Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
+
+### Semantic Keyword Mining with NLP
+
+| Categoria Keyword | Keywords / Concetti / Domande | Intento Prevalente |
+| :--- | :--- | :--- |
+| **Keyword Principale** | {kwargs.get('keyword', '').lower()} | _(determina e inserisci l'intento primario)_ |
+| **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_ | _(Informazionale / Commerciale ecc.)_ |
+| **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ | _(Supporto all'intento)_ |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_ | _(Informazionale (Specifico))_ |
 """
 
 
@@ -251,23 +324,17 @@ if st.session_state.analysis_started:
             nlu_strat_text = future_strat.result()
             nlu_comp_text = future_comp.result()
 
-    # --- BLOCCO ANALISI STRATEGICA CON CARD E TESTI APPROFONDITI ---
+    # --- BLOCCO ANALISI STRATEGICA CON CARD E TESTO APPROFONDITO ---
     st.subheader("Analisi Strategica")
     
-    # Estrae l'analisi approfondita, le personas e la tabella dalla risposta NLU
+    # Estrae l'analisi approfondita e la tabella dalla risposta NLU
     audience_detail_text = ""
-    personas_text = ""
-    table_text = nlu_strat_text
-
-    if "### Descrizione Buyer Personas ###" in nlu_strat_text:
-        parts = nlu_strat_text.split("### Descrizione Buyer Personas ###")
-        personas_text = parts[1].strip() if len(parts) > 1 else ""
-        table_text = parts[0]
-
-    if "### Analisi Approfondita Audience ###" in table_text:
-        parts = table_text.split("### Analisi Approfondita Audience ###")
+    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
         table_text = parts[0]
         audience_detail_text = parts[1].strip() if len(parts) > 1 else ""
+    else:
+        table_text = nlu_strat_text
 
     dfs_strat = parse_markdown_tables(table_text)
     
@@ -282,6 +349,7 @@ if st.session_state.analysis_started:
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
                 value = analysis_map.get(label, "N/D")
+                # MODIFICA 1: Aggiunge l'asterisco alla card del Target Audience
                 display_value = f"{value} (*)" if label == "Target Audience & Leggibilità" else value
                 
                 col.markdown(f"""
@@ -290,13 +358,9 @@ if st.session_state.analysis_started:
                   <div style="font-size:1rem; color:#202124; font-weight:500;">{display_value}</div>
                 </div>""", unsafe_allow_html=True)
             
+            # MODIFICA 2: Mostra il testo di approfondimento se esiste
             if audience_detail_text:
                 st.markdown(f"* {audience_detail_text}")
-
-            if personas_text:
-                st.markdown("---")
-                st.markdown("<h5>Potenziali Buyer Personas</h5>", unsafe_allow_html=True)
-                st.markdown(personas_text)
 
         else:
             st.warning("La tabella di analisi strategica non ha il formato atteso.")
