@@ -32,7 +32,7 @@ session = requests.Session()
 session.auth = DFS_AUTH
 
 # Modello Gemini da utilizzare
-GEMINI_MODEL = "gemini-1.5-pro-latest"
+GEMINI_MODEL = "gemini-2.5-pro"
 
 
 # --- 2. FUNZIONI DI UTILITY E API ---
