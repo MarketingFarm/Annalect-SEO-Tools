@@ -114,7 +114,6 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
-    # MODIFICA 1: Rimosse le istruzioni per le Buyer Personas
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
 
@@ -151,7 +150,6 @@ Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termi
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi competitiva (entità)."""
-    # MODIFICA 2: Rimosse le istruzioni per le Entità Mancanti
     return f"""
 **RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
 
@@ -183,7 +181,6 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
 
 def get_mining_prompt(**kwargs) -> str:
     """Costruisce il prompt per il keyword mining."""
-    # MODIFICA 2: Rimosso il riferimento alla tabella del content gap
     return f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
 
@@ -233,6 +230,7 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 | **Keyword Principale** | {kwargs.get('keyword', '').lower()} |
 | **Keyword Secondarie** | _(elenca le keyword secondarie più importanti; non ripetere la keyword principale)_ |
 | **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ |
+| **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_ |
 """
 
 
@@ -294,20 +292,18 @@ if st.session_state.analysis_started:
     competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
 
-    # Controlla se i risultati NLU sono già stati calcolati e salvati in questa sessione
-if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
-    with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
-        with ThreadPoolExecutor() as executor:
-            future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
-            future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
-            # Salva i risultati nella sessione per evitare di rieseguirli
-            st.session_state.nlu_strat_text = future_strat.result()
-            st.session_state.nlu_comp_text = future_comp.result()
+    # ***** INIZIO BLOCCO CON INDENTAZIONE CORRETTA *****
+    if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
+        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva in parallelo..."):
+            with ThreadPoolExecutor() as executor:
+                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
+                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
+                st.session_state.nlu_strat_text = future_strat.result()
+                st.session_state.nlu_comp_text = future_comp.result()
 
-# Ora, lavora sempre con i dati salvati nella sessione
-nlu_strat_text = st.session_state.nlu_strat_text
-nlu_comp_text = st.session_state.nlu_comp_text
-    
+    nlu_strat_text = st.session_state.nlu_strat_text
+    nlu_comp_text = st.session_state.nlu_comp_text
+        
     st.subheader("Analisi Strategica")
     
     audience_detail_text = ""
@@ -389,7 +385,6 @@ nlu_comp_text = st.session_state.nlu_comp_text
     st.subheader("Entità Rilevanti (Common Ground)")
     st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
     
-    # MODIFICA 3: Nasconde la colonna "Rilevanza Strategica" dalla vista
     edited_df_entities = st.data_editor(
         df_entities,
         use_container_width=True,
@@ -402,7 +397,6 @@ nlu_comp_text = st.session_state.nlu_comp_text
     )
     
     with st.spinner("Esecuzione NLU per Keyword Mining..."):
-        # MODIFICA 2: Rimosso "gap_table" dagli argomenti
         prompt_mining_args = {
             "keyword": query, "country": country, "language": language, "texts": joined_texts,
             "entities_table": edited_df_entities.to_markdown(index=False),
@@ -425,24 +419,21 @@ nlu_comp_text = st.session_state.nlu_comp_text
         "people_also_ask": paa_list, "related_searches": related_list,
         "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
         "common_ground": edited_df_entities.to_dict(orient="records"),
-        # MODIFICA 2: Rimosso "content_gap" dall'export
         "keyword_mining": edited_df_mining.to_dict(orient="records")
     }
     
     def reset_analysis():
-    # Elenca tutte le chiavi da rimuovere per un reset pulito
-    keys_to_clear = [
-        'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 
-        'editor_entities', 'editor_gap', 'editor_mining'
-    ]
-    for key in keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
-    # Pulisce anche i testi dei competitor
-    for i in range(1, count + 1):
-        if f"comp_quill_{i}" in st.session_state:
-            del st.session_state[f"comp_quill_{i}"]
-    st.rerun()
+        keys_to_clear = [
+            'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 
+            'editor_entities', 'editor_mining'
+        ]
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        for i in range(1, count + 1):
+            if f"comp_quill_{i}" in st.session_state:
+                del st.session_state[f"comp_quill_{i}"]
+        st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
     col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
