@@ -34,7 +34,7 @@ except (KeyError, FileNotFoundError):
     st.error("Credenziali DataForSEO non trovate negli secrets di Streamlit.")
     st.stop()
 
-# Sessione HTTP globale per riutilizzo connessioni (per SERP API)
+# Sessione HTTP globale per riutilizzo connessioni (per SERP API e altre)
 session = requests.Session()
 session.auth = DFS_AUTH
 
@@ -141,6 +141,27 @@ def parse_url_content(url: str) -> str:
         return "\n\n".join(text_parts)
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
+
+# --- NUOVA FUNZIONE ---
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_ranked_keywords(url: str, location: str, language: str) -> list:
+    """Estrae le keyword posizionate per un URL specifico usando DataForSEO Labs."""
+    payload = [{
+        "target": url,
+        "location_name": location,
+        "language_name": language,
+        "limit": 30,
+        "order_by": ["relevance,desc"]
+    }]
+    try:
+        response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
+            return [] # Restituisce una lista vuota in caso di errore o assenza di risultati
+        return data["tasks"][0]["result"][0].get("items", [])
+    except (requests.RequestException, KeyError, IndexError):
+        return []
 
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
     """Esegue una singola chiamata al modello Gemini usando il client."""
@@ -311,8 +332,8 @@ def new_analysis_callback():
     keys_to_clear = list(st.session_state.keys())
     for key in keys_to_clear:
         del st.session_state[key]
+    st.rerun()
 
-# Contenitore per gli input e il pulsante di azione
 with st.container():
     col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2])
     with col1:
@@ -328,24 +349,22 @@ with st.container():
         else:
             st.button("🚀 Avvia Analisi", on_click=start_analysis_callback, type="primary", use_container_width=True)
 
-
-# --- ESECUZIONE ANALISI ---
 if st.session_state.get('analysis_started', False):
     
-    with st.spinner("Fase 1/3: Estrazione dati SERP e contenuti..."):
-        # Se i testi non sono in sessione, li estrae. Altrimenti usa quelli esistenti.
-        if 'competitor_texts_list' not in st.session_state:
-            serp_result = fetch_serp_data(st.session_state.query, st.session_state.country, st.session_state.language)
-            if not serp_result:
-                st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
-                st.stop()
+    with st.spinner("Fase 1/4: Estrazione dati SERP e contenuti..."):
+        if 'serp_result' not in st.session_state:
+            st.session_state.serp_result = fetch_serp_data(st.session_state.query, st.session_state.country, st.session_state.language)
+        
+        if not st.session_state.serp_result:
+            st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
+            st.stop()
             
-            st.session_state.serp_result = serp_result
-            items = serp_result.get('items', [])
-            st.session_state.organic_results = [item for item in items if item.get("type") == "organic"][:10]
-            
-            urls_to_parse = [r.get("url") for r in st.session_state.organic_results if r.get("url")]
+        items = st.session_state.serp_result.get('items', [])
+        organic_results = [item for item in items if item.get("type") == "organic"][:10]
+        st.session_state.organic_results = organic_results
 
+        if 'competitor_texts_list' not in st.session_state:
+            urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
                 results = {}
@@ -354,13 +373,38 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
-    # Recupera i risultati dallo stato della sessione per garantirne la persistenza
-    organic_results = st.session_state.get('organic_results', [])
-    items = st.session_state.get('serp_result', {}).get('items', [])
-    paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-    related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
-    related_list = list(dict.fromkeys(filter(None, related_raw)))
-    
+    # --- NUOVA FASE: ESTRAZIONE KEYWORD POSIZIONATE ---
+    with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
+        if 'ranked_keywords_df' not in st.session_state:
+            all_keywords_data = []
+            urls_for_ranking = [res.get("url") for res in organic_results]
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_url = {executor.submit(fetch_ranked_keywords, url, st.session_state.country, st.session_state.language): url for url in urls_for_ranking}
+                for future in as_completed(future_to_url):
+                    url = future_to_url[future]
+                    ranked_items = future.result()
+                    competitor_domain = urlparse(url).netloc.removeprefix('www.')
+                    for item in ranked_items:
+                        kd = item.get("keyword_data", {})
+                        se = item.get("ranked_serp_element", {})
+                        intent_info = kd.get("intent_info", {})
+                        all_keywords_data.append({
+                            "Competitor": competitor_domain,
+                            "Keyword": kd.get("keyword"),
+                            "Posizione": se.get("rank_absolute"),
+                            "Volume di Ricerca": kd.get("search_volume"),
+                            "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
+                        })
+            
+            if all_keywords_data:
+                df = pd.DataFrame(all_keywords_data)
+                df = df.dropna(subset=["Keyword", "Volume di Ricerca"])
+                df["Volume di Ricerca"] = pd.to_numeric(df["Volume di Ricerca"])
+                df = df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
+                st.session_state.ranked_keywords_df = df
+            else:
+                st.session_state.ranked_keywords_df = pd.DataFrame()
+
     initial_texts = st.session_state.get('competitor_texts_list', [])
     initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, initial_texts))
 
@@ -368,7 +412,7 @@ if st.session_state.get('analysis_started', False):
         st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
         st.stop()
 
-    with st.spinner("Fase 2/3: Esecuzione analisi NLU Strategica e Competitiva..."):
+    with st.spinner("Fase 3/4: Esecuzione analisi NLU..."):
         if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(st.session_state.query, initial_joined_texts))
@@ -377,6 +421,7 @@ if st.session_state.get('analysis_started', False):
                 st.session_state.nlu_comp_text = future_comp.result()
 
     st.subheader("Analisi Strategica")
+    # ... (Codice visualizzazione Analisi Strategica invariato) ...
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
     table_text = nlu_strat_text
@@ -403,11 +448,13 @@ if st.session_state.get('analysis_started', False):
             st.dataframe(df_strat)
     else:
         st.text(nlu_strat_text)
+    
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
-
+    
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
+        # ... (Codice visualizzazione SERP invariato) ...
         if organic_results:
             html = '<div style="padding-right:3.5rem;">'
             for it in organic_results:
@@ -422,14 +469,18 @@ if st.session_state.get('analysis_started', False):
             st.markdown(html, unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
+            
     with col_paa:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
+        # ... (Codice visualizzazione PAA e Correlate invariato) ...
+        paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
         if paa_list:
             pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{q}</span>' for q in paa_list)
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna PAA trovata_")
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+        related_list = list(dict.fromkeys(filter(None, related_raw)))
         if related_list:
             pills = ""
             pat = re.compile(st.session_state.query, re.IGNORECASE) if st.session_state.query else None
@@ -444,16 +495,15 @@ if st.session_state.get('analysis_started', False):
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
+            
     st.divider()
 
     st.subheader("Contenuti dei Competitor Analizzati")
-    st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le analisi.")
-    
+    # ... (Codice visualizzazione Quill editor invariato) ...
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
         domain_clean = domain_full.removeprefix("www.")
-        
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
             st_quill(
@@ -461,17 +511,48 @@ if st.session_state.get('analysis_started', False):
                 key=f"quill_editor_{i}"
             )
     
+    st.divider()
+
+    # --- NUOVA SEZIONE: VISUALIZZAZIONE KEYWORD POSIZIONATE ---
+    st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
+    ranked_keywords_df = st.session_state.get('ranked_keywords_df')
+    
+    if ranked_keywords_df is not None and not ranked_keywords_df.empty:
+        st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
+        st.dataframe(ranked_keywords_df, use_container_width=True)
+        
+        st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
+        
+        try:
+            keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
+            pivot_df = ranked_keywords_df.pivot_table(
+                index='Keyword',
+                columns='Competitor',
+                values='Posizione'
+            ).fillna('') # Sostituisce NaN con stringa vuota per leggibilità
+            
+            # Unisce le informazioni delle keyword con la tabella pivot
+            coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
+            
+            st.dataframe(coverage_matrix, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
+
+    else:
+        st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
+
+    st.divider()
+    
     edited_competitor_texts = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
-    st.divider()
     
     nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
     
     st.subheader("Entità Rilevanti (Common Ground)")
+    # ... (Codice visualizzazione Entità e Keyword Mining invariato) ...
     st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
-    
     edited_df_entities = st.data_editor(
         df_entities,
         use_container_width=True,
@@ -480,14 +561,12 @@ if st.session_state.get('analysis_started', False):
         key="editor_entities",
         column_config={ "Rilevanza Strategica": None }
     )
-
     def regenerate_keywords():
         if 'nlu_mining_text' in st.session_state:
             del st.session_state['nlu_mining_text']
-
     st.button("🔄 Rigenera Keyword dalle Entità Modificate", on_click=regenerate_keywords)
     
-    with st.spinner("Fase 3/3: Esecuzione NLU per Keyword Mining..."):
+    with st.spinner("Fase 4/4: Esecuzione NLU per Keyword Mining..."):
         if 'nlu_mining_text' not in st.session_state:
             prompt_mining_args = {
                 "keyword": st.session_state.query, "country": st.session_state.country, "language": st.session_state.language, "texts": final_joined_texts,
