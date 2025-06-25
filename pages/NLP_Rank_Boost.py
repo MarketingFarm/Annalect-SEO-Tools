@@ -142,7 +142,6 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
-# --- NUOVA FUNZIONE ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> list:
     """Estrae le keyword posizionate per un URL specifico usando DataForSEO Labs."""
@@ -158,7 +157,7 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> list:
         response.raise_for_status()
         data = response.json()
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
-            return [] # Restituisce una lista vuota in caso di errore o assenza di risultati
+            return []
         return data["tasks"][0]["result"][0].get("items", [])
     except (requests.RequestException, KeyError, IndexError):
         return []
@@ -373,7 +372,6 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
-    # --- NUOVA FASE: ESTRAZIONE KEYWORD POSIZIONATE ---
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
         if 'ranked_keywords_df' not in st.session_state:
             all_keywords_data = []
@@ -421,7 +419,6 @@ if st.session_state.get('analysis_started', False):
                 st.session_state.nlu_comp_text = future_comp.result()
 
     st.subheader("Analisi Strategica")
-    # ... (Codice visualizzazione Analisi Strategica invariato) ...
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
     table_text = nlu_strat_text
@@ -454,7 +451,6 @@ if st.session_state.get('analysis_started', False):
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
-        # ... (Codice visualizzazione SERP invariato) ...
         if organic_results:
             html = '<div style="padding-right:3.5rem;">'
             for it in organic_results:
@@ -472,7 +468,6 @@ if st.session_state.get('analysis_started', False):
             
     with col_paa:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
-        # ... (Codice visualizzazione PAA e Correlate invariato) ...
         paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
         if paa_list:
             pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{q}</span>' for q in paa_list)
@@ -480,6 +475,8 @@ if st.session_state.get('analysis_started', False):
         else:
             st.write("_Nessuna PAA trovata_")
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+        # --- FIX: Definizione di related_raw ---
+        related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
         related_list = list(dict.fromkeys(filter(None, related_raw)))
         if related_list:
             pills = ""
@@ -499,7 +496,6 @@ if st.session_state.get('analysis_started', False):
     st.divider()
 
     st.subheader("Contenuti dei Competitor Analizzati")
-    # ... (Codice visualizzazione Quill editor invariato) ...
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
@@ -513,13 +509,12 @@ if st.session_state.get('analysis_started', False):
     
     st.divider()
 
-    # --- NUOVA SEZIONE: VISUALIZZAZIONE KEYWORD POSIZIONATE ---
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
     ranked_keywords_df = st.session_state.get('ranked_keywords_df')
     
     if ranked_keywords_df is not None and not ranked_keywords_df.empty:
         st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
-        st.dataframe(ranked_keywords_df, use_container_width=True)
+        st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
         
         st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
         
@@ -529,12 +524,11 @@ if st.session_state.get('analysis_started', False):
                 index='Keyword',
                 columns='Competitor',
                 values='Posizione'
-            ).fillna('') # Sostituisce NaN con stringa vuota per leggibilità
+            ).fillna('')
             
-            # Unisce le informazioni delle keyword con la tabella pivot
             coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
             
-            st.dataframe(coverage_matrix, use_container_width=True)
+            st.dataframe(coverage_matrix, use_container_width=True, height=350)
         except Exception as e:
             st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
 
@@ -551,7 +545,6 @@ if st.session_state.get('analysis_started', False):
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
     
     st.subheader("Entità Rilevanti (Common Ground)")
-    # ... (Codice visualizzazione Entità e Keyword Mining invariato) ...
     st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
     edited_df_entities = st.data_editor(
         df_entities,
