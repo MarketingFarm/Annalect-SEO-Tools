@@ -142,6 +142,7 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
+# --- MODIFICA: Rimosso il parametro 'order_by' non valido ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     """Estrae le keyword posizionate e restituisce un dizionario con lo stato."""
@@ -149,8 +150,7 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
         "target": url,
         "location_name": location,
         "language_name": language,
-        "limit": 30,
-        "order_by": ["relevance,desc"]
+        "limit": 30
     }]
     try:
         response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
@@ -489,7 +489,6 @@ if st.session_state.get('analysis_started', False):
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
     
-    # --- MODIFICA: Aggiunto report di estrazione ---
     with st.expander("Mostra report dettagliato dell'estrazione keyword"):
         if not ranked_keywords_results:
             st.write("Nessun tentativo di estrazione registrato.")
@@ -540,6 +539,7 @@ if st.session_state.get('analysis_started', False):
             st.dataframe(coverage_matrix, use_container_width=True, height=350)
         except Exception as e:
             st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
+
     else:
         st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
 
