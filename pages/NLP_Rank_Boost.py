@@ -299,28 +299,47 @@ st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 st.divider()
 
-if 'analysis_started' not in st.session_state:
-    st.session_state.analysis_started = False
+# --- MODIFICA: Spostata la logica dei bottoni e del reset qui ---
 
-with st.container():
-    col1, col2, col3 = st.columns(3)
-    query = col1.text_input("Query", key="query")
-    country = col2.selectbox("Country", [""] + get_countries(), key="country")
-    language = col3.selectbox("Lingua", [""] + get_languages(), key="language")
-
-def start_analysis():
+def start_analysis_callback():
+    """Imposta il flag per avviare l'analisi, non resetta nulla."""
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
     else:
+        # Pulisce i risultati delle analisi precedenti per forzare una nuova esecuzione
+        for key in ['analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text', 'competitor_texts_list']:
+            if key in st.session_state:
+                del st.session_state[key]
         st.session_state.analysis_started = True
 
-if not st.session_state.analysis_started:
-    st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
+def new_analysis_callback():
+    """Resetta l'intera applicazione, inclusi gli input dell'utente."""
+    keys_to_clear = list(st.session_state.keys())
+    for key in keys_to_clear:
+        del st.session_state[key]
+    st.rerun()
+
+# Contenitore per gli input e il pulsante di azione
+with st.container():
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+    with col1:
+        query = st.text_input("Query", key="query")
+    with col2:
+        country = st.selectbox("Country", [""] + get_countries(), key="country")
+    with col3:
+        language = st.selectbox("Lingua", [""] + get_languages(), key="language")
+    with col4:
+        # Allineamento verticale del pulsante
+        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
+        if st.session_state.get('analysis_started', False):
+            st.button("↩️ Nuova Analisi", on_click=new_analysis_callback, type="primary", use_container_width=True)
+        else:
+            st.button("🚀 Avvia Analisi", on_click=start_analysis_callback, type="primary", use_container_width=True)
+
 
 # --- ESECUZIONE ANALISI ---
-if st.session_state.analysis_started:
+if st.session_state.get('analysis_started', False):
     
-    # --- FASE 1: ESTRAZIONE DATI E ANALISI PRELIMINARE ---
     with st.spinner("Fase 1/3: Estrazione dati SERP e contenuti..."):
         serp_result = fetch_serp_data(query, country, language)
         if not serp_result:
@@ -340,16 +359,11 @@ if st.session_state.analysis_started:
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
                 results = {}
-                # Non uso più la progress bar qui per non appesantire il primo spinner
                 for future in as_completed(future_to_url):
                     url = future_to_url[future]
-                    try:
-                        results[url] = future.result()
-                    except Exception as exc:
-                        results[url] = f"## Errore Critico ##\nL'analisi di {url} ha generato un'eccezione: {exc}"
+                    results[url] = future.result()
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
-    # Unisco i testi estratti per l'analisi iniziale
     initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, st.session_state.competitor_texts_list))
 
     if not initial_joined_texts.strip():
@@ -368,9 +382,6 @@ if st.session_state.analysis_started:
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
 
-    # --- FASE 2: VISUALIZZAZIONE DEI RISULTATI NELL'ORDINE CORRETTO ---
-
-    # 1. MOSTRA ANALISI STRATEGICA (ORA IN CIMA)
     st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
@@ -381,7 +392,6 @@ if st.session_state.analysis_started:
         audience_detail_text = parts[1].strip().removeprefix('---').strip()
 
     dfs_strat = parse_markdown_tables(table_text)
-    
     if dfs_strat and not dfs_strat[0].empty:
         df_strat = dfs_strat[0]
         if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
@@ -400,10 +410,8 @@ if st.session_state.analysis_started:
             st.dataframe(df_strat)
     else:
         st.text(nlu_strat_text)
-    
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
 
-    # 2. MOSTRA RISULTATI ORGANICI E CORRELATE
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
@@ -421,7 +429,6 @@ if st.session_state.analysis_started:
             st.markdown(html, unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
-            
     with col_paa:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
         if paa_list:
@@ -444,12 +451,10 @@ if st.session_state.analysis_started:
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
-
     st.divider()
 
-    # 3. MOSTRA I TESTI DEI COMPETITOR NEGLI EDITOR QUILL
     st.subheader("Contenuti dei Competitor Analizzati")
-    st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le keyword.")
+    st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le analisi.")
     
     edited_competitor_texts = []
     initial_texts = st.session_state.get('competitor_texts_list', [])
@@ -470,12 +475,9 @@ if st.session_state.analysis_started:
             )
             edited_competitor_texts.append(edited_text)
 
-    # Questo testo modificato verrà usato per le analisi successive
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
-    
     st.divider()
     
-    # 4. MOSTRA LE ANALISI SUCCESSIVE (ENTITÀ E KEYWORD)
     nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
@@ -517,35 +519,4 @@ if st.session_state.analysis_started:
     st.info("ℹ️ Puoi modificare o eliminare le keyword e le categorie prima di esportare i dati.")
     edited_df_mining = st.data_editor(df_mining, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_mining")
 
-    export_data = {
-        "query": query, "country": country, "language": language,
-        "num_competitor": len(organic_results),
-        "competitor_texts": edited_competitor_texts,
-        "organic": df_org_export.to_dict(orient="records"),
-        "people_also_ask": paa_list, "related_searches": related_list,
-        "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
-        "common_ground": edited_df_entities.to_dict(orient="records"),
-        "keyword_mining": edited_df_mining.to_dict(orient="records")
-    }
-    
-    def reset_analysis():
-        keys_to_clear = [
-            'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
-            'editor_entities', 'editor_mining', 'competitor_texts_list'
-        ]
-        for i in range(len(organic_results)):
-            keys_to_clear.append(f"quill_editor_{i}")
-
-        for key in keys_to_clear:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
-        
-    col_btn1, col_btn2 = st.columns(2)
-    col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
-    col_btn2.download_button(
-        label="📥 Download Risultati (JSON)",
-        data=json.dumps(export_data, ensure_ascii=False, indent=2),
-        file_name=f"analisi_seo_{query.replace(' ', '_')}.json",
-        mime="application/json",
-    )
+    # --- MODIFICA: Rimossa la sezione finale con i bottoni di reset e download ---
