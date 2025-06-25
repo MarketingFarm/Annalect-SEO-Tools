@@ -197,10 +197,10 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 
 | Caratteristica SEO | Analisi Sintetica |
 | :--- | :--- |
-| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` |
-| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` |
-| **Target Audience** | `[Definisci il target audience utilizzando al massimo 31 caratteri spazi compresi."]` |
-| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 2 aggettivi chiave, utilizzando al massimo 31 caratteri spazi compresi.]` |
+| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale. Aggiungi tra parentesi un brevissimo approfondimenti di massimo 5/6 parole]` |
+| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario. Aggiungi tra parentesi un brevissimo approfondimenti di massimo 5/6 parole]` |
+| **Target Audience** | `[Definisci il target audience in massimo 6 parole]` |
+| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave]` |
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
