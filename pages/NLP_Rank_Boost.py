@@ -143,8 +143,8 @@ def parse_url_content(url: str) -> str:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_ranked_keywords(url: str, location: str, language: str) -> list:
-    """Estrae le keyword posizionate per un URL specifico usando DataForSEO Labs."""
+def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
+    """Estrae le keyword posizionate e restituisce un dizionario con lo stato."""
     payload = [{
         "target": url,
         "location_name": location,
@@ -157,10 +157,11 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> list:
         response.raise_for_status()
         data = response.json()
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
-            return []
-        return data["tasks"][0]["result"][0].get("items", [])
-    except (requests.RequestException, KeyError, IndexError):
-        return []
+            error_message = data.get("tasks",[{}])[0].get("status_message", "Nessun risultato nell'API.")
+            return {"url": url, "status": "failed", "error": error_message, "items": []}
+        return {"url": url, "status": "ok", "items": data["tasks"][0]["result"][0].get("items", [])}
+    except requests.RequestException as e:
+        return {"url": url, "status": "failed", "error": str(e), "items": []}
 
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
     """Esegue una singola chiamata al modello Gemini usando il client."""
@@ -320,14 +321,12 @@ st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione
 st.divider()
 
 def start_analysis_callback():
-    """Imposta il flag per avviare l'analisi."""
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
         return
     st.session_state.analysis_started = True
 
 def new_analysis_callback():
-    """Resetta l'intera applicazione cancellando lo stato della sessione."""
     keys_to_clear = list(st.session_state.keys())
     for key in keys_to_clear:
         del st.session_state[key]
@@ -373,35 +372,14 @@ if st.session_state.get('analysis_started', False):
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
-        if 'ranked_keywords_df' not in st.session_state:
-            all_keywords_data = []
+        if 'ranked_keywords_results' not in st.session_state:
+            ranked_keywords_api_results = []
             urls_for_ranking = [res.get("url") for res in organic_results]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(fetch_ranked_keywords, url, st.session_state.country, st.session_state.language): url for url in urls_for_ranking}
                 for future in as_completed(future_to_url):
-                    url = future_to_url[future]
-                    ranked_items = future.result()
-                    competitor_domain = urlparse(url).netloc.removeprefix('www.')
-                    for item in ranked_items:
-                        kd = item.get("keyword_data", {})
-                        se = item.get("ranked_serp_element", {})
-                        intent_info = kd.get("intent_info", {})
-                        all_keywords_data.append({
-                            "Competitor": competitor_domain,
-                            "Keyword": kd.get("keyword"),
-                            "Posizione": se.get("rank_absolute"),
-                            "Volume di Ricerca": kd.get("search_volume"),
-                            "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
-                        })
-            
-            if all_keywords_data:
-                df = pd.DataFrame(all_keywords_data)
-                df = df.dropna(subset=["Keyword", "Volume di Ricerca"])
-                df["Volume di Ricerca"] = pd.to_numeric(df["Volume di Ricerca"])
-                df = df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
-                st.session_state.ranked_keywords_df = df
-            else:
-                st.session_state.ranked_keywords_df = pd.DataFrame()
+                    ranked_keywords_api_results.append(future.result())
+            st.session_state.ranked_keywords_results = ranked_keywords_api_results
 
     initial_texts = st.session_state.get('competitor_texts_list', [])
     initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, initial_texts))
@@ -475,7 +453,6 @@ if st.session_state.get('analysis_started', False):
         else:
             st.write("_Nessuna PAA trovata_")
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
-        # --- FIX: Definizione di related_raw ---
         related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
         related_list = list(dict.fromkeys(filter(None, related_raw)))
         if related_list:
@@ -510,9 +487,41 @@ if st.session_state.get('analysis_started', False):
     st.divider()
 
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
-    ranked_keywords_df = st.session_state.get('ranked_keywords_df')
+    ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
     
-    if ranked_keywords_df is not None and not ranked_keywords_df.empty:
+    # --- MODIFICA: Aggiunto report di estrazione ---
+    with st.expander("Mostra report dettagliato dell'estrazione keyword"):
+        if not ranked_keywords_results:
+            st.write("Nessun tentativo di estrazione registrato.")
+        for result in ranked_keywords_results:
+            domain = urlparse(result['url']).netloc.removeprefix('www.')
+            if result['status'] == 'ok':
+                st.success(f"✅ {domain}: OK ({len(result['items'])} keyword trovate)")
+            else:
+                st.error(f"❌ {domain}: ERRORE ({result['error']})")
+
+    all_keywords_data = []
+    for result in ranked_keywords_results:
+        if result['status'] == 'ok':
+            competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
+            for item in result['items']:
+                kd = item.get("keyword_data", {})
+                se = item.get("ranked_serp_element", {})
+                intent_info = kd.get("intent_info", {})
+                all_keywords_data.append({
+                    "Competitor": competitor_domain,
+                    "Keyword": kd.get("keyword"),
+                    "Posizione": se.get("rank_absolute"),
+                    "Volume di Ricerca": kd.get("search_volume"),
+                    "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
+                })
+    
+    if all_keywords_data:
+        ranked_keywords_df = pd.DataFrame(all_keywords_data)
+        ranked_keywords_df = ranked_keywords_df.dropna(subset=["Keyword", "Volume di Ricerca"])
+        ranked_keywords_df["Volume di Ricerca"] = pd.to_numeric(ranked_keywords_df["Volume di Ricerca"])
+        ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
+
         st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
         st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
         
@@ -531,7 +540,6 @@ if st.session_state.get('analysis_started', False):
             st.dataframe(coverage_matrix, use_container_width=True, height=350)
         except Exception as e:
             st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
-
     else:
         st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
 
