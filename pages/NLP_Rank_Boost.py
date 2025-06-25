@@ -142,25 +142,28 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
-# --- MODIFICA: Gestione del caso in cui 'items' è nullo (None) ---
+# --- MODIFICA DEFINITIVA: Corretto il formato del payload ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     """Estrae le keyword posizionate e restituisce un dizionario con lo stato."""
-    payload = [{
+    # L'API per questa funzione specifica richiede un oggetto JSON, non un array di oggetti.
+    payload = {
         "target": url,
         "location_name": location,
         "language_name": language,
         "limit": 30
-    }]
+    }
     try:
-        response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
+        # La libreria requests si aspetta un array per il parametro 'json', quindi lo incapsuliamo.
+        # Questo è il modo corretto di inviare un singolo oggetto JSON nel corpo della richiesta.
+        response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=[payload])
         response.raise_for_status()
         data = response.json()
+        
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks",[{}])[0].get("status_message", "Nessun risultato nell'API.")
             return {"url": url, "status": "failed", "error": error_message, "items": []}
         
-        # Gestisce il caso in cui 'items' è presente ma nullo (None)
         api_items = data["tasks"][0]["result"][0].get("items")
         safe_items = api_items if api_items is not None else []
         return {"url": url, "status": "ok", "items": safe_items}
@@ -500,14 +503,14 @@ if st.session_state.get('analysis_started', False):
         for result in ranked_keywords_results:
             domain = urlparse(result['url']).netloc.removeprefix('www.')
             if result['status'] == 'ok':
-                num_items = len(result['items']) if result['items'] is not None else 0
+                num_items = len(result['items'])
                 st.success(f"✅ {domain}: OK ({num_items} keyword trovate)")
             else:
                 st.error(f"❌ {domain}: ERRORE ({result['error']})")
 
     all_keywords_data = []
     for result in ranked_keywords_results:
-        if result['status'] == 'ok' and result['items'] is not None:
+        if result['status'] == 'ok' and result['items']:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
                 kd = item.get("keyword_data", {})
