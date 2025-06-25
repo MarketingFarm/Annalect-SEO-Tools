@@ -142,7 +142,7 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
-# --- MODIFICA: Rimosso il parametro 'order_by' non valido ---
+# --- MODIFICA: Gestione del caso in cui 'items' è nullo (None) ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     """Estrae le keyword posizionate e restituisce un dizionario con lo stato."""
@@ -159,7 +159,12 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks",[{}])[0].get("status_message", "Nessun risultato nell'API.")
             return {"url": url, "status": "failed", "error": error_message, "items": []}
-        return {"url": url, "status": "ok", "items": data["tasks"][0]["result"][0].get("items", [])}
+        
+        # Gestisce il caso in cui 'items' è presente ma nullo (None)
+        api_items = data["tasks"][0]["result"][0].get("items")
+        safe_items = api_items if api_items is not None else []
+        return {"url": url, "status": "ok", "items": safe_items}
+
     except requests.RequestException as e:
         return {"url": url, "status": "failed", "error": str(e), "items": []}
 
@@ -495,13 +500,14 @@ if st.session_state.get('analysis_started', False):
         for result in ranked_keywords_results:
             domain = urlparse(result['url']).netloc.removeprefix('www.')
             if result['status'] == 'ok':
-                st.success(f"✅ {domain}: OK ({len(result['items'])} keyword trovate)")
+                num_items = len(result['items']) if result['items'] is not None else 0
+                st.success(f"✅ {domain}: OK ({num_items} keyword trovate)")
             else:
                 st.error(f"❌ {domain}: ERRORE ({result['error']})")
 
     all_keywords_data = []
     for result in ranked_keywords_results:
-        if result['status'] == 'ok':
+        if result['status'] == 'ok' and result['items'] is not None:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
                 kd = item.get("keyword_data", {})
