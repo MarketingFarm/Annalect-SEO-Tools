@@ -299,43 +299,18 @@ st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 st.divider()
 
-# --- MODIFICA: Logica di reset e avvio spostata in callback dedicate ---
-
 def start_analysis_callback():
-    """Imposta il flag per avviare l'analisi. Pulisce lo stato precedente per un'esecuzione pulita."""
+    """Imposta il flag per avviare l'analisi."""
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
         return
-
-    # Pulisce i risultati delle analisi precedenti E lo stato degli editor
-    keys_to_clear = [
-        'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
-        'competitor_texts_list', 'editor_entities', 'editor_mining'
-    ]
-    for key in keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
-    
-    # Pulisce anche lo stato degli editor Quill per forzare la reinizializzazione con i nuovi testi
-    for i in range(10):
-        if f"quill_editor_{i}" in st.session_state:
-            del st.session_state[f"quill_editor_{i}"]
-            
     st.session_state.analysis_started = True
 
 def new_analysis_callback():
-    """Resetta l'intera applicazione, inclusi gli input dell'utente."""
-    # Mantiene solo i widget di input base
-    st.session_state.query = ""
-    st.session_state.country = ""
-    st.session_state.language = ""
-    
-    # Pulisce tutte le altre chiavi di sessione
+    """Resetta l'intera applicazione cancellando lo stato della sessione."""
     keys_to_clear = list(st.session_state.keys())
     for key in keys_to_clear:
-        if key not in ['query', 'country', 'language']:
-            del st.session_state[key]
-
+        del st.session_state[key]
 
 # Contenitore per gli input e il pulsante di azione
 with st.container():
@@ -358,20 +333,19 @@ with st.container():
 if st.session_state.get('analysis_started', False):
     
     with st.spinner("Fase 1/3: Estrazione dati SERP e contenuti..."):
-        serp_result = fetch_serp_data(st.session_state.query, st.session_state.country, st.session_state.language)
-        if not serp_result:
-            st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
-            st.stop()
-            
-        items = serp_result.get('items', [])
-        organic_results = [item for item in items if item.get("type") == "organic"][:10]
-        paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-        related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
-        related_list = list(dict.fromkeys(filter(None, related_raw)))
-        
-        urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
-
+        # Se i testi non sono in sessione, li estrae. Altrimenti usa quelli esistenti.
         if 'competitor_texts_list' not in st.session_state:
+            serp_result = fetch_serp_data(st.session_state.query, st.session_state.country, st.session_state.language)
+            if not serp_result:
+                st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
+                st.stop()
+            
+            st.session_state.serp_result = serp_result
+            items = serp_result.get('items', [])
+            st.session_state.organic_results = [item for item in items if item.get("type") == "organic"][:10]
+            
+            urls_to_parse = [r.get("url") for r in st.session_state.organic_results if r.get("url")]
+
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
                 results = {}
@@ -380,7 +354,15 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
-    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, st.session_state.get('competitor_texts_list', [])))
+    # Recupera i risultati dallo stato della sessione per garantirne la persistenza
+    organic_results = st.session_state.get('organic_results', [])
+    items = st.session_state.get('serp_result', {}).get('items', [])
+    paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
+    related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
+    related_list = list(dict.fromkeys(filter(None, related_raw)))
+    
+    initial_texts = st.session_state.get('competitor_texts_list', [])
+    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, initial_texts))
 
     if not initial_joined_texts.strip():
         st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
@@ -450,7 +432,7 @@ if st.session_state.get('analysis_started', False):
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
         if related_list:
             pills = ""
-            pat = re.compile(re.escape(query), re.IGNORECASE) if query else None
+            pat = re.compile(st.session_state.query, re.IGNORECASE) if st.session_state.query else None
             for r in related_list:
                 txt = r.strip()
                 if pat and (m := pat.search(txt)):
@@ -467,15 +449,6 @@ if st.session_state.get('analysis_started', False):
     st.subheader("Contenuti dei Competitor Analizzati")
     st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le analisi.")
     
-    initial_texts = st.session_state.get('competitor_texts_list', [])
-
-    # Inizializza lo stato per ogni editor Quill se non esiste
-    for i in range(len(organic_results)):
-        key = f"quill_editor_{i}"
-        if key not in st.session_state:
-            st.session_state[key] = initial_texts[i] if i < len(initial_texts) else ""
-            
-    # Mostra gli expander e gli editor
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
@@ -483,7 +456,10 @@ if st.session_state.get('analysis_started', False):
         
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
-            st_quill(key=f"quill_editor_{i}")
+            st_quill(
+                value=initial_texts[i] if i < len(initial_texts) else "",
+                key=f"quill_editor_{i}"
+            )
     
     edited_competitor_texts = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
