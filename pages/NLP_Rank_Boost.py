@@ -142,24 +142,19 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
-# --- MODIFICA DEFINITIVA: Corretto il formato del payload ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     """Estrae le keyword posizionate e restituisce un dizionario con lo stato."""
-    # L'API per questa funzione specifica richiede un oggetto JSON, non un array di oggetti.
-    payload = {
+    payload = [{
         "target": url,
         "location_name": location,
         "language_name": language,
         "limit": 30
-    }
+    }]
     try:
-        # La libreria requests si aspetta un array per il parametro 'json', quindi lo incapsuliamo.
-        # Questo è il modo corretto di inviare un singolo oggetto JSON nel corpo della richiesta.
-        response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=[payload])
+        response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
         response.raise_for_status()
         data = response.json()
-        
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks",[{}])[0].get("status_message", "Nessun risultato nell'API.")
             return {"url": url, "status": "failed", "error": error_message, "items": []}
@@ -382,7 +377,9 @@ if st.session_state.get('analysis_started', False):
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
-            urls_for_ranking = [res.get("url") for res in organic_results]
+            # --- MODIFICA: Applica clean_url() a ogni URL prima di passarlo all'API ---
+            urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
+            
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(fetch_ranked_keywords, url, st.session_state.country, st.session_state.language): url for url in urls_for_ranking}
                 for future in as_completed(future_to_url):
@@ -503,14 +500,14 @@ if st.session_state.get('analysis_started', False):
         for result in ranked_keywords_results:
             domain = urlparse(result['url']).netloc.removeprefix('www.')
             if result['status'] == 'ok':
-                num_items = len(result['items'])
+                num_items = len(result['items']) if result['items'] is not None else 0
                 st.success(f"✅ {domain}: OK ({num_items} keyword trovate)")
             else:
                 st.error(f"❌ {domain}: ERRORE ({result['error']})")
 
     all_keywords_data = []
     for result in ranked_keywords_results:
-        if result['status'] == 'ok' and result['items']:
+        if result['status'] == 'ok' and result['items'] is not None:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
                 kd = item.get("keyword_data", {})
