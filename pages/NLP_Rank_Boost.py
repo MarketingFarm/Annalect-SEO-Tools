@@ -151,11 +151,12 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
-# MODIFICATO: Ripristinata la chiamata corretta all'API Gemini
+# QUESTA È LA FUNZIONE DA SOSTITUIRE
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
     """Esegue una singola chiamata al modello Gemini usando il client."""
     try:
-        response = gemini_client.generate_content(model=f"models/{model_name}", contents=[prompt])
+        # CORREZIONE: Aggiunto .models prima di generate_content
+        response = gemini_client.models.generate_content(model=f"models/{model_name}", contents=[prompt])
         return response.text
     except Exception as e:
         st.error(f"Errore durante la chiamata a Gemini: {e}")
