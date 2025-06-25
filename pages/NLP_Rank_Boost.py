@@ -299,29 +299,44 @@ st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 st.divider()
 
-# --- MODIFICA: Spostata la logica dei bottoni e del reset qui ---
+# --- MODIFICA: Logica di reset e avvio spostata in callback dedicate ---
 
 def start_analysis_callback():
-    """Imposta il flag per avviare l'analisi, non resetta nulla."""
+    """Imposta il flag per avviare l'analisi. Pulisce i risultati precedenti."""
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
-    else:
-        # Pulisce i risultati delle analisi precedenti per forzare una nuova esecuzione
-        for key in ['analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text', 'competitor_texts_list']:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.session_state.analysis_started = True
+        return
+
+    # Pulisce solo i risultati delle analisi precedenti per forzare una nuova esecuzione
+    keys_to_clear = ['analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text', 'competitor_texts_list']
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+            
+    st.session_state.analysis_started = True
 
 def new_analysis_callback():
-    """Resetta l'intera applicazione, inclusi gli input dell'utente."""
-    keys_to_clear = list(st.session_state.keys())
+    """Resetta l'intera applicazione, inclusi gli input dell'utente, senza usare st.rerun()."""
+    st.session_state.analysis_started = False
+    # Resetta i valori dei widget
+    st.session_state.query = ""
+    st.session_state.country = ""
+    st.session_state.language = ""
+    
+    # Pulisce tutte le altre chiavi di sessione relative alle analisi
+    keys_to_clear = ['nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text', 'competitor_texts_list', 'editor_entities', 'editor_mining']
     for key in keys_to_clear:
-        del st.session_state[key]
-    st.rerun()
+        if key in st.session_state:
+            del st.session_state[key]
+    # Pulisce anche lo stato degli editor Quill
+    for i in range(10): # Pulisce fino a 10 editor per sicurezza
+        if f"quill_editor_{i}" in st.session_state:
+            del st.session_state[f"quill_editor_{i}"]
+
 
 # Contenitore per gli input e il pulsante di azione
 with st.container():
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2]) # Allargata leggermente l'ultima colonna
     with col1:
         query = st.text_input("Query", key="query")
     with col2:
@@ -329,19 +344,17 @@ with st.container():
     with col3:
         language = st.selectbox("Lingua", [""] + get_languages(), key="language")
     with col4:
-        # Allineamento verticale del pulsante
-        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) # Allineamento verticale
         if st.session_state.get('analysis_started', False):
             st.button("↩️ Nuova Analisi", on_click=new_analysis_callback, type="primary", use_container_width=True)
         else:
             st.button("🚀 Avvia Analisi", on_click=start_analysis_callback, type="primary", use_container_width=True)
 
-
 # --- ESECUZIONE ANALISI ---
 if st.session_state.get('analysis_started', False):
     
     with st.spinner("Fase 1/3: Estrazione dati SERP e contenuti..."):
-        serp_result = fetch_serp_data(query, country, language)
+        serp_result = fetch_serp_data(st.session_state.query, st.session_state.country, st.session_state.language)
         if not serp_result:
             st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
             st.stop()
@@ -351,8 +364,7 @@ if st.session_state.get('analysis_started', False):
         paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
         related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
         related_list = list(dict.fromkeys(filter(None, related_raw)))
-        df_org_export = pd.DataFrame([{"URL": clean_url(r.get("url", "")), "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")), "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))} for r in organic_results])
-
+        
         urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
 
         if 'competitor_texts_list' not in st.session_state:
@@ -364,21 +376,17 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
-    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, st.session_state.competitor_texts_list))
+    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, st.session_state.get('competitor_texts_list', [])))
 
     if not initial_joined_texts.strip():
         st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
-        if st.button("Riprova estrazione contenuti"):
-            if 'competitor_texts_list' in st.session_state:
-                del st.session_state['competitor_texts_list']
-            st.rerun()
         st.stop()
 
     with st.spinner("Fase 2/3: Esecuzione analisi NLU Strategica e Competitiva..."):
         if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
             with ThreadPoolExecutor() as executor:
-                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_joined_texts))
-                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_joined_texts))
+                future_strat = executor.submit(run_nlu, get_strategica_prompt(st.session_state.query, initial_joined_texts))
+                future_comp = executor.submit(run_nlu, get_competitiva_prompt(st.session_state.query, initial_joined_texts))
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
 
@@ -390,7 +398,6 @@ if st.session_state.get('analysis_started', False):
         parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
         table_text = parts[0]
         audience_detail_text = parts[1].strip().removeprefix('---').strip()
-
     dfs_strat = parse_markdown_tables(table_text)
     if dfs_strat and not dfs_strat[0].empty:
         df_strat = dfs_strat[0]
@@ -456,8 +463,12 @@ if st.session_state.get('analysis_started', False):
     st.subheader("Contenuti dei Competitor Analizzati")
     st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le analisi.")
     
-    edited_competitor_texts = []
     initial_texts = st.session_state.get('competitor_texts_list', [])
+
+    for i, result in enumerate(organic_results):
+        key = f"quill_editor_{i}"
+        if key not in st.session_state:
+            st.session_state[key] = initial_texts[i] if i < len(initial_texts) else ""
 
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
@@ -466,15 +477,9 @@ if st.session_state.get('analysis_started', False):
         
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
-            
-            edited_text = st_quill(
-                value=initial_texts[i] if i < len(initial_texts) else "",
-                key=f"quill_editor_{i}",
-                html=False,
-                placeholder="Modifica o incolla qui il testo del competitor...",
-            )
-            edited_competitor_texts.append(edited_text)
-
+            st_quill(key=f"quill_editor_{i}")
+    
+    edited_competitor_texts = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
     st.divider()
     
@@ -495,7 +500,6 @@ if st.session_state.get('analysis_started', False):
     )
 
     def regenerate_keywords():
-        """Forza la rigenerazione delle keyword eliminando la chiave dalla sessione."""
         if 'nlu_mining_text' in st.session_state:
             del st.session_state['nlu_mining_text']
 
@@ -504,7 +508,7 @@ if st.session_state.get('analysis_started', False):
     with st.spinner("Fase 3/3: Esecuzione NLU per Keyword Mining..."):
         if 'nlu_mining_text' not in st.session_state:
             prompt_mining_args = {
-                "keyword": query, "country": country, "language": language, "texts": final_joined_texts,
+                "keyword": st.session_state.query, "country": st.session_state.country, "language": st.session_state.language, "texts": final_joined_texts,
                 "entities_table": edited_df_entities.to_markdown(index=False),
                 "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
                 "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
@@ -518,5 +522,3 @@ if st.session_state.get('analysis_started', False):
     st.subheader("Semantic Keyword Mining")
     st.info("ℹ️ Puoi modificare o eliminare le keyword e le categorie prima di esportare i dati.")
     edited_df_mining = st.data_editor(df_mining, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_mining")
-
-    # --- MODIFICA: Rimossa la sezione finale con i bottoni di reset e download ---
