@@ -302,41 +302,44 @@ st.divider()
 # --- MODIFICA: Logica di reset e avvio spostata in callback dedicate ---
 
 def start_analysis_callback():
-    """Imposta il flag per avviare l'analisi. Pulisce i risultati precedenti."""
+    """Imposta il flag per avviare l'analisi. Pulisce lo stato precedente per un'esecuzione pulita."""
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
         return
 
-    # Pulisce solo i risultati delle analisi precedenti per forzare una nuova esecuzione
-    keys_to_clear = ['analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text', 'competitor_texts_list']
+    # Pulisce i risultati delle analisi precedenti E lo stato degli editor
+    keys_to_clear = [
+        'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
+        'competitor_texts_list', 'editor_entities', 'editor_mining'
+    ]
     for key in keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]
+    
+    # Pulisce anche lo stato degli editor Quill per forzare la reinizializzazione con i nuovi testi
+    for i in range(10):
+        if f"quill_editor_{i}" in st.session_state:
+            del st.session_state[f"quill_editor_{i}"]
             
     st.session_state.analysis_started = True
 
 def new_analysis_callback():
-    """Resetta l'intera applicazione, inclusi gli input dell'utente, senza usare st.rerun()."""
-    st.session_state.analysis_started = False
-    # Resetta i valori dei widget
+    """Resetta l'intera applicazione, inclusi gli input dell'utente."""
+    # Mantiene solo i widget di input base
     st.session_state.query = ""
     st.session_state.country = ""
     st.session_state.language = ""
     
-    # Pulisce tutte le altre chiavi di sessione relative alle analisi
-    keys_to_clear = ['nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text', 'competitor_texts_list', 'editor_entities', 'editor_mining']
+    # Pulisce tutte le altre chiavi di sessione
+    keys_to_clear = list(st.session_state.keys())
     for key in keys_to_clear:
-        if key in st.session_state:
+        if key not in ['query', 'country', 'language']:
             del st.session_state[key]
-    # Pulisce anche lo stato degli editor Quill
-    for i in range(10): # Pulisce fino a 10 editor per sicurezza
-        if f"quill_editor_{i}" in st.session_state:
-            del st.session_state[f"quill_editor_{i}"]
 
 
 # Contenitore per gli input e il pulsante di azione
 with st.container():
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2]) # Allargata leggermente l'ultima colonna
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2])
     with col1:
         query = st.text_input("Query", key="query")
     with col2:
@@ -344,11 +347,12 @@ with st.container():
     with col3:
         language = st.selectbox("Lingua", [""] + get_languages(), key="language")
     with col4:
-        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) # Allineamento verticale
+        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         if st.session_state.get('analysis_started', False):
             st.button("↩️ Nuova Analisi", on_click=new_analysis_callback, type="primary", use_container_width=True)
         else:
             st.button("🚀 Avvia Analisi", on_click=start_analysis_callback, type="primary", use_container_width=True)
+
 
 # --- ESECUZIONE ANALISI ---
 if st.session_state.get('analysis_started', False):
@@ -465,11 +469,13 @@ if st.session_state.get('analysis_started', False):
     
     initial_texts = st.session_state.get('competitor_texts_list', [])
 
-    for i, result in enumerate(organic_results):
+    # Inizializza lo stato per ogni editor Quill se non esiste
+    for i in range(len(organic_results)):
         key = f"quill_editor_{i}"
         if key not in st.session_state:
             st.session_state[key] = initial_texts[i] if i < len(initial_texts) else ""
-
+            
+    # Mostra gli expander e gli editor
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
