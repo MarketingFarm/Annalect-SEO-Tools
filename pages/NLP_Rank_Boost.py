@@ -1,14 +1,19 @@
 import os
 import json
 import re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
 import requests
 import streamlit as st
 from google import genai
-from streamlit_quill import st_quill
+# Nuove importazioni dal secondo script
+from dataforseo_client.api_client import ApiClient
+from dataforseo_client.configuration import Configuration
+from dataforseo_client.api.on_page_api import OnPageApi
+from dataforseo_client.models.on_page_content_parsing_live_request_info import OnPageContentParsingLiveRequestInfo
+
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
 
@@ -27,12 +32,22 @@ except (KeyError, FileNotFoundError):
     st.error("Credenziali DataForSEO non trovate negli secrets di Streamlit.")
     st.stop()
 
-# Sessione HTTP globale per riutilizzo connessioni
+# Sessione HTTP globale per riutilizzo connessioni (per SERP API)
 session = requests.Session()
 session.auth = DFS_AUTH
 
+# NUOVO: Client API DataForSEO per On-Page Parsing
+try:
+    config = Configuration(username=DFS_AUTH[0], password=DFS_AUTH[1])
+    api_client = ApiClient(config)
+    on_page_api = OnPageApi(api_client)
+except Exception as e:
+    st.error(f"Errore nella configurazione del client DataForSEO: {e}")
+    st.stop()
+
+
 # Modello Gemini da utilizzare
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-1.5-pro-latest" # Aggiornato a un modello più recente
 
 
 # --- 2. FUNZIONI DI UTILITY E API ---
@@ -81,11 +96,70 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
+# NUOVA FUNZIONE: Estrazione contenuto da URL
+@st.cache_data(ttl=3600, show_spinner=False)
+def parse_url_content(url: str) -> str:
+    """
+    Estrae il contenuto testuale da un URL usando l'API On-Page di DataForSEO.
+    Privilegia l'output Markdown, altrimenti restituisce testo strutturato.
+    """
+    post_data = [
+        OnPageContentParsingLiveRequestInfo(
+            url=url,
+            markdown_view=True,
+            enable_javascript=True,
+            enable_xhr=True,
+            disable_cookie_popup=True,
+            accept_language="it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
+        )
+    ]
+    try:
+        response = on_page_api.content_parsing_live(post_data)
+        if response.status_code != 20000:
+            return f"## Errore API ##\nCodice: {response.status_code} - Messaggio: {response.status_message}"
+
+        task = response.tasks[0]
+        if task.status_code != 20000:
+            return f"## Errore Task ##\nCodice: {task.status_code} - Messaggio: {task.status_message}"
+        
+        result_item = task.result[0]
+        if not result_item.items:
+             return "## Nessun Item nel Risultato ##"
+        page_item = result_item.items[0]
+
+        # Metodo 1: Markdown (preferito)
+        markdown_content = getattr(page_item, 'page_as_markdown', None)
+        if markdown_content and isinstance(markdown_content, str):
+            return markdown_content
+
+        # Metodo 2: Fallback su contenuto strutturato
+        page_content = page_item.page_content
+        if not page_content:
+            return f"## Contenuto non Trovato ##\nNessun contenuto testuale analizzabile per {url}."
+
+        text_parts = []
+        all_topics = (page_content.main_topic or []) + (page_content.secondary_topic or [])
+        if not all_topics:
+            return f"## Contenuto non Strutturato ##\nNessun topic (h1, h2...) rilevato per {url}."
+        
+        all_topics.sort(key=lambda x: x.level or 99)
+        for topic in all_topics:
+            if topic.h_title:
+                text_parts.append(f"<{ 'h' + str(topic.level) }>{' '.join(topic.h_title.split())}</{ 'h' + str(topic.level) }>")
+            if topic.primary_content:
+                for content in topic.primary_content:
+                    if content.text:
+                        text_parts.append(' '.join(content.text.split()))
+        return "\n\n".join(text_parts)
+
+    except Exception as e:
+        return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
+
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
     """Esegue una singola chiamata al modello Gemini usando il client."""
     try:
-        response = gemini_client.models.generate_content(model=model_name, contents=[prompt])
-        return response.text
+        response = genai.generate_text(model=f"models/{model_name}", prompt=prompt)
+        return response.result
     except Exception as e:
         st.error(f"Errore durante la chiamata a Gemini: {e}")
         return f"ERRORE NLU: {e}"
@@ -99,6 +173,7 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
         if len(lines) < 2: continue
         
         header = [h.strip() for h in lines[0].split('|')[1:-1]]
+        # La riga di separazione ---|--- può avere un numero di pipe diverso
         rows_data = [
             [cell.strip() for cell in row.split('|')[1:-1]]
             for row in lines[2:]
@@ -110,7 +185,7 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     return dataframes
 
 
-# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ---
+# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ( invariate) ---
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
@@ -237,36 +312,26 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 # --- 4. INTERFACCIA UTENTE E FLUSSO PRINCIPALE ---
 
 st.title("Analisi SEO Competitiva Multi-Step")
-st.markdown("Questo tool esegue analisi SEO integrando SERP scraping e NLU.")
+st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 st.divider()
 
 if 'analysis_started' not in st.session_state:
     st.session_state.analysis_started = False
 
+# MODIFICATO: Rimossa la selezione del numero di competitor
 with st.container():
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     query = col1.text_input("Query", key="query")
     country = col2.selectbox("Country", [""] + get_countries(), key="country")
     language = col3.selectbox("Lingua", [""] + get_languages(), key="language")
-    num_comp_opts = [""] + list(range(1, 6))
-    num_comp = col4.selectbox("Numero competitor", num_comp_opts, key="num_competitor")
-    count = int(num_comp) if isinstance(num_comp, int) else 0
 
-with st.expander("Testi dei Competitor", expanded=not st.session_state.analysis_started):
-    if not st.session_state.analysis_started and count > 0:
-        idx = 1
-        for _ in range((count + 1) // 2):
-            cols_pair = st.columns(2)
-            for col in cols_pair:
-                if idx <= count:
-                    with col:
-                        st.markdown(f"**Testo Competitor #{idx}**")
-                        st_quill(key=f"comp_quill_{idx}", html=False, placeholder=f"Incolla qui il testo del Competitor #{idx}")
-                    idx += 1
+# MODIFICATO: Rimossa la sezione di input manuale dei testi
+# with st.expander("Testi dei Competitor", ...):
 
 def start_analysis():
-    if not all([st.session_state.query, st.session_state.country, st.session_state.language, st.session_state.num_competitor]):
-        st.error("Tutti i campi (Query, Country, Lingua, Numero competitor) sono obbligatori.")
+    # MODIFICATO: Controllo sui campi aggiornato
+    if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
+        st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
     else:
         st.session_state.analysis_started = True
 
@@ -276,7 +341,7 @@ if not st.session_state.analysis_started:
 # --- ESECUZIONE ANALISI ---
 if st.session_state.analysis_started:
     
-    with st.spinner("Recupero e analisi dati SERP..."):
+    with st.spinner("Recupero dati SERP..."):
         serp_result = fetch_serp_data(query, country, language)
         if not serp_result:
             st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
@@ -289,11 +354,39 @@ if st.session_state.analysis_started:
         related_list = list(dict.fromkeys(filter(None, related_raw)))
         df_org_export = pd.DataFrame([{"URL": clean_url(r.get("url", "")), "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")), "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))} for r in organic_results])
 
-    competitor_texts_list = [st.session_state.get(f"comp_quill_{i}", "") for i in range(1, count + 1)]
+    urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
+
+    # NUOVO BLOCCO: Estrazione contenuti dei competitor in parallelo
+    if 'competitor_texts_list' not in st.session_state:
+        with st.spinner(f"Estraggo il contenuto testuale da {len(urls_to_parse)} URL... (Questo processo può richiedere alcuni minuti)"):
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
+                results = {}
+                progress_bar = st.progress(0, text="Analisi URL in corso...")
+                total_futures = len(future_to_url)
+                completed_count = 0
+                for future in as_completed(future_to_url):
+                    url = future_to_url[future]
+                    try:
+                        results[url] = future.result()
+                    except Exception as exc:
+                        results[url] = f"## Errore Critico ##\nL'analisi di {url} ha generato un'eccezione: {exc}"
+                    completed_count += 1
+                    progress_bar.progress(completed_count / total_futures, text=f"Analisi URL in corso... ({completed_count}/{total_futures})")
+                progress_bar.empty()
+            
+            # Ordina i risultati secondo l'ordine originale della SERP
+            st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
+    
+    competitor_texts_list = st.session_state.competitor_texts_list
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
 
+    if not joined_texts.strip():
+        st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
+        st.stop()
+
     if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
-        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva..."):
+        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva con Gemini..."):
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
                 future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
@@ -376,6 +469,15 @@ if st.session_state.analysis_started:
         else:
             st.write("_Nessuna ricerca correlata trovata_")
 
+    # NUOVA SEZIONE: Visualizzazione dei contenuti estratti
+    st.divider()
+    st.subheader("Contenuti dei Competitor Analizzati")
+    st.info("ℹ️ Questi sono i contenuti estratti dalle URL dei top 10 risultati, usati come input per l'analisi NLU.")
+    for i, (result, text_content) in enumerate(zip(organic_results, competitor_texts_list)):
+        with st.expander(f"**Competitor #{i+1}:** {result.get('title', 'Titolo non disponibile')}"):
+            st.markdown(f"**URL:** `{result.get('url')}`")
+            st.text_area("Contenuto Estratto (Markdown o Testo Strutturato)", value=text_content, height=300, disabled=True, key=f"content_text_{i}")
+    
     st.divider()
     
     dfs_comp = parse_markdown_tables(nlu_comp_text)
@@ -420,7 +522,8 @@ if st.session_state.analysis_started:
 
     export_data = {
         "query": query, "country": country, "language": language,
-        "num_competitor": count, "competitor_texts": competitor_texts_list,
+        "num_competitor": len(organic_results), # MODIFICATO: Usa il numero di risultati effettivi
+        "competitor_texts": competitor_texts_list,
         "organic": df_org_export.to_dict(orient="records"),
         "people_also_ask": paa_list, "related_searches": related_list,
         "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
@@ -429,16 +532,14 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
+        # MODIFICATO: Aggiornata la lista di chiavi da pulire
         keys_to_clear = [
             'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
-            'editor_entities', 'editor_mining'
+            'editor_entities', 'editor_mining', 'competitor_texts_list'
         ]
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
-        for i in range(1, count + 1):
-            if f"comp_quill_{i}" in st.session_state:
-                del st.session_state[f"comp_quill_{i}"]
         st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
