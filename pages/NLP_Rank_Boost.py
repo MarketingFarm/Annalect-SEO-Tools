@@ -13,6 +13,8 @@ from dataforseo_client.api_client import ApiClient
 from dataforseo_client.configuration import Configuration
 from dataforseo_client.api.on_page_api import OnPageApi
 from dataforseo_client.models.on_page_content_parsing_live_request_info import OnPageContentParsingLiveRequestInfo
+# NUOVA IMPORTAZIONE: Aggiunto st_quill per gli editor di testo
+from streamlit_quill import st_quill
 
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
@@ -95,7 +97,6 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
-# MODIFICATO: Rimossa la lingua non valida 'accept_language'
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """
@@ -151,11 +152,9 @@ def parse_url_content(url: str) -> str:
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
-# QUESTA È LA FUNZIONE DA SOSTITUIRE
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
     """Esegue una singola chiamata al modello Gemini usando il client."""
     try:
-        # CORREZIONE: Aggiunto .models prima di generate_content
         response = gemini_client.models.generate_content(model=f"models/{model_name}", contents=[prompt])
         return response.text
     except Exception as e:
@@ -369,60 +368,8 @@ if st.session_state.analysis_started:
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
     
     competitor_texts_list = st.session_state.competitor_texts_list
-    joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, competitor_texts_list))
-
-    if not joined_texts.strip():
-        st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
-        # Aggiungo un bottone per riprovare senza resettare tutto
-        if st.button("Riprova estrazione contenuti"):
-            if 'competitor_texts_list' in st.session_state:
-                del st.session_state['competitor_texts_list']
-            st.rerun()
-        st.stop()
-
-    if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
-        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva con Gemini..."):
-            with ThreadPoolExecutor() as executor:
-                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
-                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
-                st.session_state.nlu_strat_text = future_strat.result()
-                st.session_state.nlu_comp_text = future_comp.result()
-
-    nlu_strat_text = st.session_state.nlu_strat_text
-    nlu_comp_text = st.session_state.nlu_comp_text
-        
-    st.subheader("Analisi Strategica")
     
-    audience_detail_text = ""
-    table_text = nlu_strat_text
-    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
-        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
-        table_text = parts[0]
-        audience_detail_text = parts[1].strip().removeprefix('---').strip()
-
-    dfs_strat = parse_markdown_tables(table_text)
-    
-    if dfs_strat and not dfs_strat[0].empty:
-        df_strat = dfs_strat[0]
-        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
-            df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
-            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
-            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
-            cols = st.columns(len(labels_to_display))
-            for col, label in zip(cols, labels_to_display):
-                value = analysis_map.get(label, "N/D").replace('`', '')
-                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
-            if audience_detail_text:
-                st.divider()
-                st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
-                st.write(audience_detail_text)
-        else:
-            st.dataframe(df_strat)
-    else:
-        st.text(nlu_strat_text)
-    
-    st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
-    
+    # Visualizzazione risultati SERP e PAA
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
@@ -465,15 +412,82 @@ if st.session_state.analysis_started:
             st.write("_Nessuna ricerca correlata trovata_")
 
     st.divider()
+
+    # --- NUOVA SEZIONE CON EDITOR QUILL ---
     st.subheader("Contenuti dei Competitor Analizzati")
-    st.info("ℹ️ Questi sono i contenuti estratti dalle URL dei top 10 risultati, usati come input per l'analisi NLU.")
-    # MODIFICATO: Il titolo dell'expander ora usa il dominio
+    st.info("ℹ️ Modifica i contenuti estratti qui sotto. Le tue modifiche verranno usate per l'analisi NLU.")
+    
+    edited_competitor_texts = []
     for i, (result, text_content) in enumerate(zip(organic_results, competitor_texts_list)):
         url = result.get('url', '')
-        domain = urlparse(url).netloc if url else "URL non disponibile"
-        with st.expander(f"**Competitor #{i+1}:** {domain}"):
+        # MODIFICA 2: Rimuove "www." dal dominio per il titolo
+        domain_full = urlparse(url).netloc if url else "URL non disponibile"
+        domain_clean = domain_full.removeprefix("www.")
+        
+        with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
-            st.text_area("Contenuto Estratto (Markdown o Testo Strutturato)", value=text_content, height=300, disabled=True, key=f"content_text_{i}")
+            # MODIFICA 1: Usa st_quill per l'editing
+            edited_text = st_quill(
+                value=text_content,
+                key=f"quill_editor_{i}",
+                html=False, # Impostato a False per gestire meglio il testo grezzo/markdown
+                placeholder="Modifica o incolla qui il testo del competitor...",
+                toolbar=None # Rimuove la toolbar per un look più pulito, se preferito
+            )
+            edited_competitor_texts.append(edited_text)
+
+    # Il testo unito per l'NLU ora proviene dagli editor
+    joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
+
+    if not joined_texts.strip():
+        st.error("Nessun contenuto disponibile negli editor. L'analisi non può continuare.")
+        if st.button("Riprova estrazione contenuti"):
+            if 'competitor_texts_list' in st.session_state:
+                del st.session_state['competitor_texts_list']
+            st.rerun()
+        st.stop()
+    
+    # --- Il resto del flusso di analisi NLU rimane invariato ---
+    if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
+        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva con Gemini..."):
+            with ThreadPoolExecutor() as executor:
+                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
+                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
+                st.session_state.nlu_strat_text = future_strat.result()
+                st.session_state.nlu_comp_text = future_comp.result()
+
+    nlu_strat_text = st.session_state.nlu_strat_text
+    nlu_comp_text = st.session_state.nlu_comp_text
+        
+    st.subheader("Analisi Strategica")
+    
+    audience_detail_text = ""
+    table_text = nlu_strat_text
+    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
+        table_text = parts[0]
+        audience_detail_text = parts[1].strip().removeprefix('---').strip()
+
+    dfs_strat = parse_markdown_tables(table_text)
+    
+    if dfs_strat and not dfs_strat[0].empty:
+        df_strat = dfs_strat[0]
+        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
+            df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
+            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
+            cols = st.columns(len(labels_to_display))
+            for col, label in zip(cols, labels_to_display):
+                value = analysis_map.get(label, "N/D").replace('`', '')
+                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
+            if audience_detail_text:
+                st.divider()
+                st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
+                st.write(audience_detail_text)
+        else:
+            st.dataframe(df_strat)
+    else:
+        st.text(nlu_strat_text)
     
     st.divider()
     
@@ -520,7 +534,7 @@ if st.session_state.analysis_started:
     export_data = {
         "query": query, "country": country, "language": language,
         "num_competitor": len(organic_results),
-        "competitor_texts": competitor_texts_list,
+        "competitor_texts": edited_competitor_texts, # Salva i testi modificati
         "organic": df_org_export.to_dict(orient="records"),
         "people_also_ask": paa_list, "related_searches": related_list,
         "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
@@ -533,6 +547,10 @@ if st.session_state.analysis_started:
             'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
             'editor_entities', 'editor_mining', 'competitor_texts_list'
         ]
+        # Pulisce anche le chiavi degli editor quill
+        for i in range(len(organic_results)):
+            keys_to_clear.append(f"quill_editor_{i}")
+
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
