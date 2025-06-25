@@ -52,10 +52,10 @@ GEMINI_MODEL = "gemini-1.5-pro-latest"
 
 
 # --- 2. FUNZIONI DI UTILITY E API ---
+# MODIFICA: Rimossa la cache da tutte le funzioni
 
-@st.cache_data(show_spinner=False)
 def get_countries() -> list[str]:
-    """Recupera e cachea la lista dei paesi da DataForSEO."""
+    """Recupera la lista dei paesi da DataForSEO."""
     try:
         resp = session.get('https://api.dataforseo.com/v3/serp/google/locations')
         resp.raise_for_status()
@@ -64,9 +64,8 @@ def get_countries() -> list[str]:
     except (requests.RequestException, KeyError, IndexError):
         return []
 
-@st.cache_data(show_spinner=False)
 def get_languages() -> list[str]:
-    """Recupera e cachea la lista delle lingue da DataForSEO."""
+    """Recupera la lista delle lingue da DataForSEO."""
     try:
         resp = session.get('https://api.dataforseo.com/v3/serp/google/languages')
         resp.raise_for_status()
@@ -80,7 +79,6 @@ def clean_url(url: str) -> str:
     parsed = urlparse(url)
     return urlunparse(parsed._replace(query="", params="", fragment=""))
 
-@st.cache_data(ttl=600)
 def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
     """Esegue la chiamata API a DataForSEO per ottenere i dati della SERP."""
     payload = [{"keyword": query, "location_name": country, "language_name": language}]
@@ -97,7 +95,6 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
-@st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """Estrae il contenuto testuale da un URL usando l'API On-Page di DataForSEO."""
     post_data = [
@@ -199,8 +196,8 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 | :--- | :--- |
 | **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` |
 | **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` |
-| **Target Audience** | `[Definisci il target audience. **CRITICO**: Utilizza al massimo 31 caratteri, spazi inclusi]` |
-| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 2 aggettivi chiave, es: "Didattico, professionale, autorevole".  **CRITICO**: Utilizza al massimo 31 caratteri, spazi inclusi]` |
+| **Target Audience** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` |
+| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave, es: "Didattico, professionale, autorevole"]` |
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
@@ -309,6 +306,15 @@ with st.container():
     language = col3.selectbox("Lingua", [""] + get_languages(), key="language")
 
 def start_analysis():
+    # Pulisce le analisi precedenti quando si avvia una nuova ricerca
+    keys_to_clear = [
+        'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
+        'editor_entities', 'editor_mining', 'competitor_texts_list'
+    ]
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+            
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
     else:
@@ -340,7 +346,6 @@ if st.session_state.analysis_started:
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
                 results = {}
-                # Non uso più la progress bar qui per non appesantire il primo spinner
                 for future in as_completed(future_to_url):
                     url = future_to_url[future]
                     try:
@@ -349,7 +354,6 @@ if st.session_state.analysis_started:
                         results[url] = f"## Errore Critico ##\nL'analisi di {url} ha generato un'eccezione: {exc}"
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
 
-    # Unisco i testi estratti per l'analisi iniziale
     initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, st.session_state.competitor_texts_list))
 
     if not initial_joined_texts.strip():
@@ -369,8 +373,6 @@ if st.session_state.analysis_started:
                 st.session_state.nlu_comp_text = future_comp.result()
 
     # --- FASE 2: VISUALIZZAZIONE DEI RISULTATI NELL'ORDINE CORRETTO ---
-
-    # 1. MOSTRA ANALISI STRATEGICA (ORA IN CIMA)
     st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
@@ -403,7 +405,6 @@ if st.session_state.analysis_started:
     
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
 
-    # 2. MOSTRA RISULTATI ORGANICI E CORRELATE
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
@@ -447,41 +448,78 @@ if st.session_state.analysis_started:
 
     st.divider()
 
-    # 3. MOSTRA I TESTI DEI COMPETITOR NEGLI EDITOR QUILL
     st.subheader("Contenuti dei Competitor Analizzati")
     st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le keyword.")
+
+    # --- MODIFICA: Logica per accordion singoli e due colonne ---
+    competitor_options = {f"#{i+1}: {urlparse(res.get('url', '')).netloc.removeprefix('www.')}": i for i, res in enumerate(organic_results)}
+    options_list = ["Nessuno (tutti chiusi)"] + list(competitor_options.keys())
     
-    edited_competitor_texts = []
+    selected_option = st.selectbox(
+        "Seleziona un competitor da visualizzare e modificare:",
+        options=options_list,
+        index=0,
+        key='accordion_controller'
+    )
+    
+    selected_index = competitor_options.get(selected_option, -1)
+
+    edited_competitor_texts = [None] * len(organic_results)
     initial_texts = st.session_state.get('competitor_texts_list', [])
 
-    for i, result in enumerate(organic_results):
-        url = result.get('url', '')
-        domain_full = urlparse(url).netloc if url else "URL non disponibile"
-        domain_clean = domain_full.removeprefix("www.")
+    for i in range(0, len(organic_results), 2):
+        col1, col2 = st.columns(2)
         
-        with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
-            st.markdown(f"**URL:** `{url}`")
+        # Competitor nella colonna 1
+        with col1:
+            result1 = organic_results[i]
+            url1 = result1.get('url', '')
+            domain_full1 = urlparse(url1).netloc if url1 else "URL non disponibile"
+            domain_clean1 = domain_full1.removeprefix("www.")
             
-            edited_text = st_quill(
-                value=initial_texts[i] if i < len(initial_texts) else "",
-                key=f"quill_editor_{i}",
-                html=False,
-                placeholder="Modifica o incolla qui il testo del competitor...",
-            )
-            edited_competitor_texts.append(edited_text)
+            with st.expander(f"**Competitor #{i+1}:** {domain_clean1}", expanded=(i == selected_index)):
+                st.markdown(f"**URL:** `{url1}`")
+                edited_text1 = st_quill(
+                    value=initial_texts[i] if i < len(initial_texts) else "",
+                    key=f"quill_editor_{i}",
+                    html=False,
+                    placeholder="Modifica o incolla qui il testo del competitor...",
+                )
+                edited_competitor_texts[i] = edited_text1
 
-    # Questo testo modificato verrà usato per le analisi successive
+        # Competitor nella colonna 2 (se esiste)
+        if i + 1 < len(organic_results):
+            with col2:
+                result2 = organic_results[i+1]
+                url2 = result2.get('url', '')
+                domain_full2 = urlparse(url2).netloc if url2 else "URL non disponibile"
+                domain_clean2 = domain_full2.removeprefix("www.")
+
+                with st.expander(f"**Competitor #{i+2}:** {domain_clean2}", expanded=(i + 1 == selected_index)):
+                    st.markdown(f"**URL:** `{url2}`")
+                    edited_text2 = st_quill(
+                        value=initial_texts[i+1] if i + 1 < len(initial_texts) else "",
+                        key=f"quill_editor_{i+1}",
+                        html=False,
+                        placeholder="Modifica o incolla qui il testo del competitor...",
+                    )
+                    edited_competitor_texts[i+1] = edited_text2
+        else:
+            # Placeholder per mantenere il layout allineato se il numero di competitor è dispari
+            with col2:
+                st.empty()
+
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
     
     st.divider()
     
-    # 4. MOSTRA LE ANALISI SUCCESSIVE (ENTITÀ E KEYWORD)
+    # --- FASE 3: ANALISI FINALI BASATE SUI TESTI (POTENZIALMENTE MODIFICATI) ---
     nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
     
     st.subheader("Entità Rilevanti (Common Ground)")
-    st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
+    st.info("ℹ️ L'analisi iniziale delle entità è basata sui testi originali. Puoi modificare la tabella e rigenerare le keyword.")
     
     edited_df_entities = st.data_editor(
         df_entities,
@@ -492,12 +530,15 @@ if st.session_state.analysis_started:
         column_config={ "Rilevanza Strategica": None }
     )
 
-    def regenerate_keywords():
-        """Forza la rigenerazione delle keyword eliminando la chiave dalla sessione."""
-        if 'nlu_mining_text' in st.session_state:
-            del st.session_state['nlu_mining_text']
+    def regenerate_all():
+        """Forza la rigenerazione di tutte le analisi NLU a partire dai testi modificati."""
+        keys_to_clear_for_regen = ['nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text']
+        for key in keys_to_clear_for_regen:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
 
-    st.button("🔄 Rigenera Keyword dalle Entità Modificate", on_click=regenerate_keywords)
+    st.button("🔄 Rigenera tutte le analisi dai testi modificati", on_click=regenerate_all)
     
     with st.spinner("Fase 3/3: Esecuzione NLU per Keyword Mining..."):
         if 'nlu_mining_text' not in st.session_state:
@@ -514,7 +555,7 @@ if st.session_state.analysis_started:
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
     
     st.subheader("Semantic Keyword Mining")
-    st.info("ℹ️ Puoi modificare o eliminare le keyword e le categorie prima di esportare i dati.")
+    st.info("ℹ️ Puoi modificare le keyword e le categorie prima di esportare.")
     edited_df_mining = st.data_editor(df_mining, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_mining")
 
     export_data = {
@@ -529,20 +570,13 @@ if st.session_state.analysis_started:
     }
     
     def reset_analysis():
-        keys_to_clear = [
-            'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
-            'editor_entities', 'editor_mining', 'competitor_texts_list'
-        ]
-        for i in range(len(organic_results)):
-            keys_to_clear.append(f"quill_editor_{i}")
-
+        keys_to_clear = list(st.session_state.keys())
         for key in keys_to_clear:
-            if key in st.session_state:
-                del st.session_state[key]
+            del st.session_state[key]
         st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
-    col_btn1.button("↩️ Nuova Analisi", on_click=reset_analysis)
+    col_btn1.button("↩️ Nuova Analisi Completa", on_click=reset_analysis)
     col_btn2.download_button(
         label="📥 Download Risultati (JSON)",
         data=json.dumps(export_data, ensure_ascii=False, indent=2),
