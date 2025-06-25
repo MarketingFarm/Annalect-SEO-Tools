@@ -377,7 +377,6 @@ if st.session_state.get('analysis_started', False):
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
-            # --- MODIFICA: Applica clean_url() a ogni URL prima di passarlo all'API ---
             urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
             
             with ThreadPoolExecutor(max_workers=5) as executor:
@@ -500,32 +499,41 @@ if st.session_state.get('analysis_started', False):
         for result in ranked_keywords_results:
             domain = urlparse(result['url']).netloc.removeprefix('www.')
             if result['status'] == 'ok':
-                num_items = len(result['items']) if result['items'] is not None else 0
+                num_items = len(result['items'])
                 st.success(f"✅ {domain}: OK ({num_items} keyword trovate)")
             else:
                 st.error(f"❌ {domain}: ERRORE ({result['error']})")
 
     all_keywords_data = []
     for result in ranked_keywords_results:
-        if result['status'] == 'ok' and result['items'] is not None:
+        # --- MODIFICA: Aggiunto controllo per 'items' non nullo ---
+        if result['status'] == 'ok' and result['items']:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
                 kd = item.get("keyword_data", {})
                 se = item.get("ranked_serp_element", {})
-                intent_info = kd.get("intent_info", {})
-                all_keywords_data.append({
-                    "Competitor": competitor_domain,
-                    "Keyword": kd.get("keyword"),
-                    "Posizione": se.get("rank_absolute"),
-                    "Volume di Ricerca": kd.get("search_volume"),
-                    "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
-                })
+                
+                # Aggiungo un controllo più robusto prima di aggiungere i dati
+                keyword = kd.get("keyword")
+                search_volume = kd.get("search_volume")
+
+                if keyword and search_volume is not None:
+                    intent_info = kd.get("intent_info", {})
+                    all_keywords_data.append({
+                        "Competitor": competitor_domain,
+                        "Keyword": keyword,
+                        "Posizione": se.get("rank_absolute"),
+                        "Volume di Ricerca": search_volume,
+                        "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
+                    })
     
     if all_keywords_data:
         ranked_keywords_df = pd.DataFrame(all_keywords_data)
+        # Il dropna diventa una sicurezza aggiuntiva, ma non dovrebbe più essere necessario
         ranked_keywords_df = ranked_keywords_df.dropna(subset=["Keyword", "Volume di Ricerca"])
-        ranked_keywords_df["Volume di Ricerca"] = pd.to_numeric(ranked_keywords_df["Volume di Ricerca"])
-        ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
+        if not ranked_keywords_df.empty:
+            ranked_keywords_df["Volume di Ricerca"] = pd.to_numeric(ranked_keywords_df["Volume di Ricerca"])
+            ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
 
         st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
         st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
@@ -533,16 +541,19 @@ if st.session_state.get('analysis_started', False):
         st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
         
         try:
-            keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
-            pivot_df = ranked_keywords_df.pivot_table(
-                index='Keyword',
-                columns='Competitor',
-                values='Posizione'
-            ).fillna('')
-            
-            coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
-            
-            st.dataframe(coverage_matrix, use_container_width=True, height=350)
+            if not ranked_keywords_df.empty:
+                keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
+                pivot_df = ranked_keywords_df.pivot_table(
+                    index='Keyword',
+                    columns='Competitor',
+                    values='Posizione'
+                ).fillna('')
+                
+                coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
+                
+                st.dataframe(coverage_matrix, use_container_width=True, height=350)
+            else:
+                st.warning("Nessuna keyword con dati validi trovata per costruire le tabelle.")
         except Exception as e:
             st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
 
@@ -575,6 +586,8 @@ if st.session_state.get('analysis_started', False):
     
     with st.spinner("Fase 4/4: Esecuzione NLU per Keyword Mining..."):
         if 'nlu_mining_text' not in st.session_state:
+            related_list = list(dict.fromkeys(filter(None, related_raw)))
+            paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
             prompt_mining_args = {
                 "keyword": st.session_state.query, "country": st.session_state.country, "language": st.session_state.language, "texts": final_joined_texts,
                 "entities_table": edited_df_entities.to_markdown(index=False),
