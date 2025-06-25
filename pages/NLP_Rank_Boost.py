@@ -199,8 +199,8 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 | :--- | :--- |
 | **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale]` |
 | **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario o "Nessuno evidente"]` |
-| **Target Audience** | `[Definisci il target, es: "B2C Principiante", "B2B Esperto", "Generalista"]` |
-| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave, es: "Didattico, professionale, autorevole"]` |
+| **Target Audience** | `[Definisci il target audience. **CRITICO**: Utilizza al massimo 31 caratteri]` |
+| **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 2/3 aggettivi chiave, es: "Didattico, professionale, autorevole".  **CRITICO**: Utilizza al massimo 31 caratteri]` |
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
