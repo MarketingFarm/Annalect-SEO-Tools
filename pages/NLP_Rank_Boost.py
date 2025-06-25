@@ -52,7 +52,6 @@ GEMINI_MODEL = "gemini-1.5-pro-latest"
 
 
 # --- 2. FUNZIONI DI UTILITY E API ---
-# MODIFICA: Rimossa la cache da tutte le funzioni
 
 def get_countries() -> list[str]:
     """Recupera la lista dei paesi da DataForSEO."""
@@ -306,19 +305,16 @@ with st.container():
     language = col3.selectbox("Lingua", [""] + get_languages(), key="language")
 
 def start_analysis():
-    # Pulisce le analisi precedenti quando si avvia una nuova ricerca
-    keys_to_clear = [
-        'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
-        'editor_entities', 'editor_mining', 'competitor_texts_list'
-    ]
+    keys_to_clear = list(st.session_state.keys())
     for key in keys_to_clear:
-        if key in st.session_state:
+        if key not in ['query', 'country', 'language']:
             del st.session_state[key]
             
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.error("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
     else:
         st.session_state.analysis_started = True
+        st.session_state.active_expander_index = -1 # Resetta l'accordion attivo
 
 if not st.session_state.analysis_started:
     st.button("🚀 Avvia l'Analisi", on_click=start_analysis, type="primary")
@@ -326,7 +322,6 @@ if not st.session_state.analysis_started:
 # --- ESECUZIONE ANALISI ---
 if st.session_state.analysis_started:
     
-    # --- FASE 1: ESTRAZIONE DATI E ANALISI PRELIMINARE ---
     with st.spinner("Fase 1/3: Estrazione dati SERP e contenuti..."):
         serp_result = fetch_serp_data(query, country, language)
         if not serp_result:
@@ -372,7 +367,6 @@ if st.session_state.analysis_started:
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
 
-    # --- FASE 2: VISUALIZZAZIONE DEI RISULTATI NELL'ORDINE CORRETTO ---
     st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
@@ -381,9 +375,7 @@ if st.session_state.analysis_started:
         parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
         table_text = parts[0]
         audience_detail_text = parts[1].strip().removeprefix('---').strip()
-
     dfs_strat = parse_markdown_tables(table_text)
-    
     if dfs_strat and not dfs_strat[0].empty:
         df_strat = dfs_strat[0]
         if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
@@ -402,7 +394,6 @@ if st.session_state.analysis_started:
             st.dataframe(df_strat)
     else:
         st.text(nlu_strat_text)
-    
     st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
 
     col_org, col_paa = st.columns([2, 1], gap="large")
@@ -422,7 +413,6 @@ if st.session_state.analysis_started:
             st.markdown(html, unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
-            
     with col_paa:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
         if paa_list:
@@ -449,71 +439,60 @@ if st.session_state.analysis_started:
     st.divider()
 
     st.subheader("Contenuti dei Competitor Analizzati")
-    st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le keyword.")
+    st.info("ℹ️ Clicca su un competitor per visualizzare e modificare il suo contenuto. Cliccandone un altro, il precedente si chiuderà.")
 
     # --- MODIFICA: Logica per accordion singoli e due colonne ---
-    competitor_options = {f"#{i+1}: {urlparse(res.get('url', '')).netloc.removeprefix('www.')}": i for i, res in enumerate(organic_results)}
-    options_list = ["Nessuno (tutti chiusi)"] + list(competitor_options.keys())
+    if 'active_expander_index' not in st.session_state:
+        st.session_state.active_expander_index = -1
     
-    selected_option = st.selectbox(
-        "Seleziona un competitor da visualizzare e modificare:",
-        options=options_list,
-        index=0,
-        key='accordion_controller'
-    )
-    
-    selected_index = competitor_options.get(selected_option, -1)
+    def set_active_expander(index):
+        if st.session_state.active_expander_index == index:
+            st.session_state.active_expander_index = -1
+        else:
+            st.session_state.active_expander_index = index
 
-    edited_competitor_texts = [None] * len(organic_results)
     initial_texts = st.session_state.get('competitor_texts_list', [])
+    for i in range(len(organic_results)):
+        key = f"quill_editor_{i}"
+        if key not in st.session_state:
+            st.session_state[key] = initial_texts[i] if i < len(initial_texts) else ""
 
     for i in range(0, len(organic_results), 2):
         col1, col2 = st.columns(2)
         
-        # Competitor nella colonna 1
         with col1:
             result1 = organic_results[i]
             url1 = result1.get('url', '')
-            domain_full1 = urlparse(url1).netloc if url1 else "URL non disponibile"
-            domain_clean1 = domain_full1.removeprefix("www.")
+            domain1 = urlparse(url1).netloc.removeprefix('www.') if url1 else "URL non disponibile"
             
-            with st.expander(f"**Competitor #{i+1}:** {domain_clean1}", expanded=(i == selected_index)):
-                st.markdown(f"**URL:** `{url1}`")
-                edited_text1 = st_quill(
-                    value=initial_texts[i] if i < len(initial_texts) else "",
-                    key=f"quill_editor_{i}",
-                    html=False,
-                    placeholder="Modifica o incolla qui il testo del competitor...",
-                )
-                edited_competitor_texts[i] = edited_text1
+            st.button(f"**Competitor #{i+1}:** {domain1}", key=f"btn_{i}", on_click=set_active_expander, args=(i,), use_container_width=True)
 
-        # Competitor nella colonna 2 (se esiste)
+            if st.session_state.active_expander_index == i:
+                with st.container(border=True):
+                    st.markdown(f"**URL:** `{url1}`")
+                    st_quill(key=f"quill_editor_{i}")
+
         if i + 1 < len(organic_results):
             with col2:
                 result2 = organic_results[i+1]
                 url2 = result2.get('url', '')
-                domain_full2 = urlparse(url2).netloc if url2 else "URL non disponibile"
-                domain_clean2 = domain_full2.removeprefix("www.")
+                domain2 = urlparse(url2).netloc.removeprefix('www.') if url2 else "URL non disponibile"
 
-                with st.expander(f"**Competitor #{i+2}:** {domain_clean2}", expanded=(i + 1 == selected_index)):
-                    st.markdown(f"**URL:** `{url2}`")
-                    edited_text2 = st_quill(
-                        value=initial_texts[i+1] if i + 1 < len(initial_texts) else "",
-                        key=f"quill_editor_{i+1}",
-                        html=False,
-                        placeholder="Modifica o incolla qui il testo del competitor...",
-                    )
-                    edited_competitor_texts[i+1] = edited_text2
+                st.button(f"**Competitor #{i+2}:** {domain2}", key=f"btn_{i+1}", on_click=set_active_expander, args=(i+1,), use_container_width=True)
+
+                if st.session_state.active_expander_index == i + 1:
+                    with st.container(border=True):
+                        st.markdown(f"**URL:** `{url2}`")
+                        st_quill(key=f"quill_editor_{i+1}")
         else:
-            # Placeholder per mantenere il layout allineato se il numero di competitor è dispari
             with col2:
                 st.empty()
 
+    edited_competitor_texts = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
     
     st.divider()
     
-    # --- FASE 3: ANALISI FINALI BASATE SUI TESTI (POTENZIALMENTE MODIFICATI) ---
     nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
@@ -529,16 +508,8 @@ if st.session_state.analysis_started:
         key="editor_entities",
         column_config={ "Rilevanza Strategica": None }
     )
-
-    def regenerate_all():
-        """Forza la rigenerazione di tutte le analisi NLU a partire dai testi modificati."""
-        keys_to_clear_for_regen = ['nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text']
-        for key in keys_to_clear_for_regen:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
-
-    st.button("🔄 Rigenera tutte le analisi dai testi modificati", on_click=regenerate_all)
+    
+    st.button("🔄 Rigenera Analisi NLU e Keyword dai testi modificati", on_click=start_analysis)
     
     with st.spinner("Fase 3/3: Esecuzione NLU per Keyword Mining..."):
         if 'nlu_mining_text' not in st.session_state:
@@ -569,14 +540,14 @@ if st.session_state.analysis_started:
         "keyword_mining": edited_df_mining.to_dict(orient="records")
     }
     
-    def reset_analysis():
+    def reset_app():
         keys_to_clear = list(st.session_state.keys())
         for key in keys_to_clear:
             del st.session_state[key]
         st.rerun()
         
     col_btn1, col_btn2 = st.columns(2)
-    col_btn1.button("↩️ Nuova Analisi Completa", on_click=reset_analysis)
+    col_btn1.button("↩️ Nuova Analisi Completa", on_click=reset_app)
     col_btn2.download_button(
         label="📥 Download Risultati (JSON)",
         data=json.dumps(export_data, ensure_ascii=False, indent=2),
