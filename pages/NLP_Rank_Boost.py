@@ -13,7 +13,7 @@ from dataforseo_client.api_client import ApiClient
 from dataforseo_client.configuration import Configuration
 from dataforseo_client.api.on_page_api import OnPageApi
 from dataforseo_client.models.on_page_content_parsing_live_request_info import OnPageContentParsingLiveRequestInfo
-# NUOVA IMPORTAZIONE: Aggiunto st_quill per gli editor di testo
+# Importazione per gli editor di testo
 from streamlit_quill import st_quill
 
 
@@ -99,10 +99,7 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
-    """
-    Estrae il contenuto testuale da un URL usando l'API On-Page di DataForSEO.
-    Privilegia l'output Markdown, altrimenti restituisce testo strutturato.
-    """
+    """Estrae il contenuto testuale da un URL usando l'API On-Page di DataForSEO."""
     post_data = [
         OnPageContentParsingLiveRequestInfo(
             url=url,
@@ -116,29 +113,23 @@ def parse_url_content(url: str) -> str:
         response = on_page_api.content_parsing_live(post_data)
         if response.status_code != 20000:
             return f"## Errore API ##\nCodice: {response.status_code} - Messaggio: {response.status_message}"
-
         task = response.tasks[0]
         if task.status_code != 20000:
             return f"## Errore Task ##\nCodice: {task.status_code} - Messaggio: {task.status_message}"
-        
         result_item = task.result[0]
         if not result_item.items:
              return "## Nessun Item nel Risultato ##"
         page_item = result_item.items[0]
-
         markdown_content = getattr(page_item, 'page_as_markdown', None)
         if markdown_content and isinstance(markdown_content, str):
             return markdown_content
-
         page_content = page_item.page_content
         if not page_content:
             return f"## Contenuto non Trovato ##\nNessun contenuto testuale analizzabile per {url}."
-
         text_parts = []
         all_topics = (page_content.main_topic or []) + (page_content.secondary_topic or [])
         if not all_topics:
             return f"## Contenuto non Strutturato ##\nNessun topic (h1, h2...) rilevato per {url}."
-        
         all_topics.sort(key=lambda x: x.level or 99)
         for topic in all_topics:
             if topic.h_title:
@@ -148,7 +139,6 @@ def parse_url_content(url: str) -> str:
                     if content.text:
                         text_parts.append(' '.join(content.text.split()))
         return "\n\n".join(text_parts)
-
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
@@ -168,20 +158,18 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     for table_md in tables_md:
         lines = [l.strip() for l in table_md.strip().splitlines()]
         if len(lines) < 2: continue
-        
         header = [h.strip() for h in lines[0].split('|')[1:-1]]
         rows_data = [
             [cell.strip() for cell in row.split('|')[1:-1]]
             for row in lines[2:]
             if len(row.split('|')) == len(header) + 2
         ]
-        
         if rows_data:
             dataframes.append(pd.DataFrame(rows_data, columns=header))
     return dataframes
 
 
-# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT (invariate) ---
+# --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ---
 
 def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
@@ -367,9 +355,6 @@ if st.session_state.analysis_started:
             
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
     
-    competitor_texts_list = st.session_state.competitor_texts_list
-    
-    # Visualizzazione risultati SERP e PAA
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
@@ -413,30 +398,28 @@ if st.session_state.analysis_started:
 
     st.divider()
 
-    # --- NUOVA SEZIONE CON EDITOR QUILL ---
     st.subheader("Contenuti dei Competitor Analizzati")
     st.info("ℹ️ Modifica i contenuti estratti qui sotto. Le tue modifiche verranno usate per l'analisi NLU.")
     
     edited_competitor_texts = []
-    for i, (result, text_content) in enumerate(zip(organic_results, competitor_texts_list)):
+    initial_texts = st.session_state.get('competitor_texts_list', [])
+
+    for i, result in enumerate(organic_results):
         url = result.get('url', '')
-        # MODIFICA 2: Rimuove "www." dal dominio per il titolo
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
         domain_clean = domain_full.removeprefix("www.")
         
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
-            # MODIFICA 1: Usa st_quill per l'editing
+            
             edited_text = st_quill(
-                value=text_content,
+                value=initial_texts[i] if i < len(initial_texts) else "",
                 key=f"quill_editor_{i}",
-                html=False, # Impostato a False per gestire meglio il testo grezzo/markdown
+                html=False,
                 placeholder="Modifica o incolla qui il testo del competitor...",
-                toolbar=None # Rimuove la toolbar per un look più pulito, se preferito
             )
             edited_competitor_texts.append(edited_text)
 
-    # Il testo unito per l'NLU ora proviene dagli editor
     joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
 
     if not joined_texts.strip():
@@ -447,7 +430,6 @@ if st.session_state.analysis_started:
             st.rerun()
         st.stop()
     
-    # --- Il resto del flusso di analisi NLU rimane invariato ---
     if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
         with st.spinner("Esecuzione analisi NLU Strategica e Competitiva con Gemini..."):
             with ThreadPoolExecutor() as executor:
@@ -534,7 +516,7 @@ if st.session_state.analysis_started:
     export_data = {
         "query": query, "country": country, "language": language,
         "num_competitor": len(organic_results),
-        "competitor_texts": edited_competitor_texts, # Salva i testi modificati
+        "competitor_texts": edited_competitor_texts,
         "organic": df_org_export.to_dict(orient="records"),
         "people_also_ask": paa_list, "related_searches": related_list,
         "analysis_strategica": dfs_strat[0].to_dict(orient="records") if dfs_strat else [],
@@ -547,7 +529,6 @@ if st.session_state.analysis_started:
             'analysis_started', 'nlu_strat_text', 'nlu_comp_text', 'nlu_mining_text',
             'editor_entities', 'editor_mining', 'competitor_texts_list'
         ]
-        # Pulisce anche le chiavi degli editor quill
         for i in range(len(organic_results)):
             keys_to_clear.append(f"quill_editor_{i}")
 
