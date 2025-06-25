@@ -320,7 +320,8 @@ if not st.session_state.analysis_started:
 # --- ESECUZIONE ANALISI ---
 if st.session_state.analysis_started:
     
-    with st.spinner("Recupero dati SERP..."):
+    # --- FASE 1: ESTRAZIONE DATI E ANALISI PRELIMINARE ---
+    with st.spinner("Fase 1/3: Estrazione dati SERP e contenuti..."):
         serp_result = fetch_serp_data(query, country, language)
         if not serp_result:
             st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
@@ -333,28 +334,76 @@ if st.session_state.analysis_started:
         related_list = list(dict.fromkeys(filter(None, related_raw)))
         df_org_export = pd.DataFrame([{"URL": clean_url(r.get("url", "")), "Meta Title": r.get("title", ""), "Lunghezza Title": len(r.get("title", "")), "Meta Description": r.get("description", ""), "Lunghezza Description": len(r.get("description", ""))} for r in organic_results])
 
-    urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
+        urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
 
-    if 'competitor_texts_list' not in st.session_state:
-        with st.spinner(f"Estraggo il contenuto testuale da {len(urls_to_parse)} URL... (Questo processo può richiedere alcuni minuti)"):
+        if 'competitor_texts_list' not in st.session_state:
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
                 results = {}
-                progress_bar = st.progress(0, text="Analisi URL in corso...")
-                total_futures = len(future_to_url)
-                completed_count = 0
+                # Non uso più la progress bar qui per non appesantire il primo spinner
                 for future in as_completed(future_to_url):
                     url = future_to_url[future]
                     try:
                         results[url] = future.result()
                     except Exception as exc:
                         results[url] = f"## Errore Critico ##\nL'analisi di {url} ha generato un'eccezione: {exc}"
-                    completed_count += 1
-                    progress_bar.progress(completed_count / total_futures, text=f"Analisi URL in corso... ({completed_count}/{total_futures})")
-                progress_bar.empty()
-            
             st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
+
+    # Unisco i testi estratti per l'analisi iniziale
+    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, st.session_state.competitor_texts_list))
+
+    if not initial_joined_texts.strip():
+        st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
+        if st.button("Riprova estrazione contenuti"):
+            if 'competitor_texts_list' in st.session_state:
+                del st.session_state['competitor_texts_list']
+            st.rerun()
+        st.stop()
+
+    with st.spinner("Fase 2/3: Esecuzione analisi NLU Strategica e Competitiva..."):
+        if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
+            with ThreadPoolExecutor() as executor:
+                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_joined_texts))
+                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_joined_texts))
+                st.session_state.nlu_strat_text = future_strat.result()
+                st.session_state.nlu_comp_text = future_comp.result()
+
+    # --- FASE 2: VISUALIZZAZIONE DEI RISULTATI NELL'ORDINE CORRETTO ---
+
+    # 1. MOSTRA ANALISI STRATEGICA (ORA IN CIMA)
+    st.subheader("Analisi Strategica")
+    nlu_strat_text = st.session_state.nlu_strat_text
+    audience_detail_text = ""
+    table_text = nlu_strat_text
+    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
+        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
+        table_text = parts[0]
+        audience_detail_text = parts[1].strip().removeprefix('---').strip()
+
+    dfs_strat = parse_markdown_tables(table_text)
     
+    if dfs_strat and not dfs_strat[0].empty:
+        df_strat = dfs_strat[0]
+        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
+            df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
+            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
+            cols = st.columns(len(labels_to_display))
+            for col, label in zip(cols, labels_to_display):
+                value = analysis_map.get(label, "N/D").replace('`', '')
+                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
+            if audience_detail_text:
+                st.divider()
+                st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
+                st.write(audience_detail_text)
+        else:
+            st.dataframe(df_strat)
+    else:
+        st.text(nlu_strat_text)
+    
+    st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
+
+    # 2. MOSTRA RISULTATI ORGANICI E CORRELATE
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
@@ -398,8 +447,9 @@ if st.session_state.analysis_started:
 
     st.divider()
 
+    # 3. MOSTRA I TESTI DEI COMPETITOR NEGLI EDITOR QUILL
     st.subheader("Contenuti dei Competitor Analizzati")
-    st.info("ℹ️ Modifica i contenuti estratti qui sotto. Le tue modifiche verranno usate per l'analisi NLU.")
+    st.info("ℹ️ I contenuti estratti sono mostrati qui. Puoi modificarli e poi rigenerare le keyword.")
     
     edited_competitor_texts = []
     initial_texts = st.session_state.get('competitor_texts_list', [])
@@ -420,59 +470,13 @@ if st.session_state.analysis_started:
             )
             edited_competitor_texts.append(edited_text)
 
-    joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
-
-    if not joined_texts.strip():
-        st.error("Nessun contenuto disponibile negli editor. L'analisi non può continuare.")
-        if st.button("Riprova estrazione contenuti"):
-            if 'competitor_texts_list' in st.session_state:
-                del st.session_state['competitor_texts_list']
-            st.rerun()
-        st.stop()
-    
-    if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
-        with st.spinner("Esecuzione analisi NLU Strategica e Competitiva con Gemini..."):
-            with ThreadPoolExecutor() as executor:
-                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, joined_texts))
-                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, joined_texts))
-                st.session_state.nlu_strat_text = future_strat.result()
-                st.session_state.nlu_comp_text = future_comp.result()
-
-    nlu_strat_text = st.session_state.nlu_strat_text
-    nlu_comp_text = st.session_state.nlu_comp_text
-        
-    st.subheader("Analisi Strategica")
-    
-    audience_detail_text = ""
-    table_text = nlu_strat_text
-    if "### Analisi Approfondita Audience ###" in nlu_strat_text:
-        parts = nlu_strat_text.split("### Analisi Approfondita Audience ###")
-        table_text = parts[0]
-        audience_detail_text = parts[1].strip().removeprefix('---').strip()
-
-    dfs_strat = parse_markdown_tables(table_text)
-    
-    if dfs_strat and not dfs_strat[0].empty:
-        df_strat = dfs_strat[0]
-        if 'Caratteristica SEO' in df_strat.columns and 'Analisi Sintetica' in df_strat.columns:
-            df_strat['Caratteristica SEO'] = df_strat['Caratteristica SEO'].str.replace('*', '', regex=False).str.strip()
-            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO']).to_dict()
-            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
-            cols = st.columns(len(labels_to_display))
-            for col, label in zip(cols, labels_to_display):
-                value = analysis_map.get(label, "N/D").replace('`', '')
-                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
-            if audience_detail_text:
-                st.divider()
-                st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
-                st.write(audience_detail_text)
-        else:
-            st.dataframe(df_strat)
-    else:
-        st.text(nlu_strat_text)
+    # Questo testo modificato verrà usato per le analisi successive
+    final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
     
     st.divider()
     
+    # 4. MOSTRA LE ANALISI SUCCESSIVE (ENTITÀ E KEYWORD)
+    nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
     
@@ -495,10 +499,10 @@ if st.session_state.analysis_started:
 
     st.button("🔄 Rigenera Keyword dalle Entità Modificate", on_click=regenerate_keywords)
     
-    if 'nlu_mining_text' not in st.session_state:
-        with st.spinner("Esecuzione NLU per Keyword Mining..."):
+    with st.spinner("Fase 3/3: Esecuzione NLU per Keyword Mining..."):
+        if 'nlu_mining_text' not in st.session_state:
             prompt_mining_args = {
-                "keyword": query, "country": country, "language": language, "texts": joined_texts,
+                "keyword": query, "country": country, "language": language, "texts": final_joined_texts,
                 "entities_table": edited_df_entities.to_markdown(index=False),
                 "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
                 "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
