@@ -106,19 +106,15 @@ def parse_url_content(url: str) -> str:
                 return ""
             return f"<h2>Errore API</h2><p>{error_message}</p>"
 
-        # --- INIZIO BLOCCO CORRETTO ---
-        # Gestione robusta del risultato per prevenire l'errore 'NoneType'
         result_list = data["tasks"][0].get("result")
         if not result_list:
-            return "" # Nessun risultato nella risposta
+            return ""
 
         items_list = result_list[0].get("items")
-        # Controlla che 'items' esista e non sia una lista vuota
         if not items_list:
-            return "" # 'items' è None o una lista vuota, quindi non c'è contenuto da analizzare
+            return ""
 
         items = items_list[0]
-        # --- FINE BLOCCO CORRETTO ---
         
         page_content = items.get("page_content")
 
@@ -160,7 +156,6 @@ def parse_url_content(url: str) -> str:
     except requests.RequestException as e:
         return f"<h2>Errore di Rete</h2><p>Durante l'analisi dell'URL {url}: {str(e)}</p>"
     except Exception as e:
-        # Questo blocco ora dovrebbe essere raggiunto molto più raramente
         return f"<h2>Errore Imprevisto</h2><p>URL: {url}<br>Errore: {str(e)}</p>"
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -307,7 +302,6 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 
-# CSS per forzare l'altezza dell'editor Quill
 st.markdown("""
 <style>
     .ql-editor {
@@ -317,16 +311,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# CSS per applicare uno stile alla prima colonna (quella dei competitors)
 st.markdown("""
 <style>
-    /* Seleziona il contenitore della prima colonna */
     #competitor-layout-wrapper [data-testid="stHorizontalBlock"] > div:nth-child(1) {
         background-color: rgb(247, 248, 249);
         border-radius: 8px;
         padding: 1rem;
     }
-    /* Seleziona il contenitore della seconda colonna (destra) */
     #competitor-layout-wrapper [data-testid="stHorizontalBlock"] > div:nth-child(2) {
         padding: 1rem;
     }
@@ -388,7 +379,6 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
 
-        # Inizializzazione robusta dello stato per i contenuti modificabili
         if 'edited_html_contents' not in st.session_state:
             st.session_state.edited_html_contents = list(st.session_state.initial_html_contents)
 
@@ -501,7 +491,6 @@ if st.session_state.get('analysis_started', False):
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    # Inseriamo un marcatore invisibile con un ID univoco
     st.markdown('<div id="competitor-columns-marker"></div>', unsafe_allow_html=True)
     
     col_nav, col_content = st.columns([1.5, 5])
@@ -547,68 +536,69 @@ if st.session_state.get('analysis_started', False):
             else:
                 st.error(f"❌ {domain}: ERRORE ({result['error']})")
 
-    # --- INIZIO BLOCCO DI CODICE AGGIORNATO ---
+    # --- INIZIO BLOCCO DI CODICE CON LOGICA DI ESTRAZIONE CORRETTA ---
     all_keywords_data = []
     for result in ranked_keywords_results:
         if result['status'] == 'ok' and result['items']:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
-                kd = item.get("keyword_data", {})
-                # CORREZIONE: accedere al sotto-oggetto 'serp_item'
-                se = item.get("ranked_serp_element", {}).get("serp_item", {})
-                
-                keyword = kd.get("keyword")
-                search_volume = kd.get("search_volume") # Sarà None se non presente
+                # Estraggo i dizionari principali, gestendo il caso in cui non esistano
+                keyword_data = item.get("keyword_data", {})
+                serp_info = item.get("serp_info", {})
 
-                # CONDIZIONE MENO RESTRITTIVA: basta che la keyword esista
+                # Estrazione sicura dei dati, navigando la struttura corretta
+                keyword = keyword_data.get("keyword")
+                
+                # CORREZIONE per Volume di Ricerca
+                keyword_info = keyword_data.get("keyword_info", {})
+                search_volume = keyword_info.get("search_volume")
+
+                # CORREZIONE per Search Intent
+                search_intent_info = keyword_data.get("search_intent_info", {})
+                main_intent = search_intent_info.get("main_intent", "N/D")
+
+                # CORREZIONE per la Posizione
+                serp_item = serp_info.get("serp_item", {})
+                position = serp_item.get("rank_absolute")
+
                 if keyword:
-                    intent_info = kd.get("intent_info", {})
                     all_keywords_data.append({
                         "Competitor": competitor_domain,
                         "Keyword": keyword,
-                        # CORREZIONE: ora 'se' punta all'oggetto corretto
-                        "Posizione": se.get("rank_absolute"),
+                        "Posizione": position,
                         "Volume di Ricerca": search_volume,
-                        "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
+                        "Search Intent": main_intent.title()
                     })
     
     if all_keywords_data:
         ranked_keywords_df = pd.DataFrame(all_keywords_data)
         
-        # Gestione robusta dei dati mancanti invece di eliminarli
         ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].fillna(0)
         ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].fillna(0)
         
-        # Conversione a tipi numerici interi
         ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].astype(int)
         ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].astype(int)
         
-        # Filtra via le keyword per cui non abbiamo una posizione valida (es. 0)
         ranked_keywords_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
 
-        # Ora, solo se il DataFrame non è vuoto dopo la pulizia, procedi
         if not ranked_keywords_df.empty:
-            # Ordina per volume di ricerca
             ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
 
             st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
             st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
             
-            st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
+            st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor.")
             
             try:
-                # Prepara i dati per la matrice di copertura
                 keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
                 pivot_df = ranked_keywords_df.pivot_table(
                     index='Keyword',
                     columns='Competitor',
                     values='Posizione'
-                ).fillna('') # Riempi le posizioni mancanti con stringa vuota per leggibilità
+                ).fillna('')
                 
-                # Unisci le info con la matrice
                 coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
                 
-                # Formatta le posizioni come interi leggibili (opzionale ma carino)
                 for col in coverage_matrix.columns:
                     if col not in ['Volume di Ricerca', 'Search Intent']:
                         coverage_matrix[col] = coverage_matrix[col].apply(lambda x: int(x) if x != '' else '')
@@ -626,8 +616,6 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
     
-    # Raccoglie i contenuti finali direttamente dalla nostra variabile di stato
-    # che contiene tutte le modifiche apportate dall'utente.
     final_edited_htmls = st.session_state.edited_html_contents
 
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in final_edited_htmls]
