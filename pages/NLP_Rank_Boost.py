@@ -319,18 +319,21 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 
-# CSS per forzare l'altezza dell'editor Quill
+# CSS corretto per forzare l'altezza dell'editor Quill
 st.markdown("""
 <style>
-    .quill-editor {
+    .quill-editor-container .ql-editor {
         height: 250px !important;
         overflow-y: auto !important;
-        border: 1px solid #ccc;
-        border-radius: 5px;
     }
-    .ql-toolbar {
+    .quill-editor-container .ql-toolbar.ql-snow {
         border-top-left-radius: 5px;
         border-top-right-radius: 5px;
+    }
+    .quill-editor-container .ql-container.ql-snow {
+        border: 1px solid #ccc;
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -349,13 +352,14 @@ def new_analysis_callback():
         del st.session_state[key]
     st.rerun()
 
-# Funzione callback per salvare lo stato dell'editor prima di cambiare
+# Funzione callback per salvare lo stato dell'editor PRIMA che la UI cambi
 def save_editor_state():
-    # Salva il contenuto dell'editor attivo nella nostra lista di contenuti modificati
+    # Identifica quale editor era attivo prima del cambio
     if 'active_editor_index' in st.session_state:
         old_index = st.session_state.active_editor_index
         editor_key = f"quill_editor_{old_index}"
         if editor_key in st.session_state:
+            # Salva il suo contenuto (anche se vuoto) nella nostra lista di gestione
             content = st.session_state[editor_key]
             st.session_state.edited_html_contents[old_index] = content if content is not None else ""
 
@@ -397,10 +401,17 @@ if st.session_state.get('analysis_started', False):
                     url = future_to_url[future]
                     results[url] = future.result()
             st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
-            # Inizializza la lista dei contenuti modificati
-            st.session_state.edited_html_contents = st.session_state.initial_html_contents[:]
+
+    # ########################################################################## #
+    # ################# INIZIALIZZAZIONE STATO CORRETTA ######################## #
+    # ########################################################################## #
+
+    # Questo blocco ora viene eseguito a ogni run, garantendo che lo stato esista sempre
+    if 'edited_html_contents' not in st.session_state:
+        st.session_state.edited_html_contents = st.session_state.initial_html_contents[:]
 
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
+        # ... (Questa sezione rimane invariata)
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
             urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
@@ -419,6 +430,7 @@ if st.session_state.get('analysis_started', False):
         st.stop()
 
     with st.spinner("Fase 3/4: Esecuzione analisi NLU..."):
+        # ... (Questa sezione rimane invariata)
         if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(st.session_state.query, initial_joined_texts))
@@ -525,7 +537,6 @@ if st.session_state.get('analysis_started', False):
             label_visibility="collapsed",
             on_change=save_editor_state # Callback per salvare lo stato
         )
-        # Tiene traccia dell'editor correntemente visualizzato
         st.session_state.active_editor_index = selected_index
 
     with col_content:
@@ -533,15 +544,13 @@ if st.session_state.get('analysis_started', False):
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
         
-        # Carica il contenuto dalla nostra lista di contenuti modificati
         html_to_display = st.session_state.edited_html_contents[selected_index]
         
-        # Aggiunge il contenitore div per applicare il CSS dell'altezza
-        st.markdown('<div class="quill-editor">', unsafe_allow_html=True)
+        st.markdown('<div class="quill-editor-container">', unsafe_allow_html=True)
         st_quill(
             value=html_to_display,
             html=True,
-            key=f"quill_editor_{selected_index}" # Chiave dinamica per l'aggiornamento
+            key=f"quill_editor_{selected_index}"
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
