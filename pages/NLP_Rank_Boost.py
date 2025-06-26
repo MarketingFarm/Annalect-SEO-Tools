@@ -286,12 +286,12 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 
+# --- MODIFICA 2: Altezza fissa a 300px ---
 # CSS per forzare l'altezza dell'editor Quill
 st.markdown("""
 <style>
-    .quill-container .ql-editor {
-        min-height: 250px !important;
-        max-height: 250px !important;
+    .ql-editor {
+        height: 300px !important;
         overflow-y: scroll !important;
     }
 </style>
@@ -352,10 +352,7 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
 
-        # ---> BLOCCO SPOSTATO E CORRETTO <---
-        # Questa inizializzazione ora è al posto giusto.
-        # Viene eseguita DOPO che initial_html_contents è stato potenzialmente creato,
-        # e viene controllata ad ogni esecuzione dello script, risolvendo l'errore.
+        # Inizializzazione robusta dello stato per i contenuti modificabili
         if 'edited_html_contents' not in st.session_state:
             st.session_state.edited_html_contents = list(st.session_state.initial_html_contents)
 
@@ -468,7 +465,8 @@ if st.session_state.get('analysis_started', False):
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    col_nav, col_content = st.columns([1, 5])
+    # --- MODIFICA 3: Colonna sinistra più larga ---
+    col_nav, col_content = st.columns([1.5, 5])
 
     with col_nav:
         st.markdown("<h6>Competitors</h6>", unsafe_allow_html=True)
@@ -480,35 +478,22 @@ if st.session_state.get('analysis_started', False):
             label_visibility="collapsed"
         )
 
-    # --- CODICE NUOVO E DEFINITIVO PER L'EDITOR ---
     with col_content:
         selected_url_raw = organic_results[selected_index].get('url', '')
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
 
-        # === LA MODIFICA CHIAVE ===
-        # Ripristiniamo la chiave dinamica basata sull'indice del competitor.
-        # Questo dice a Streamlit di "distruggere" il vecchio editor e crearne uno
-        # nuovo quando l'utente seleziona un competitor diverso, forzandolo
-        # a caricare il nuovo testo correttamente.
         editor_key = f"quill_editor_{selected_index}"
-
-        # La nostra logica per leggere il contenuto corretto dallo stato centralizzato
-        # rimane la stessa, ed è robusta.
-        content_to_display = st.session_state.edited_html_contents[selected_index]
-
-        st.markdown('<div class="quill-container">', unsafe_allow_html=True)
         
-        # Passiamo la chiave dinamica e il valore corretto all'editor.
+        content_to_display = st.session_state.edited_html_contents[selected_index]
+        
+        # --- MODIFICA 1: Rimozione dei markdown superflui ---
         edited_content = st_quill(
             value=content_to_display,
             html=True,
             key=editor_key
         )
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # La nostra logica per salvare le modifiche nello stato centralizzato
-        # rimane invariata e funziona correttamente.
         if edited_content != content_to_display:
             st.session_state.edited_html_contents[selected_index] = edited_content
             st.rerun()
