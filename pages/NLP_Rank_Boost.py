@@ -547,77 +547,82 @@ if st.session_state.get('analysis_started', False):
             else:
                 st.error(f"❌ {domain}: ERRORE ({result['error']})")
 
+    # --- INIZIO BLOCCO DI CODICE AGGIORNATO ---
     all_keywords_data = []
     for result in ranked_keywords_results:
         if result['status'] == 'ok' and result['items']:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
                 kd = item.get("keyword_data", {})
-                se = item.get("ranked_serp_element", {})
+                # CORREZIONE: accedere al sotto-oggetto 'serp_item'
+                se = item.get("ranked_serp_element", {}).get("serp_item", {})
                 
                 keyword = kd.get("keyword")
-                search_volume = kd.get("search_volume")
+                search_volume = kd.get("search_volume") # Sarà None se non presente
 
-                if keyword and search_volume is not None:
+                # CONDIZIONE MENO RESTRITTIVA: basta che la keyword esista
+                if keyword:
                     intent_info = kd.get("intent_info", {})
                     all_keywords_data.append({
                         "Competitor": competitor_domain,
                         "Keyword": keyword,
+                        # CORREZIONE: ora 'se' punta all'oggetto corretto
                         "Posizione": se.get("rank_absolute"),
                         "Volume di Ricerca": search_volume,
                         "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
                     })
     
     if all_keywords_data:
-    ranked_keywords_df = pd.DataFrame(all_keywords_data)
-    
-    # Gestione robusta dei dati mancanti invece di eliminarli
-    ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].fillna(0)
-    ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].fillna(0)
-    
-    # Conversione a tipi numerici interi
-    ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].astype(int)
-    ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].astype(int)
-    
-    # Filtra via le keyword per cui non abbiamo una posizione valida (es. 0)
-    ranked_keywords_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
-
-    # Ora, solo se il DataFrame non è vuoto dopo la pulizia, procedi
-    if not ranked_keywords_df.empty:
-        # Ordina per volume di ricerca
-        ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
-
-        st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
-        st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
+        ranked_keywords_df = pd.DataFrame(all_keywords_data)
         
-        st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
+        # Gestione robusta dei dati mancanti invece di eliminarli
+        ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].fillna(0)
+        ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].fillna(0)
         
-        try:
-            # Prepara i dati per la matrice di copertura
-            keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
-            pivot_df = ranked_keywords_df.pivot_table(
-                index='Keyword',
-                columns='Competitor',
-                values='Posizione'
-            ).fillna('') # Riempi le posizioni mancanti con stringa vuota per leggibilità
-            
-            # Unisci le info con la matrice
-            coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
-            
-            # Formatta le posizioni come interi leggibili (opzionale ma carino)
-            for col in coverage_matrix.columns:
-                if col not in ['Volume di Ricerca', 'Search Intent']:
-                    coverage_matrix[col] = coverage_matrix[col].apply(lambda x: int(x) if x != '' else '')
+        # Conversione a tipi numerici interi
+        ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].astype(int)
+        ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].astype(int)
+        
+        # Filtra via le keyword per cui non abbiamo una posizione valida (es. 0)
+        ranked_keywords_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
 
-            st.dataframe(coverage_matrix, use_container_width=True, height=350)
+        # Ora, solo se il DataFrame non è vuoto dopo la pulizia, procedi
+        if not ranked_keywords_df.empty:
+            # Ordina per volume di ricerca
+            ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
 
-        except Exception as e:
-            st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
+            st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
+            st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
+            
+            st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
+            
+            try:
+                # Prepara i dati per la matrice di copertura
+                keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
+                pivot_df = ranked_keywords_df.pivot_table(
+                    index='Keyword',
+                    columns='Competitor',
+                    values='Posizione'
+                ).fillna('') # Riempi le posizioni mancanti con stringa vuota per leggibilità
+                
+                # Unisci le info con la matrice
+                coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
+                
+                # Formatta le posizioni come interi leggibili (opzionale ma carino)
+                for col in coverage_matrix.columns:
+                    if col not in ['Volume di Ricerca', 'Search Intent']:
+                        coverage_matrix[col] = coverage_matrix[col].apply(lambda x: int(x) if x != '' else '')
+
+                st.dataframe(coverage_matrix, use_container_width=True, height=350)
+
+            except Exception as e:
+                st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
+        else:
+            st.warning("Nessuna keyword con dati di ranking validi trovata dopo la pulizia.")
+
     else:
-        st.warning("Nessuna keyword con dati di ranking validi trovata dopo la pulizia.")
-
-else:
-    st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
+        st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
+    # --- FINE BLOCCO DI CODICE AGGIORNATO ---
 
     st.divider()
     
