@@ -289,8 +289,7 @@ st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione
 # CSS per forzare l'altezza dell'editor Quill
 st.markdown("""
 <style>
-    /* Selettore forte e specifico per l'area di testo di Quill */
-    .ql-editor {
+    .quill-container .ql-editor {
         min-height: 250px !important;
         max-height: 250px !important;
         overflow-y: scroll !important;
@@ -307,7 +306,6 @@ def start_analysis_callback():
     st.session_state.analysis_started = True
 
 def new_analysis_callback():
-    # Conserva lo stato dei widget di input principali
     keys_to_preserve = ['query', 'country', 'language']
     keys_to_clear = [k for k in st.session_state.keys() if k not in keys_to_preserve]
     for key in keys_to_clear:
@@ -482,13 +480,26 @@ if st.session_state.get('analysis_started', False):
         
         editor_key = f"quill_editor_{selected_index}"
         
-        # Inizializza lo stato per questo editor se non è mai stato visto prima
-        if editor_key not in st.session_state:
-            initial_value = st.session_state.initial_html_contents[selected_index]
-            st.session_state[editor_key] = initial_value if initial_value is not None else ""
+        # Determina il valore da visualizzare
+        # Se un valore modificato esiste in session_state, usa quello.
+        # Altrimenti, usa il valore iniziale.
+        if editor_key in st.session_state:
+            html_to_display = st.session_state[editor_key]
+        else:
+            html_to_display = st.session_state.initial_html_contents[selected_index]
 
-        # L'editor ora usa solo la sua chiave. Streamlit gestirà il valore.
-        st_quill(html=True, key=editor_key)
+        # Assicura che il valore non sia mai None per evitare errori
+        final_value_to_display = html_to_display if html_to_display is not None else ""
+
+        # Usa un contenitore con una classe custom per il CSS
+        st.markdown('<div class="quill-container">', unsafe_allow_html=True)
+        st_quill(
+            value=final_value_to_display,
+            html=True,
+            key=editor_key
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
 
     st.divider()
 
