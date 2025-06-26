@@ -10,7 +10,8 @@ import streamlit as st
 from google import genai
 # Importazione per gli editor di testo
 from streamlit_quill import st_quill
-# Importazione per ripulire l'output HTML dell'editor
+# Importazioni per la conversione Markdown <-> HTML <-> Testo
+import markdown
 from bs4 import BeautifulSoup
 
 
@@ -92,8 +93,8 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """
-    Estrae SOLO 'main_topic' e 'secondary_topic' dal contenuto di un URL 
-    e li restituisce come una singola stringa formattata.
+    Estrae il 'main_topic' dal contenuto di un URL, lo processa per estrarre
+    titoli e testi, e lo restituisce come una singola stringa formattata in Markdown.
     """
     post_data = [{"url": url, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
@@ -109,19 +110,31 @@ def parse_url_content(url: str) -> str:
         page_content = items.get("page_content")
 
         if page_content:
-            main_topic = page_content.get('main_topic', 'Nessun main topic trovato.')
-            secondary_topics_list = page_content.get('secondary_topic', [])
+            main_topic_data = page_content.get('main_topic')
             
-            # Formatta l'output in una singola stringa chiara e leggibile
-            secondary_topics_str = "\n".join(f"- {topic}" for topic in secondary_topics_list) if secondary_topics_list else "Nessun secondary topic trovato."
+            # Controlla se main_topic_data esiste ed è una lista
+            if not isinstance(main_topic_data, list):
+                return "Struttura 'main_topic' non valida o non trovata."
+
+            content_parts = []
+            for section in main_topic_data:
+                # Aggiungi il titolo della sezione se esiste
+                h_title = section.get('h_title')
+                if h_title:
+                    # Usa il livello del titolo per formattare correttamente in Markdown (es. ##, ###)
+                    level = section.get('level', 2)
+                    content_parts.append(f"{'#' * level} {h_title}")
+
+                # Aggiungi il contenuto primario se esiste
+                primary_content_list = section.get('primary_content')
+                if isinstance(primary_content_list, list):
+                    for content_item in primary_content_list:
+                        text = content_item.get('text')
+                        if text:
+                            content_parts.append(text.strip())
             
-            formatted_output = (
-                f"### Main Topic ###\n"
-                f"{main_topic}\n\n"
-                f"### Secondary Topics ###\n"
-                f"{secondary_topics_str}"
-            )
-            return formatted_output
+            # Unisci tutte le parti con doppi a capo per una corretta formattazione Markdown
+            return "\n\n".join(content_parts)
         else:
             return f"## Contenuto non Estratto ##\nL'API non ha restituito il campo 'page_content' per l'URL: {url}"
 
@@ -462,7 +475,7 @@ if st.session_state.get('analysis_started', False):
             
     st.divider()
 
-    st.subheader("Contenuti dei Competitor Analizzati (Topic Principali)")
+    st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
@@ -470,11 +483,15 @@ if st.session_state.get('analysis_started', False):
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
 
-            # Prendi il testo formattato (Topic)
-            topic_text = initial_texts[i] if i < len(initial_texts) else ""
+            # Prendi il testo Markdown (ora generato dalla nuova funzione)
+            markdown_text = initial_texts[i] if i < len(initial_texts) else ""
+            
+            # Converti il Markdown in HTML per la visualizzazione in Quill
+            html_content = markdown.markdown(markdown_text)
 
             st_quill(
-                value=topic_text,
+                value=html_content,
+                html=True,
                 key=f"quill_editor_{i}"
             )
     
