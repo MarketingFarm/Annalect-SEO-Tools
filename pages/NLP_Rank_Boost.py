@@ -8,7 +8,6 @@ import pandas as pd
 import requests
 import streamlit as st
 from google import genai
-
 # Importazione per gli editor di testo
 from streamlit_quill import st_quill
 
@@ -84,10 +83,10 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
-# --- MODIFICA DEFINITIVA: Utilizzo di 'requests' e solo del campo 'page_as_markdown' ---
+# --- MODIFICA DEFINITIVA: Utilizzo di 'requests' per bypassare la libreria client problematica ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
-    """Estrae il contenuto Markdown da un URL usando una chiamata API diretta."""
+    """Estrae il contenuto Markdown da un URL usando una chiamata API diretta per la massima robustezza."""
     post_data = [{"url": url, "markdown_view": True, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
         response = session.post("https://api.dataforseo.com/v3/on_page/content_parsing/live", json=post_data)
