@@ -10,8 +10,7 @@ import streamlit as st
 from google import genai
 # Importazione per gli editor di testo
 from streamlit_quill import st_quill
-# Importazioni per la conversione Markdown <-> HTML <-> Testo
-import markdown
+# Importazione per ripulire l'output HTML dell'editor
 from bs4 import BeautifulSoup
 
 
@@ -86,11 +85,17 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
-# --- MODIFICA DEFINITIVA: Utilizzo di 'requests' per bypassare la libreria client problematica ---
+# ########################################################################## #
+# ################ INIZIO SEZIONE DI CODICE AGGIORNATA ##################### #
+# ########################################################################## #
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
-    """Estrae il contenuto Markdown da un URL usando una chiamata API diretta per la massima robustezza."""
-    post_data = [{"url": url, "markdown_view": True, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
+    """
+    Estrae SOLO 'main_topic' e 'secondary_topic' dal contenuto di un URL 
+    e li restituisce come una singola stringa formattata.
+    """
+    post_data = [{"url": url, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
         response = session.post("https://api.dataforseo.com/v3/on_page/content_parsing/live", json=post_data)
         response.raise_for_status()
@@ -101,18 +106,33 @@ def parse_url_content(url: str) -> str:
             return f"## Errore API ##\n{error_message}"
 
         items = data["tasks"][0]["result"][0].get("items", [{}])[0]
-        
-        markdown_content = items.get("page_as_markdown")
-        if markdown_content:
-            return markdown_content
+        page_content = items.get("page_content")
+
+        if page_content:
+            main_topic = page_content.get('main_topic', 'Nessun main topic trovato.')
+            secondary_topics_list = page_content.get('secondary_topic', [])
+            
+            # Formatta l'output in una singola stringa chiara e leggibile
+            secondary_topics_str = "\n".join(f"- {topic}" for topic in secondary_topics_list) if secondary_topics_list else "Nessun secondary topic trovato."
+            
+            formatted_output = (
+                f"### Main Topic ###\n"
+                f"{main_topic}\n\n"
+                f"### Secondary Topics ###\n"
+                f"{secondary_topics_str}"
+            )
+            return formatted_output
         else:
-            return f"## Contenuto non Estratto ##\nL'API non ha restituito il contenuto in formato Markdown per l'URL: {url}"
+            return f"## Contenuto non Estratto ##\nL'API non ha restituito il campo 'page_content' per l'URL: {url}"
 
     except requests.RequestException as e:
         return f"## Errore di Rete ##\nDurante l'analisi dell'URL {url}: {str(e)}"
     except Exception as e:
-        # Questo cattura errori nel parsing del JSON, se la risposta non è quella attesa
         return f"## Errore Imprevisto nell'Analisi della Risposta ##\nURL: {url}\nErrore: {str(e)}"
+
+# ########################################################################## #
+# ################# FINE SEZIONE DI CODICE AGGIORNATA ###################### #
+# ########################################################################## #
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
@@ -442,11 +462,7 @@ if st.session_state.get('analysis_started', False):
             
     st.divider()
 
-    # ########################################################################## #
-    # ################ INIZIO SEZIONE DI CODICE AGGIORNATA ##################### #
-    # ########################################################################## #
-
-    st.subheader("Contenuti dei Competitor Analizzati")
+    st.subheader("Contenuti dei Competitor Analizzati (Topic Principali)")
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
@@ -454,24 +470,15 @@ if st.session_state.get('analysis_started', False):
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
 
-            # Prendi il testo Markdown originale
-            markdown_text = initial_texts[i] if i < len(initial_texts) else ""
-            
-            # Converti il Markdown in HTML
-            html_content = markdown.markdown(markdown_text)
+            # Prendi il testo formattato (Topic)
+            topic_text = initial_texts[i] if i < len(initial_texts) else ""
 
             st_quill(
-                # Passa il contenuto HTML a st_quill
-                value=html_content,
-                html=True, # Assicurati che quill sappia di gestire HTML
+                value=topic_text,
                 key=f"quill_editor_{i}"
             )
     
     st.divider()
-
-    # ########################################################################## #
-    # ################# FINE SEZIONE DI CODICE AGGIORNATA ###################### #
-    # ########################################################################## #
 
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
@@ -543,22 +550,14 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
     
-    # ########################################################################## #
-    # ################ INIZIO SEZIONE DI CODICE AGGIORNATA ##################### #
-    # ########################################################################## #
-
     # Recupera l'HTML dagli editor Quill
     edited_competitor_htmls = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
 
-    # Converti l'HTML editato in testo pulito usando BeautifulSoup
+    # Converti l'HTML editato in testo pulito usando BeautifulSoup per un'analisi NLU pulita
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in edited_competitor_htmls]
     
     # Ora unisci il testo pulito per l'analisi NLU
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
-    
-    # ########################################################################## #
-    # ################# FINE SEZIONE DI CODICE AGGIORNATA ###################### #
-    # ########################################################################## #
 
     nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
