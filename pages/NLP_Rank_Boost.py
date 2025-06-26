@@ -531,35 +531,30 @@ if st.session_state.get('analysis_started', False):
         for result in ranked_keywords_results:
             domain = urlparse(result['url']).netloc.removeprefix('www.')
             if result['status'] == 'ok':
-                num_items = len(result['items'])
+                num_items = len(result.get('items', []))
                 st.success(f"✅ {domain}: OK ({num_items} keyword trovate)")
             else:
-                st.error(f"❌ {domain}: ERRORE ({result['error']})")
+                st.error(f"❌ {domain}: ERRORE ({result.get('error', 'Sconosciuto')})")
 
-    # --- INIZIO BLOCCO DI CODICE CON LOGICA DI ESTRAZIONE CORRETTA ---
+    # --- INIZIO BLOCCO DI CODICE CON LOGICA DI ESTRAZIONE ROBUSTA E DIAGNOSTICA ---
     all_keywords_data = []
     for result in ranked_keywords_results:
-        if result['status'] == 'ok' and result['items']:
+        if result['status'] == 'ok' and result.get('items'):
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
-                # Estraggo i dizionari principali, gestendo il caso in cui non esistano
-                keyword_data = item.get("keyword_data", {})
-                serp_info = item.get("serp_info", {})
+                # Estrazione ultra-sicura dei dati per evitare errori con valori nulli
+                keyword_data = item.get("keyword_data") if item.get("keyword_data") is not None else {}
+                serp_info = item.get("serp_info") if item.get("serp_info") is not None else {}
 
-                # Estrazione sicura dei dati, navigando la struttura corretta
                 keyword = keyword_data.get("keyword")
                 
-                # CORREZIONE per Volume di Ricerca
                 keyword_info = keyword_data.get("keyword_info", {})
-                search_volume = keyword_info.get("search_volume")
-
-                # CORREZIONE per Search Intent
                 search_intent_info = keyword_data.get("search_intent_info", {})
-                main_intent = search_intent_info.get("main_intent", "N/D")
-
-                # CORREZIONE per la Posizione
                 serp_item = serp_info.get("serp_item", {})
-                position = serp_item.get("rank_absolute")
+                
+                search_volume = keyword_info.get("search_volume") if keyword_info else None
+                main_intent = search_intent_info.get("main_intent", "N/D") if search_intent_info else "N/D"
+                position = serp_item.get("rank_absolute") if serp_item else None
 
                 if keyword:
                     all_keywords_data.append({
@@ -567,7 +562,7 @@ if st.session_state.get('analysis_started', False):
                         "Keyword": keyword,
                         "Posizione": position,
                         "Volume di Ricerca": search_volume,
-                        "Search Intent": main_intent.title()
+                        "Search Intent": main_intent.title() if main_intent else "N/D"
                     })
     
     if all_keywords_data:
@@ -579,7 +574,10 @@ if st.session_state.get('analysis_started', False):
         ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].astype(int)
         ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].astype(int)
         
-        ranked_keywords_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
+        # --- MODIFICA DIAGNOSTICA ---
+        # La riga seguente è stata temporaneamente disattivata per mostrare tutti i risultati,
+        # anche quelli con posizione 0, e diagnosticare il problema di estrazione.
+        # ranked_keywords_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
 
         if not ranked_keywords_df.empty:
             ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
@@ -590,20 +588,25 @@ if st.session_state.get('analysis_started', False):
             st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor.")
             
             try:
-                keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
-                pivot_df = ranked_keywords_df.pivot_table(
-                    index='Keyword',
-                    columns='Competitor',
-                    values='Posizione'
-                ).fillna('')
-                
-                coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
-                
-                for col in coverage_matrix.columns:
-                    if col not in ['Volume di Ricerca', 'Search Intent']:
-                        coverage_matrix[col] = coverage_matrix[col].apply(lambda x: int(x) if x != '' else '')
+                # Filtriamo qui le posizioni > 0 solo per la matrice, per non farla troppo grande
+                matrix_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
+                if not matrix_df.empty:
+                    keyword_info = matrix_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
+                    pivot_df = matrix_df.pivot_table(
+                        index='Keyword',
+                        columns='Competitor',
+                        values='Posizione'
+                    ).fillna('')
+                    
+                    coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
+                    
+                    for col in coverage_matrix.columns:
+                        if col not in ['Volume di Ricerca', 'Search Intent']:
+                            coverage_matrix[col] = coverage_matrix[col].apply(lambda x: int(x) if x != '' else '')
 
-                st.dataframe(coverage_matrix, use_container_width=True, height=350)
+                    st.dataframe(coverage_matrix, use_container_width=True, height=350)
+                else:
+                    st.warning("Nessuna keyword con posizione valida (>0) per creare la matrice di copertura.")
 
             except Exception as e:
                 st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
