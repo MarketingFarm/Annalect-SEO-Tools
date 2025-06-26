@@ -497,13 +497,17 @@ if st.session_state.get('analysis_started', False):
     st.divider()
     st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
 
-    nav_labels = []
+nav_labels = []
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    # --- MODIFICA 3: Colonna sinistra più larga ---
+    # ---> INIZIO CODICE AGGIUNTO <---
+    # Apriamo il nostro contenitore con un ID univoco PRIMA di creare le colonne
+    st.markdown('<div id="competitor-layout-wrapper">', unsafe_allow_html=True)
+    # ---> FINE CODICE AGGIUNTO <---
+
     col_nav, col_content = st.columns([1.5, 5])
 
     with col_nav:
@@ -520,21 +524,21 @@ if st.session_state.get('analysis_started', False):
         selected_url_raw = organic_results[selected_index].get('url', '')
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
-
         editor_key = f"quill_editor_{selected_index}"
-        
         content_to_display = st.session_state.edited_html_contents[selected_index]
-        
-        # --- MODIFICA 1: Rimozione dei markdown superflui ---
         edited_content = st_quill(
             value=content_to_display,
             html=True,
             key=editor_key
         )
-
         if edited_content != content_to_display:
             st.session_state.edited_html_contents[selected_index] = edited_content
             st.rerun()
+
+    # ---> INIZIO CODICE AGGIUNTO <---
+    # Chiudiamo il nostro contenitore DOPO che le colonne sono state popolate
+    st.markdown('</div>', unsafe_allow_html=True)
+    # ---> FINE CODICE AGGIUNTO <---
 
     st.divider()
 
