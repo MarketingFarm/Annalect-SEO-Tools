@@ -8,8 +8,8 @@ import pandas as pd
 import requests
 import streamlit as st
 from google import genai
-# Importazione del nuovo editor di testo
-from streamlit_tinymce import st_tinymce
+# Importazione del nuovo editor di testo con il nome corretto
+from st_tinymce import st_tinymce
 # Importazione per ripulire l'output HTML dell'editor
 from bs4 import BeautifulSoup
 
@@ -466,8 +466,8 @@ if st.session_state.get('analysis_started', False):
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
         
-        # Sostituzione di st_quill con il componente nativo st.text_area
-        editor_key = f"editor_{selected_index}"
+        # Sostituzione di st_quill con il componente stabile st_tinymce
+        editor_key = f"tinymce_editor_{selected_index}"
         
         # Logica di stato robusta: determina il valore da mostrare
         value_to_display = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
@@ -476,12 +476,11 @@ if st.session_state.get('analysis_started', False):
         if value_to_display is None:
             value_to_display = ""
         
-        st.text_area(
-            "Contenuto HTML (modificabile)",
+        # st_tinymce accetta un parametro height diretto
+        content = st_tinymce(
             value=value_to_display,
-            height=250,
             key=editor_key,
-            label_visibility="collapsed"
+            height=250 
         )
 
     st.divider()
@@ -559,7 +558,7 @@ if st.session_state.get('analysis_started', False):
     # Raccoglie i contenuti finali, tenendo conto delle modifiche
     final_edited_htmls = []
     for i in range(len(organic_results)):
-        editor_key = f"editor_{i}"
+        editor_key = f"tinymce_editor_{i}"
         content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
         final_edited_htmls.append(content if content is not None else "")
 
