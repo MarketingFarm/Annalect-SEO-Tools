@@ -88,8 +88,7 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """
-    Estrae il 'main_topic' e lo restituisce come una stringa HTML pulita,
-    pronta per essere usata da st_quill.
+    Estrae il 'main_topic' e lo restituisce come una stringa HTML pulita.
     """
     post_data = [{"url": url, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
@@ -118,7 +117,6 @@ def parse_url_content(url: str) -> str:
 
                 primary_content_list = section.get('primary_content')
                 if isinstance(primary_content_list, list) and primary_content_list:
-                    
                     first_item_text = primary_content_list[0].get("text", "").strip()
                     is_a_list = first_item_text.startswith(("- ", "* "))
 
@@ -139,7 +137,6 @@ def parse_url_content(url: str) -> str:
             return "".join(html_parts)
         else:
             return f"<h2>Contenuto non Estratto</h2><p>L'API non ha restituito il campo 'page_content' per l'URL: {url}</p>"
-
     except requests.RequestException as e:
         return f"<h2>Errore di Rete</h2><p>Durante l'analisi dell'URL {url}: {str(e)}</p>"
     except Exception as e:
@@ -196,33 +193,23 @@ def get_strategica_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi strategica."""
     return f"""
 ## PROMPT: NLU Semantic Content Intelligence ##
-
 **PERSONA:** Agisci come un **Lead SEO Strategist** con 15 anni di esperienza nel posizionare contenuti in settori altamente competitivi. Il tuo approccio è data-driven, ossessionato dall'intento di ricerca e focalizzato a identificare le debolezze dei competitor per creare contenuti dominanti. Pensa in termini di E-E-A-T, topic authority e user journey.
-
 **CONTESTO:** Ho estratto il contenuto testuale completo delle pagine top-ranking su Google per la query strategica specificata di seguito. Il mio obiettivo non è solo eguagliare questi contenuti, ma surclassarli identificando le loro caratteristiche comuni.
-
 **QUERY STRATEGICA:** {keyword}
-
 ### INIZIO TESTI DEI COMPETITOR DA ANALIZZARE ###
-
 <TESTI>
 {texts}
 </TESTI>
-
 ---
-
 **COMPITO E FORMATO DI OUTPUT:**
-
 **Parte 1: Tabella Sintetica**
 Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi. Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header.
-
 | Caratteristica SEO | Analisi Sintetica |
 | :--- | :--- |
 | **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale. Aggiungi tra parentesi un brevissimo approfondimenti di massimo 5/6 parole]` |
 | **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario. Aggiungi tra parentesi un brevissimo approfondimenti di massimo 5/6 parole]` |
 | **Target Audience** | `[Definisci il target audience in massimo 6 parole]` |
 | **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave]` |
-
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
@@ -232,28 +219,20 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
     """Costruisce il prompt per l'analisi competitiva (entità)."""
     return f"""
 **RUOLO**: Agisci come un analista SEO d'élite, specializzato in analisi semantica competitiva con un profondo background in Natural Language Processing (NLP) e Natural Language Understanding (NLU). Sei in grado di imitare i processi di estrazione delle entità nativi di Google.
-
 **CONTESTO**: L'obiettivo primario è superare i principali competitor per la keyword target. Per raggiungere ciò, è fondamentale analizzare in profondità i testi dei competitor forniti, identificando e categorizzando le entità semantiche rilevanti.
-
 **KEYWORD TARGET**: {keyword}
-
 ### INIZIO TESTI DA ANALIZZARE ###
-
 <TESTI>
 {texts}
 </TESTI>
-
 ### FINE TESTI DA ANALIZZARE ###
-
 **COMPITO**: Esegui un'analisi semantica dettagliata dei testi contenuti tra i delimitatori `### INIZIO TESTI DA ANALIZZARE ###` e `### FINE TESTI DA ANALIZZARE ###`, seguendo scrupolosamente questi passaggi:
-
 1.  **Named Entity Recognition (NER):** Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
 2.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
 3.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media.
 4.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica inferiore a "Media".
 5.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (,).
 6.  **Formattazione Output:** Genera ESCLUSIVAMENTE la tabella Markdown richiesta, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti.
-
 ### TABELLA DELLE ENTITÀ
 | Categoria | Entità | Rilevanza Strategica |
 | :--- | :--- | :--- |
@@ -263,21 +242,16 @@ def get_mining_prompt(**kwargs) -> str:
     """Costruisce il prompt per il keyword mining."""
     return f"""
 ## PROMPT: BANCA DATI KEYWORD STRATEGICHE ##
-
 **PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
-
 ---
 ### DATI DI INPUT ###
-
 **1. CONTESTO DI BASE**
 * **Keyword Principale:** {kwargs.get('keyword', '')}
 * **Country:** {kwargs.get('country', '')}
 * **Lingua:** {kwargs.get('language', '')}
-
 **2. CONTENUTI GREZZI DA ANALIZZARE**
 * **Testi Completi dei Competitor:**
     {kwargs.get('texts', '')}
-
 **3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
 * **Tabella 1: Entità Principali Estratte dai Competitor:**
     {kwargs.get('entities_table', '')}
@@ -285,13 +259,9 @@ def get_mining_prompt(**kwargs) -> str:
     {kwargs.get('related_table', '')}
 * **Tabella 3: People Also Ask (PAA) dalla SERP:**
     {kwargs.get('paa_table', '')}
-
 ---
-
 ### COMPITO E FORMATO DI OUTPUT ###
-
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
-
 1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
 2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di **keyword secondarie, varianti della keyword principale, sinonimi, termini semanticamente correlati** e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
     * Alta rilevanza semantica con la **Keyword Principale**.
@@ -300,11 +270,8 @@ def get_mining_prompt(**kwargs) -> str:
 3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
     * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
     * **IMPORTANTE:** Scrivi tutte le keyword e i concenti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
-
 Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
-
 ### Semantic Keyword Mining with NLP
-
 | Categoria Keyword | Keywords / Concetti / Domande |
 | :--- | :--- |
 | **Keyword Principale** | {kwargs.get('keyword', '').lower()} |
@@ -319,21 +286,14 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 
-# CSS corretto per forzare l'altezza dell'editor Quill
+# CSS per forzare l'altezza dell'editor Quill
 st.markdown("""
 <style>
-    .quill-editor-container .ql-editor {
-        height: 250px !important;
-        overflow-y: auto !important;
-    }
-    .quill-editor-container .ql-toolbar.ql-snow {
-        border-top-left-radius: 5px;
-        border-top-right-radius: 5px;
-    }
-    .quill-editor-container .ql-container.ql-snow {
-        border: 1px solid #ccc;
-        border-bottom-left-radius: 5px;
-        border-bottom-right-radius: 5px;
+    /* Selettore forte e specifico per l'area di testo di Quill */
+    .ql-editor {
+        min-height: 250px !important;
+        max-height: 250px !important;
+        overflow-y: scroll !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -347,21 +307,13 @@ def start_analysis_callback():
     st.session_state.analysis_started = True
 
 def new_analysis_callback():
-    keys_to_clear = list(st.session_state.keys())
+    # Conserva lo stato dei widget di input principali
+    keys_to_preserve = ['query', 'country', 'language']
+    keys_to_clear = [k for k in st.session_state.keys() if k not in keys_to_preserve]
     for key in keys_to_clear:
         del st.session_state[key]
+    st.session_state.analysis_started = False
     st.rerun()
-
-# Funzione callback per salvare lo stato dell'editor PRIMA che la UI cambi
-def save_editor_state():
-    # Identifica quale editor era attivo prima del cambio
-    if 'active_editor_index' in st.session_state:
-        old_index = st.session_state.active_editor_index
-        editor_key = f"quill_editor_{old_index}"
-        if editor_key in st.session_state:
-            # Salva il suo contenuto (anche se vuoto) nella nostra lista di gestione
-            content = st.session_state[editor_key]
-            st.session_state.edited_html_contents[old_index] = content if content is not None else ""
 
 with st.container():
     col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2])
@@ -402,16 +354,7 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
 
-    # ########################################################################## #
-    # ################# INIZIALIZZAZIONE STATO CORRETTA ######################## #
-    # ########################################################################## #
-
-    # Questo blocco ora viene eseguito a ogni run, garantendo che lo stato esista sempre
-    if 'edited_html_contents' not in st.session_state:
-        st.session_state.edited_html_contents = st.session_state.initial_html_contents[:]
-
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
-        # ... (Questa sezione rimane invariata)
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
             urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
@@ -430,7 +373,6 @@ if st.session_state.get('analysis_started', False):
         st.stop()
 
     with st.spinner("Fase 3/4: Esecuzione analisi NLU..."):
-        # ... (Questa sezione rimane invariata)
         if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(st.session_state.query, initial_joined_texts))
@@ -439,7 +381,6 @@ if st.session_state.get('analysis_started', False):
                 st.session_state.nlu_comp_text = future_comp.result()
 
     st.subheader("Analisi Strategica")
-    # ... (Il resto di questa sezione rimane invariato)
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
     table_text = nlu_strat_text
@@ -471,7 +412,6 @@ if st.session_state.get('analysis_started', False):
     
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
-        # ... (Questa sezione rimane invariata)
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
         if organic_results:
             html = '<div style="padding-right:3.5rem;">'
@@ -489,7 +429,6 @@ if st.session_state.get('analysis_started', False):
             st.warning("⚠️ Nessun risultato organico trovato.")
             
     with col_paa:
-        # ... (Questa sezione rimane invariata)
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
         paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
         if paa_list:
@@ -524,8 +463,7 @@ if st.session_state.get('analysis_started', False):
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    # Rapporto colonne aggiornato per rendere la sinistra più stretta
-    col_nav, col_content = st.columns([1, 4])
+    col_nav, col_content = st.columns([1, 5])
 
     with col_nav:
         st.markdown("<h6>Competitors</h6>", unsafe_allow_html=True)
@@ -534,30 +472,27 @@ if st.session_state.get('analysis_started', False):
             options=range(len(nav_labels)),
             format_func=lambda i: nav_labels[i],
             key="competitor_selector",
-            label_visibility="collapsed",
-            on_change=save_editor_state # Callback per salvare lo stato
+            label_visibility="collapsed"
         )
-        st.session_state.active_editor_index = selected_index
 
     with col_content:
         selected_url_raw = organic_results[selected_index].get('url', '')
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
         
-        html_to_display = st.session_state.edited_html_contents[selected_index]
+        editor_key = f"quill_editor_{selected_index}"
         
-        st.markdown('<div class="quill-editor-container">', unsafe_allow_html=True)
-        st_quill(
-            value=html_to_display,
-            html=True,
-            key=f"quill_editor_{selected_index}"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Inizializza lo stato per questo editor se non è mai stato visto prima
+        if editor_key not in st.session_state:
+            initial_value = st.session_state.initial_html_contents[selected_index]
+            st.session_state[editor_key] = initial_value if initial_value is not None else ""
+
+        # L'editor ora usa solo la sua chiave. Streamlit gestirà il valore.
+        st_quill(html=True, key=editor_key)
 
     st.divider()
 
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
-    # ... (Il resto di questa sezione rimane invariato)
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
     
     with st.expander("Mostra report dettagliato dell'estrazione keyword"):
@@ -627,11 +562,14 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
     
-    # Salva lo stato dell'ultimo editor visualizzato prima di procedere
-    save_editor_state()
-    
-    # Ora la lista `edited_html_contents` è la fonte di verità aggiornata
-    final_edited_htmls = st.session_state.edited_html_contents
+    # Raccoglie i contenuti finali, tenendo conto delle modifiche
+    final_edited_htmls = []
+    for i in range(len(organic_results)):
+        editor_key = f"quill_editor_{i}"
+        # Prende il valore dallo stato (se modificato) o usa il valore iniziale come fallback
+        content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
+        final_edited_htmls.append(content if content is not None else "")
+
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in final_edited_htmls]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
 
