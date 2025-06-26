@@ -382,7 +382,6 @@ if st.session_state.get('analysis_started', False):
                     ranked_keywords_api_results.append(future.result())
             st.session_state.ranked_keywords_results = ranked_keywords_api_results
 
-    # Pulisce l'HTML iniziale per la prima analisi NLU
     initial_cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in st.session_state.initial_html_contents]
     initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, initial_cleaned_texts))
 
@@ -479,17 +478,6 @@ if st.session_state.get('analysis_started', False):
     st.divider()
     st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
 
-    # Inizializza la lista dei contenuti editati se non esiste
-    if 'edited_html_contents' not in st.session_state:
-        st.session_state.edited_html_contents = st.session_state.initial_html_contents[:]
-
-    # Logica per salvare le modifiche prima di cambiare la visualizzazione
-    if 'quill_editor_main' in st.session_state and 'last_selected_index' in st.session_state:
-        last_index = st.session_state.last_selected_index
-        edited_content = st.session_state.quill_editor_main
-        st.session_state.edited_html_contents[last_index] = edited_content
-
-    # Preparazione delle etichette per la navigazione
     nav_labels = []
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
@@ -504,25 +492,27 @@ if st.session_state.get('analysis_started', False):
             "Seleziona un competitor",
             options=range(len(nav_labels)),
             format_func=lambda i: nav_labels[i],
-            key="competitor_selector", # Chiave per il radio button
+            key="competitor_selector",
             label_visibility="collapsed"
         )
-        # Salva l'indice correntemente visualizzato per il prossimo re-run
-        st.session_state.last_selected_index = selected_index
 
     with col_content:
-        selected_url = organic_results[selected_index].get('url', '')
-        # Carica il contenuto dalla lista dei contenuti *editati*
-        html_to_display = st.session_state.edited_html_contents[selected_index]
-
-        st.markdown(f"**URL Selezionato:**")
-        st.markdown(f"`{selected_url}`")
-        st.markdown("---")
+        selected_url_raw = organic_results[selected_index].get('url', '')
+        # Pulisce l'URL dai parametri per la visualizzazione
+        cleaned_display_url = selected_url_raw.split('?')[0]
+        
+        # Mostra URL pulito e su una riga
+        st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
+        
+        # Carica il contenuto dal suo stato di sessione, che viene creato dinamicamente
+        # dalla chiave unica. Se non è mai stato modificato, carica quello iniziale.
+        editor_key = f"quill_editor_main_{selected_index}"
+        html_to_display = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
         
         st_quill(
             value=html_to_display,
             html=True,
-            key="quill_editor_main"
+            key=editor_key # Chiave dinamica per forzare il ricaricamento
         )
 
     st.divider()
@@ -601,15 +591,15 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
     
-    # La logica di salvataggio finale deve assicurarsi di catturare l'ULTIMA modifica
-    # fatta nell'editor prima di procedere.
-    if 'quill_editor_main' in st.session_state and 'last_selected_index' in st.session_state:
-        last_index = st.session_state.last_selected_index
-        st.session_state.edited_html_contents[last_index] = st.session_state.quill_editor_main
+    # Raccoglie i contenuti finali, tenendo conto delle modifiche
+    final_edited_htmls = []
+    for i in range(len(organic_results)):
+        editor_key = f"quill_editor_main_{i}"
+        # Se l'utente ha modificato il testo, usa quello. Altrimenti, usa l'originale.
+        content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
+        final_edited_htmls.append(content)
 
-    # Usa la lista dei contenuti MODIFICATI per l'analisi finale
-    edited_competitor_htmls = st.session_state.edited_html_contents
-    cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in edited_competitor_htmls]
+    cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in final_edited_htmls]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
 
     nlu_comp_text = st.session_state.nlu_comp_text
