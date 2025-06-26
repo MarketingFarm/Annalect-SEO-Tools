@@ -352,6 +352,13 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
 
+            # ---> INIZIO CODICE AGGIUNTO <---
+            # Creiamo uno stato separato per i contenuti che verranno modificati.
+            # Lo inizializziamo come una copia dei contenuti originali.
+            if 'edited_html_contents' not in st.session_state:
+                st.session_state.edited_html_contents = list(st.session_state.initial_html_contents)
+            # ---> FINE CODICE AGGIUNTO <---
+
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
@@ -473,32 +480,34 @@ if st.session_state.get('analysis_started', False):
             label_visibility="collapsed"
         )
 
+    # ---> INIZIO BLOCCO MODIFICATO <---
     with col_content:
         selected_url_raw = organic_results[selected_index].get('url', '')
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
-        
-        editor_key = f"quill_editor_{selected_index}"
-        
-        # Determina il valore da visualizzare
-        # Se un valore modificato esiste in session_state, usa quello.
-        # Altrimenti, usa il valore iniziale.
-        if editor_key in st.session_state:
-            html_to_display = st.session_state[editor_key]
-        else:
-            html_to_display = st.session_state.initial_html_contents[selected_index]
 
-        # Assicura che il valore non sia mai None per evitare errori
-        final_value_to_display = html_to_display if html_to_display is not None else ""
+        # La chiave dell'editor ora può essere statica, perché gestiamo noi quale contenuto mostrare.
+        editor_key = "quill_editor_competitor"
 
-        # Usa un contenitore con una classe custom per il CSS
+        # Il 'value' da mostrare è preso dalla nostra lista di contenuti modificabili,
+        # usando l'indice del competitor selezionato.
+        content_to_display = st.session_state.edited_html_contents[selected_index]
+
         st.markdown('<div class="quill-container">', unsafe_allow_html=True)
-        st_quill(
-            value=final_value_to_display,
+        # st_quill restituisce il contenuto aggiornato, che noi catturiamo.
+        edited_content = st_quill(
+            value=content_to_display,
             html=True,
             key=editor_key
         )
         st.markdown('</div>', unsafe_allow_html=True)
+
+        # Aggiorniamo la nostra lista di stato con il contenuto restituito dall'editor.
+        # Questo garantisce che la modifica sia salvata per l'indice corretto.
+        if edited_content != content_to_display:
+            st.session_state.edited_html_contents[selected_index] = edited_content
+            st.rerun() # Forza un re-render per assicurare coerenza
+    # ---> FINE BLOCCO MODIFICATO <---
 
 
     st.divider()
@@ -573,13 +582,11 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
     
-    # Raccoglie i contenuti finali, tenendo conto delle modifiche
-    final_edited_htmls = []
-    for i in range(len(organic_results)):
-        editor_key = f"quill_editor_{i}"
-        # Prende il valore dallo stato (se modificato) o usa il valore iniziale come fallback
-        content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
-        final_edited_htmls.append(content if content is not None else "")
+    # ---> INIZIO BLOCCO MODIFICATO <---
+    # Raccoglie i contenuti finali direttamente dalla nostra variabile di stato
+    # che contiene tutte le modifiche apportate dall'utente.
+    final_edited_htmls = st.session_state.edited_html_contents
+    # ---> FINE BLOCCO MODIFICATO <---
 
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in final_edited_htmls]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
