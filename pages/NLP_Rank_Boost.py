@@ -91,8 +91,6 @@ def parse_url_content(url: str) -> str:
     Estrae il 'main_topic' e lo restituisce come una stringa HTML pulita.
     Restituisce una stringa vuota in caso di PDF o errori di parsing noti.
     """
-    # --- MODIFICA 2: Gestione proattiva dei PDF ---
-    # Se l'URL termina con .pdf, non tentiamo nemmeno l'analisi e restituiamo subito una stringa vuota.
     if url.lower().endswith('.pdf'):
         return ""
 
@@ -104,20 +102,28 @@ def parse_url_content(url: str) -> str:
 
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks", [{}])[0].get("status_message", "Nessun risultato nell'API.")
-            # --- MODIFICA 2: Gestione reattiva di errori legati a tipi di contenuto non validi ---
-            # Se il messaggio di errore dell'API indica un problema con PDF o Content Type, restituisci vuoto.
             if 'pdf' in error_message.lower() or 'content type' in error_message.lower():
                 return ""
-            # Altrimenti, mostra un errore generico (ma non bloccante) nel box di testo.
             return f"<h2>Errore API</h2><p>{error_message}</p>"
 
-        items = data["tasks"][0]["result"][0].get("items", [{}])[0]
+        # --- INIZIO BLOCCO CORRETTO ---
+        # Gestione robusta del risultato per prevenire l'errore 'NoneType'
+        result_list = data["tasks"][0].get("result")
+        if not result_list:
+            return "" # Nessun risultato nella risposta
+
+        items_list = result_list[0].get("items")
+        # Controlla che 'items' esista e non sia una lista vuota
+        if not items_list:
+            return "" # 'items' è None o una lista vuota, quindi non c'è contenuto da analizzare
+
+        items = items_list[0]
+        # --- FINE BLOCCO CORRETTO ---
+        
         page_content = items.get("page_content")
 
         if page_content:
             main_topic_data = page_content.get('main_topic')
-            # --- MODIFICA 1: Gestione 'main_topic' non trovato ---
-            # Se 'main_topic' non è una lista (quindi non è stato trovato o ha una struttura errata), restituisci vuoto.
             if not isinstance(main_topic_data, list):
                 return ""
 
@@ -149,13 +155,12 @@ def parse_url_content(url: str) -> str:
             
             return "".join(html_parts)
         else:
-            # Caso in cui l'API risponde OK ma il campo 'page_content' è assente.
-            # Potremmo voler restituire stringa vuota anche qui. Per ora lascio un avviso.
             return ""
             
     except requests.RequestException as e:
         return f"<h2>Errore di Rete</h2><p>Durante l'analisi dell'URL {url}: {str(e)}</p>"
     except Exception as e:
+        # Questo blocco ora dovrebbe essere raggiunto molto più raramente
         return f"<h2>Errore Imprevisto</h2><p>URL: {url}<br>Errore: {str(e)}</p>"
 
 @st.cache_data(ttl=3600, show_spinner=False)
