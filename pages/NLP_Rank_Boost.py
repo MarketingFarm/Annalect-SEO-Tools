@@ -16,10 +16,10 @@ from bs4 import BeautifulSoup
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
 
-# Configura il client Gemini
+# Configura la libreria Gemini (metodo aggiornato)
 try:
     GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
 except KeyError:
     st.error("GEMINI_API_KEY non trovata. Imposta la variabile d'ambiente.")
     st.stop()
@@ -176,23 +176,21 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     except requests.RequestException as e:
         return {"url": url, "status": "failed", "error": str(e), "items": []}
 
+# --- FUNZIONE RUN_NLU AGGIORNATA ---
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
-    """Esegue una singola chiamata al modello Gemini usando il client."""
+    """Esegue una singola chiamata al modello Gemini usando il pattern GenerativeModel."""
     try:
-        # Aggiunta di istruzioni specifiche per l'output JSON dove serve
+        generation_config = None
+        # Se il prompt richiede un output JSON, configuriamo il modello di conseguenza
         if "JSON_OUTPUT" in prompt or "Restituisci ESATTAMENTE e SOLO un oggetto JSON" in prompt:
             generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
-            response = gemini_client.models.generate_content(
-                model=f"models/{model_name}", 
-                contents=[prompt],
-                generation_config=generation_config
-            )
-        else:
-             response = gemini_client.models.generate_content(model=f"models/{model_name}", contents=[prompt])
+
+        model = genai.GenerativeModel(model_name, generation_config=generation_config)
+        response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        st.error(f"Errore durante la chiamata a Gemini: {e}")
-        return f"ERRORE NLU: {e}"
+        st.warning(f"Errore durante la chiamata a Gemini: {str(e)}")
+        return "" # Restituisce una stringa vuota per causare un fallimento controllato
 
 def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     """Estrae tutte le tabelle Markdown da un testo e le converte in DataFrame."""
@@ -260,12 +258,17 @@ def filter_unbranded_keywords_with_gemini(keywords: list[str], domain: str) -> l
     
     try:
         response_text = run_nlu(prompt)
+        if not response_text: # Gestisce il caso in cui run_nlu restituisce stringa vuota per errore
+            raise json.JSONDecodeError("Risposta vuota da Gemini", "", 0)
+
         cleaned_response = re.sub(r'```json\n?|```', '', response_text).strip()
         data = json.loads(cleaned_response)
         unbranded = data.get("unbranded_keywords", [])
+        
         if isinstance(unbranded, list):
             return unbranded
-        else: # Fallback nel caso Gemini restituisca un formato imprevisto
+        else:
+             st.warning(f"Gemini ha restituito un formato imprevisto per {domain}. Le keyword non saranno filtrate.")
              return keywords
     except (json.JSONDecodeError, AttributeError, KeyError) as e:
         st.warning(f"Impossibile analizzare le keyword con Gemini per il dominio {domain}. Errore: {e}. Le keyword non verranno filtrate per questo dominio.")
@@ -608,7 +611,7 @@ if st.session_state.get('analysis_started', False):
     all_keywords_data = []
     for result in ranked_keywords_results:
         if result['status'] == 'ok' and result.get('items'):
-            competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
+            competitor_domain = urlparse(result['url']).netloc
             
             all_competitor_keywords = [item.get("keyword_data", {}).get("keyword") for item in result['items'] if item.get("keyword_data", {}).get("keyword")]
             
@@ -632,7 +635,7 @@ if st.session_state.get('analysis_started', False):
                     position = get_position_from_item(item)
 
                     all_keywords_data.append({
-                        "Competitor": competitor_domain,
+                        "Competitor": competitor_domain.removeprefix("www."),
                         "Keyword": keyword,
                         "Posizione": position,
                         "Volume di Ricerca": search_volume,
