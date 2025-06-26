@@ -8,8 +8,8 @@ import pandas as pd
 import requests
 import streamlit as st
 from google import genai
-# Importazione per gli editor di testo
-from streamlit_quill import st_quill
+# Importazione del nuovo editor di testo
+from streamlit_tinymce import st_tinymce
 # Importazione per ripulire l'output HTML dell'editor
 from bs4 import BeautifulSoup
 
@@ -285,18 +285,6 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
-
-# CSS per forzare l'altezza dell'editor Quill
-st.markdown("""
-<style>
-    .quill-container .ql-editor {
-        min-height: 250px !important;
-        max-height: 250px !important;
-        overflow-y: scroll !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.divider()
 
 def start_analysis_callback():
@@ -478,25 +466,23 @@ if st.session_state.get('analysis_started', False):
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
         
-        editor_key = f"quill_editor_{selected_index}"
+        # Sostituzione di st_quill con il componente nativo st.text_area
+        editor_key = f"editor_{selected_index}"
         
-        # Determina esplicitamente il valore da mostrare
-        # Cerca prima un valore modificato in session_state.
-        # Se non lo trova, usa il valore iniziale.
+        # Logica di stato robusta: determina il valore da mostrare
         value_to_display = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
         
         # Assicura che il valore non sia mai None per evitare errori
         if value_to_display is None:
             value_to_display = ""
         
-        # Usa un contenitore con una classe custom per il CSS
-        st.markdown('<div class="quill-container">', unsafe_allow_html=True)
-        st_quill(
+        st.text_area(
+            "Contenuto HTML (modificabile)",
             value=value_to_display,
-            html=True,
-            key=editor_key
+            height=250,
+            key=editor_key,
+            label_visibility="collapsed"
         )
-        st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -573,7 +559,7 @@ if st.session_state.get('analysis_started', False):
     # Raccoglie i contenuti finali, tenendo conto delle modifiche
     final_edited_htmls = []
     for i in range(len(organic_results)):
-        editor_key = f"quill_editor_{i}"
+        editor_key = f"editor_{i}"
         content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
         final_edited_htmls.append(content if content is not None else "")
 
