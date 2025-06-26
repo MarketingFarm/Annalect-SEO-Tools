@@ -11,3 +11,4 @@ streamlit-quill==0.0.3
 tabulate>=0.8.10
 reportlab>=3.6.12
 dataforseo-client
+markdown>=3.4.1
