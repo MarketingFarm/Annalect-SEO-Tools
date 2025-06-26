@@ -202,7 +202,6 @@ def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
             dataframes.append(pd.DataFrame(rows_data, columns=header))
     return dataframes
 
-# --- NUOVA FUNZIONE DI SUPPORTO PER ESTRARRE LA POSIZIONE ---
 def get_position_from_item(item: dict) -> int | None:
     """
     Cerca di estrarre la posizione assoluta da un item della risposta API,
@@ -229,7 +228,35 @@ def get_position_from_item(item: dict) -> int | None:
             if position is not None:
                 return position
 
-    return None # Restituisce None se non trovato in nessun percorso
+    return None
+
+# --- NUOVA FUNZIONE PER FILTRO BRAND ---
+def is_branded_keyword(keyword: str, domain: str) -> bool:
+    """
+    Determina se una keyword è di brand basandosi sul dominio.
+    Es. per "oliocarli.it", keyword come "olio carli" sono brand.
+    """
+    # Estrae il nome del dominio senza 'www.' e TLD (es. .it, .com)
+    # es. 'www.olio-carli.it' -> 'olio-carli'
+    try:
+        netloc = urlparse(f"http://{domain}").netloc.removeprefix("www.")
+        base_name = netloc.rsplit('.', 1)[0]
+    except Exception:
+        return False # In caso di dominio malformato
+
+    # Crea una lista di possibili termini brand
+    # es. 'olio-carli' -> ['olio carli', 'oliocarli']
+    brand_terms = [base_name.replace('-', ' ')]
+    if '-' in base_name:
+        brand_terms.append(base_name.replace('-', ''))
+
+    # Controlla se uno dei termini brand è nella keyword (case-insensitive)
+    keyword_lower = keyword.lower()
+    for term in brand_terms:
+        if term.lower() in keyword_lower:
+            return True
+            
+    return False
 
 
 # --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ---
@@ -565,7 +592,6 @@ if st.session_state.get('analysis_started', False):
             else:
                 st.error(f"❌ {domain}: ERRORE ({result.get('error', 'Sconosciuto')})")
 
-    # --- INIZIO BLOCCO DI CODICE CON LOGICA DI ESTRAZIONE FINALE ---
     all_keywords_data = []
     for result in ranked_keywords_results:
         if result['status'] == 'ok' and result.get('items'):
@@ -575,13 +601,17 @@ if st.session_state.get('analysis_started', False):
                 
                 keyword = keyword_data.get("keyword")
                 
+                # --- INTEGRAZIONE FILTRO BRAND ---
+                # Se la keyword è di brand, la saltiamo e passiamo alla successiva
+                if keyword and is_branded_keyword(keyword, competitor_domain):
+                    continue
+
                 keyword_info = keyword_data.get("keyword_info", {})
                 search_intent_info = keyword_data.get("search_intent_info", {})
                 
                 search_volume = keyword_info.get("search_volume") if keyword_info else None
                 main_intent = search_intent_info.get("main_intent", "N/D") if search_intent_info else "N/D"
                 
-                # Usa la nuova funzione robusta per trovare la posizione
                 position = get_position_from_item(item)
 
                 if keyword:
@@ -602,16 +632,15 @@ if st.session_state.get('analysis_started', False):
         ranked_keywords_df["Volume di Ricerca"] = ranked_keywords_df["Volume di Ricerca"].astype(int)
         ranked_keywords_df["Posizione"] = ranked_keywords_df["Posizione"].astype(int)
         
-        # Filtro riattivato: ora dovrebbe funzionare correttamente
         ranked_keywords_df = ranked_keywords_df[ranked_keywords_df['Posizione'] > 0]
 
         if not ranked_keywords_df.empty:
             ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
 
-            st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
+            st.info("Tabella completa con le keyword NON-BRAND posizionate dai competitor, ordinate per volume di ricerca.")
             st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
             
-            st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor.")
+            st.info("Matrice di copertura: mostra per ogni keyword NON-BRAND la posizione dei vari competitor.")
             
             try:
                 keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
@@ -632,11 +661,10 @@ if st.session_state.get('analysis_started', False):
             except Exception as e:
                 st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
         else:
-            st.warning("Nessuna keyword con dati di ranking validi trovata dopo la pulizia.")
+            st.warning("Nessuna keyword non-brand con dati di ranking validi trovata dopo la pulizia.")
 
     else:
-        st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
-    # --- FINE BLOCCO DI CODICE AGGIORNATO ---
+        st.warning("Nessuna keyword posizionata (o nessuna keyword non-brand) trovata per gli URL analizzati.")
 
     st.divider()
     
