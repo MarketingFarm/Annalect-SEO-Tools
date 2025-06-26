@@ -8,9 +8,9 @@ import pandas as pd
 import requests
 import streamlit as st
 from google import genai
+import markdown  # aggiunto per convertire Markdown in HTML
 # Importazione per gli editor di testo
 from streamlit_quill import st_quill
-
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
 
@@ -98,7 +98,6 @@ def parse_url_content(url: str) -> str:
             return f"## Errore API ##\n{error_message}"
 
         items = data["tasks"][0]["result"][0].get("items", [{}])[0]
-        
         markdown_content = items.get("page_as_markdown")
         if markdown_content:
             return markdown_content
@@ -122,7 +121,7 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks",[{}])[0].get("status_message", "Nessun risultato nell'API.")
             return {"url": url, "status": "failed", "error": error_message, "items": []}
-        
+
         api_items = data["tasks"][0]["result"][0].get("items")
         safe_items = api_items if api_items is not None else []
         return {"url": url, "status": "ok", "items": safe_items}
@@ -191,6 +190,7 @@ Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte com
 
 **Parte 2: Analisi Approfondita Audience**
 Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
+
 Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
 """
 
@@ -214,13 +214,19 @@ def get_competitiva_prompt(keyword: str, texts: str) -> str:
 **COMPITO**: Esegui un'analisi semantica dettagliata dei testi contenuti tra i delimitatori `### INIZIO TESTI DA ANALIZZARE ###` e `### FINE TESTI DA ANALIZZARE ###`, seguendo scrupolosamente questi passaggi:
 
 1.  **Named Entity Recognition (NER):** Estrai tutte le entità nominate dai testi. Escludi rigorosamente entità che sono parte di sezioni FAQ o Domande Frequenti.
+
 2.  **Categorizzazione delle Entità:** Assegna una categoria semantica appropriata ad ogni entità estratta (es. Categoria Prodotto, Brand, Caratteristica Prodotto, Processo di Produzione, Località Geografica, ecc.).
+
 3.  **Assegnazione Rilevanza Strategica:** Valuta e assegna un grado di rilevanza strategica ad ogni entità, utilizzando la seguente scala: Alta, Medio/Alta, Media.
+
 4.  **Filtro Rilevanza:** Rimuovi tutte le entità che hanno una rilevanza strategica inferiore a "Media".
+
 5.  **Raggruppamento Entità:** Le entità che condividono la stessa Categoria e lo stesso grado di Rilevanza Strategica devono essere raggruppate sulla stessa riga nella tabella. Ogni entità all'interno di un raggruppamento deve essere separata da una virgola (,).
+
 6.  **Formattazione Output:** Genera ESCLUSIVAMENTE la tabella Markdown richiesta, attenendoti alla struttura esatta fornita di seguito. Non aggiungere alcuna introduzione, testo aggiuntivo o commenti.
 
 ### TABELLA DELLE ENTITÀ
+
 | Categoria | Entità | Rilevanza Strategica |
 | :--- | :--- | :--- |
 """
@@ -233,18 +239,22 @@ def get_mining_prompt(**kwargs) -> str:
 **PERSONA:** Agisci come un **Semantic SEO Data-Miner**, un analista d'élite il cui unico scopo è estrarre e classificare l'intero patrimonio di keyword di una SERP. Sei un veterano della keyword research che possiede tutti i dati statistici e storici delle varie keywords di Google. Il tuo superpotere è trasformare dati grezzi e disordinati in una "banca dati" di keyword pulita e prioritaria.
 
 ---
+
 ### DATI DI INPUT ###
 
 **1. CONTESTO DI BASE**
+
 * **Keyword Principale:** {kwargs.get('keyword', '')}
 * **Country:** {kwargs.get('country', '')}
 * **Lingua:** {kwargs.get('language', '')}
 
 **2. CONTENUTI GREZZI DA ANALIZZARE**
+
 * **Testi Completi dei Competitor:**
     {kwargs.get('texts', '')}
 
 **3. DATI STRUTTURATI DALLA SERP E DAI TESTI**
+
 * **Tabella 1: Entità Principali Estratte dai Competitor:**
     {kwargs.get('entities_table', '')}
 * **Tabella 2: Ricerche Correlate dalla SERP:**
@@ -259,17 +269,19 @@ def get_mining_prompt(**kwargs) -> str:
 **PROCESSO DI ESECUZIONE (In ordine rigoroso):**
 
 1.  **Assimilazione e Correlazione:** Analizza e metti in relazione TUTTI i dati forniti nella sezione "DATI DI INPUT". Il tuo obiettivo è trovare le connessioni tra i concetti nei testi grezzi, le entità estratte, le ricerche correlate e le domande degli utenti (PAA).
+
 2.  **Identificazione e Filtraggio:** Da questa analisi, estrai una lista completa di **keyword secondarie, varianti della keyword principale, sinonimi, termini semanticamente correlati** e domande. Filtra questa lista per mantenere **solo** gli elementi che soddisfano tutti questi criteri:
     * Alta rilevanza semantica con la **Keyword Principale**.
     * Alta priorità strategica per l'utente (rispondono a bisogni chiave).
     * Supportati da alti volumi di ricerca (basandoti sulla tua conoscenza da esperto).
+
 3.  **Compilazione e Formattazione:** Aggrega gli elementi filtrati nella tabella sottostante. Attieniti scrupolosamente alle seguenti regole:
     * Usa la virgola (`,`) come separatore per le liste di keyword/concetti all'interno della stessa cella.
     * **IMPORTANTE:** Scrivi tutte le keyword e i concenti in **minuscolo**. L'unica eccezione sono le "Domande degli Utenti", dove la prima lettera della domanda deve essere **maiuscola**.
 
-Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.
+Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'header e senza aggiungere alcuna introduzione o commento.  
 
-### Semantic Keyword Mining with NLP
+### Semantic Keyword Mining with NLP  
 
 | Categoria Keyword | Keywords / Concetti / Domande |
 | :--- | :--- |
@@ -278,7 +290,6 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 | **Keyword Correlate e Varianti** | _(elenca varianti, sinonimi e concetti semanticamente correlati più strategici)_ |
 | **Domande degli Utenti (FAQ)** | _(elenca le domande più rilevanti e ricercate, prima lettera maiuscola)_ |
 """
-
 
 # --- 4. INTERFACCIA UTENTE E FLUSSO PRINCIPALE ---
 
@@ -314,15 +325,15 @@ with st.container():
             st.button("🚀 Avvia Analisi", on_click=start_analysis_callback, type="primary", use_container_width=True)
 
 if st.session_state.get('analysis_started', False):
-    
+
     with st.spinner("Fase 1/4: Estrazione dati SERP e contenuti..."):
         if 'serp_result' not in st.session_state:
             st.session_state.serp_result = fetch_serp_data(st.session_state.query, st.session_state.country, st.session_state.language)
-        
+
         if not st.session_state.serp_result:
             st.error("Analisi interrotta a causa di un errore nel recupero dei dati SERP.")
             st.stop()
-            
+
         items = st.session_state.serp_result.get('items', [])
         organic_results = [item for item in items if item.get("type") == "organic"][:10]
         st.session_state.organic_results = organic_results
@@ -341,7 +352,7 @@ if st.session_state.get('analysis_started', False):
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
             urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
-            
+
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(fetch_ranked_keywords, url, st.session_state.country, st.session_state.language): url for url in urls_for_ranking}
                 for future in as_completed(future_to_url):
@@ -363,6 +374,7 @@ if st.session_state.get('analysis_started', False):
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
 
+    # Rendering Analisi Strategica (unchanged)
     st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
     audience_detail_text = ""
@@ -381,7 +393,13 @@ if st.session_state.get('analysis_started', False):
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
                 value = analysis_map.get(label, "N/D").replace('`', '')
-                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
+                col.markdown(
+                    f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;">
+                           <div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div>
+                           <div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div>
+                       </div>""",
+                    unsafe_allow_html=True
+                )
             if audience_detail_text:
                 st.divider()
                 st.markdown("<h6>Analisi Dettagliata Audience</h6>", unsafe_allow_html=True)
@@ -390,9 +408,13 @@ if st.session_state.get('analysis_started', False):
             st.dataframe(df_strat)
     else:
         st.text(nlu_strat_text)
-    
-    st.markdown("""<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""", unsafe_allow_html=True)
-    
+
+    st.markdown(
+        """<div style="border-top:1px solid #ECEDEE; margin: 1.5rem 0px 2rem 0rem; padding-top:1rem;"></div>""",
+        unsafe_allow_html=True
+    )
+
+    # Colonna Risultati Organici e PAA (unchanged)
     col_org, col_paa = st.columns([2, 1], gap="large")
     with col_org:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici (Top 10)</h3>', unsafe_allow_html=True)
@@ -405,22 +427,47 @@ if st.session_state.get('analysis_started', False):
                 hn = p.netloc.split('.')
                 name = (hn[1] if len(hn) > 2 else hn[0]).replace('-', ' ').title()
                 title, desc = it.get("title", ""), it.get("description", "")
-                html += (f'<div style="margin-bottom:2rem;"><div style="display:flex;align-items:center;margin-bottom:0.2rem;"><img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" onerror="this.src=\'https://www.google.com/favicon.ico\';" style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/><div><div style="color:#202124;font-size:16px;line-height:20px;">{name}</div><div style="color:#4d5156;font-size:14px;line-height:18px;">{pretty}</div></div></div><a href="{url_raw}" style="color:#1a0dab;text-decoration:none;font-size:23px;font-weight:500;">{title}</a><div style="font-size:16px;line-height:22px;color:#474747;">{desc}</div></div>')
+                html += (
+                    f'<div style="margin-bottom:2rem;">'
+                    f'<div style="display:flex;align-items:center;margin-bottom:0.2rem;">'
+                    f'<img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" '
+                    f'onerror="this.src=\'https://www.google.com/favicon.ico\';" '
+                    f'style="width:26px;height:26px;border-radius:50%;border:1px solid #d2d2d2;margin-right:0.5rem;"/>'
+                    f'<div><div style="color:#202124;font-size:16px;line-height:20px;">{name}</div>'
+                    f'<div style="color:#4d5156;font-size:14px;line-height:18px;">{pretty}</div></div></div>'
+                    f'<a href="{url_raw}" style="color:#1a0dab;text-decoration:none;font-size:23px;font-weight:500;">{title}</a>'
+                    f'<div style="font-size:16px;line-height:22px;color:#474747;">{desc}</div></div>'
+                )
             html += '</div>'
             st.markdown(html, unsafe_allow_html=True)
         else:
             st.warning("⚠️ Nessun risultato organico trovato.")
-            
+
     with col_paa:
         st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
-        paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
+        paa_list = list(dict.fromkeys(
+            q.get("title", "")
+            for item in items
+            if item.get("type") == "people_also_ask"
+            for q in item.get("items", []) if q.get("title")
+        ))
         if paa_list:
-            pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{q}</span>' for q in paa_list)
+            pills = ''.join(
+                f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;'
+                f'font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{q}</span>'
+                for q in paa_list
+            )
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna PAA trovata_")
+
         st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
-        related_raw = [s if isinstance(s, str) else s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])]
+        related_raw = [
+            s if isinstance(s, str) else s.get("query", "")
+            for item in items
+            if item.get("type") in ("related_searches", "related_search")
+            for s in item.get("items", [])
+        ]
         related_list = list(dict.fromkeys(filter(None, related_raw)))
         if related_list:
             pills = ""
@@ -432,30 +479,41 @@ if st.session_state.get('analysis_started', False):
                     formatted_txt = pre + (f"<strong>{suf}</strong>" if suf else "")
                 else:
                     formatted_txt = txt
-                pills += f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{formatted_txt}</span>'
+                pills += f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;'
+                pills += f'font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{formatted_txt}</span>'
             st.markdown(f"<div>{pills}</div>", unsafe_allow_html=True)
         else:
             st.write("_Nessuna ricerca correlata trovata_")
-            
+
     st.divider()
+
+    # --- Modifica qui: WYSIWYG per contenuti competitor ---
 
     st.subheader("Contenuti dei Competitor Analizzati")
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_full = urlparse(url).netloc if url else "URL non disponibile"
         domain_clean = domain_full.removeprefix("www.")
+        # estrai Markdown
+        md = initial_texts[i] if i < len(initial_texts) else ""
+        # converti in HTML
+        html = markdown.markdown(md, extensions=["extra", "nl2br"])
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
+            # editor WYSIWYG Quill con HTML importato
             st_quill(
-                value=initial_texts[i] if i < len(initial_texts) else "",
+                value=html,
+                html=True,
                 key=f"quill_editor_{i}"
             )
-    
+
     st.divider()
+
+    # --- Keyword Ranking dei Competitor (unchanged) ---
 
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
-    
+
     with st.expander("Mostra report dettagliato dell'estrazione keyword"):
         if not ranked_keywords_results:
             st.write("Nessun tentativo di estrazione registrato.")
@@ -474,10 +532,8 @@ if st.session_state.get('analysis_started', False):
             for item in result['items']:
                 kd = item.get("keyword_data", {})
                 se = item.get("ranked_serp_element", {})
-                
                 keyword = kd.get("keyword")
                 search_volume = kd.get("search_volume")
-
                 if keyword and search_volume is not None:
                     intent_info = kd.get("intent_info", {})
                     all_keywords_data.append({
@@ -487,21 +543,19 @@ if st.session_state.get('analysis_started', False):
                         "Volume di Ricerca": search_volume,
                         "Search Intent": intent_info.get("intent", "N/D").title() if intent_info else "N/D"
                     })
-    
+
     if all_keywords_data:
         ranked_keywords_df = pd.DataFrame(all_keywords_data)
+        ranked_keywords_df = ranked_keywords_df.dropna(subset=["Keyword", "Volume di Ricerca"])
         if not ranked_keywords_df.empty:
-            ranked_keywords_df = ranked_keywords_df.dropna(subset=["Keyword", "Volume di Ricerca"])
-            if not ranked_keywords_df.empty:
-                ranked_keywords_df["Volume di Ricerca"] = pd.to_numeric(ranked_keywords_df["Volume di Ricerca"])
-                ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
+            ranked_keywords_df["Volume di Ricerca"] = pd.to_numeric(ranked_keywords_df["Volume di Ricerca"])
+            ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
 
         if not ranked_keywords_df.empty:
             st.info("Tabella completa con tutte le keyword posizionate dai competitor, ordinate per volume di ricerca.")
             st.dataframe(ranked_keywords_df, use_container_width=True, height=350)
-            
+
             st.info("Matrice di copertura: mostra per ogni keyword la posizione dei vari competitor. Utile per identificare sovrapposizioni e opportunità.")
-            
             try:
                 keyword_info = ranked_keywords_df[['Keyword', 'Volume di Ricerca', 'Search Intent']].drop_duplicates(subset='Keyword').set_index('Keyword')
                 pivot_df = ranked_keywords_df.pivot_table(
@@ -509,27 +563,26 @@ if st.session_state.get('analysis_started', False):
                     columns='Competitor',
                     values='Posizione'
                 ).fillna('')
-                
                 coverage_matrix = keyword_info.join(pivot_df).sort_values(by='Volume di Ricerca', ascending=False)
-                
                 st.dataframe(coverage_matrix, use_container_width=True, height=350)
             except Exception as e:
                 st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
         else:
             st.warning("Nessuna keyword con dati validi trovata dopo la pulizia.")
-
     else:
         st.warning("Nessuna keyword posizionata trovata per gli URL analizzati.")
 
     st.divider()
-    
+
+    # --- Preparazione per Keyword Mining ---
+
     edited_competitor_texts = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, edited_competitor_texts))
-    
+
     nlu_comp_text = st.session_state.nlu_comp_text
     dfs_comp = parse_markdown_tables(nlu_comp_text)
     df_entities = dfs_comp[0] if len(dfs_comp) > 0 else pd.DataFrame()
-    
+
     st.subheader("Entità Rilevanti (Common Ground)")
     st.info("ℹ️ Puoi modificare o eliminare i valori direttamente in questa tabella. Le modifiche verranno usate per i passaggi successivi.")
     edited_df_entities = st.data_editor(
@@ -540,27 +593,47 @@ if st.session_state.get('analysis_started', False):
         key="editor_entities",
         column_config={ "Rilevanza Strategica": None }
     )
+
     def regenerate_keywords():
         if 'nlu_mining_text' in st.session_state:
             del st.session_state['nlu_mining_text']
     st.button("🔄 Rigenera Keyword dalle Entità Modificate", on_click=regenerate_keywords)
-    
+
     with st.spinner("Fase 4/4: Esecuzione NLU per Keyword Mining..."):
         if 'nlu_mining_text' not in st.session_state:
-            related_list = list(dict.fromkeys(filter(None, related_raw)))
-            paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
+            related_list = list(dict.fromkeys(
+                s if isinstance(s, str) else s.get("query", "")
+                for item in items
+                if item.get("type") in ("related_searches", "related_search")
+                for s in item.get("items", [])
+            ))
+            paa_list = list(dict.fromkeys(
+                q.get("title", "")
+                for item in items
+                if item.get("type") == "people_also_ask"
+                for q in item.get("items", []) if q.get("title")
+            ))
             prompt_mining_args = {
-                "keyword": st.session_state.query, "country": st.session_state.country, "language": st.session_state.language, "texts": final_joined_texts,
+                "keyword": st.session_state.query,
+                "country": st.session_state.country,
+                "language": st.session_state.language,
+                "texts": final_joined_texts,
                 "entities_table": edited_df_entities.to_markdown(index=False),
                 "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
                 "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
             }
             st.session_state.nlu_mining_text = run_nlu(get_mining_prompt(**prompt_mining_args))
-    
+
     nlu_mining_text = st.session_state.nlu_mining_text
     dfs_mining = parse_markdown_tables(nlu_mining_text)
     df_mining = dfs_mining[0] if dfs_mining else pd.DataFrame()
-    
+
     st.subheader("Semantic Keyword Mining")
     st.info("ℹ️ Puoi modificare o eliminare le keyword e le categorie prima di esportare i dati.")
-    edited_df_mining = st.data_editor(df_mining, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_mining")
+    edited_df_mining = st.data_editor(
+        df_mining,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="dynamic",
+        key="editor_mining"
+    )
