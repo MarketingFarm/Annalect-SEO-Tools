@@ -317,7 +317,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---> INIZIO CODICE AGGIUNTO <---
 # CSS per applicare uno stile alla prima colonna (quella dei competitors)
 st.markdown("""
 <style>
@@ -333,7 +332,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# ---> FINE CODICE AGGIUNTO <---
 
 st.divider()
 
@@ -497,16 +495,14 @@ if st.session_state.get('analysis_started', False):
     st.divider()
     st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
 
-nav_labels = []
+    nav_labels = []
     for i, result in enumerate(organic_results):
         url = result.get('url', '')
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    # ---> INIZIO CODICE AGGIUNTO <---
     # Apriamo il nostro contenitore con un ID univoco PRIMA di creare le colonne
     st.markdown('<div id="competitor-layout-wrapper">', unsafe_allow_html=True)
-    # ---> FINE CODICE AGGIUNTO <---
 
     col_nav, col_content = st.columns([1.5, 5])
 
@@ -535,10 +531,8 @@ nav_labels = []
             st.session_state.edited_html_contents[selected_index] = edited_content
             st.rerun()
 
-    # ---> INIZIO CODICE AGGIUNTO <---
     # Chiudiamo il nostro contenitore DOPO che le colonne sono state popolate
     st.markdown('</div>', unsafe_allow_html=True)
-    # ---> FINE CODICE AGGIUNTO <---
 
     st.divider()
 
