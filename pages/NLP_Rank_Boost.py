@@ -12,7 +12,6 @@ from google import genai
 from streamlit_quill import st_quill
 # Importazione per ripulire l'output HTML dell'editor
 from bs4 import BeautifulSoup
-# La libreria 'markdown' non è più necessaria
 
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
@@ -86,10 +85,6 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
-# ########################################################################## #
-# ################ INIZIO SEZIONE DI CODICE AGGIORNATA ##################### #
-# ########################################################################## #
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """
@@ -132,7 +127,6 @@ def parse_url_content(url: str) -> str:
                         for item in primary_content_list:
                             text = item.get("text", "").strip()
                             if text:
-                                # Pulisce il testo dal marcatore di lista iniziale
                                 cleaned_text = text.lstrip("-* ").strip()
                                 html_parts.append(f"<li>{cleaned_text}</li>")
                         html_parts.append("</ul>")
@@ -150,10 +144,6 @@ def parse_url_content(url: str) -> str:
         return f"<h2>Errore di Rete</h2><p>Durante l'analisi dell'URL {url}: {str(e)}</p>"
     except Exception as e:
         return f"<h2>Errore Imprevisto</h2><p>URL: {url}<br>Errore: {str(e)}</p>"
-
-# ########################################################################## #
-# ################# FINE SEZIONE DI CODICE AGGIORNATA ###################### #
-# ########################################################################## #
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
@@ -371,7 +361,7 @@ if st.session_state.get('analysis_started', False):
         organic_results = [item for item in items if item.get("type") == "organic"][:10]
         st.session_state.organic_results = organic_results
 
-        if 'competitor_texts_list' not in st.session_state:
+        if 'initial_html_contents' not in st.session_state:
             urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
@@ -379,7 +369,7 @@ if st.session_state.get('analysis_started', False):
                 for future in as_completed(future_to_url):
                     url = future_to_url[future]
                     results[url] = future.result()
-            st.session_state.competitor_texts_list = [results.get(url, "") for url in urls_to_parse]
+            st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
 
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
         if 'ranked_keywords_results' not in st.session_state:
@@ -392,12 +382,9 @@ if st.session_state.get('analysis_started', False):
                     ranked_keywords_api_results.append(future.result())
             st.session_state.ranked_keywords_results = ranked_keywords_api_results
 
-    # Qui riceviamo una lista di stringhe HTML da parse_url_content
-    initial_texts = st.session_state.get('competitor_texts_list', [])
-    # Per l'analisi NLU iniziale, dobbiamo pulire l'HTML
-    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
-        filter(None, [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in initial_texts])
-    )
+    # Pulisce l'HTML iniziale per la prima analisi NLU
+    initial_cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in st.session_state.initial_html_contents]
+    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, initial_cleaned_texts))
 
     if not initial_joined_texts.strip():
         st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
@@ -485,26 +472,64 @@ if st.session_state.get('analysis_started', False):
         else:
             st.write("_Nessuna ricerca correlata trovata_")
             
-    st.divider()
-
-    st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
-    for i, result in enumerate(organic_results):
-        url = result.get('url', '')
-        domain_full = urlparse(url).netloc if url else "URL non disponibile"
-        domain_clean = domain_full.removeprefix("www.")
-        with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
-            st.markdown(f"**URL:** `{url}`")
-
-            # Prendi la stringa HTML direttamente da initial_texts
-            html_content = initial_texts[i] if i < len(initial_texts) else ""
-            
-            st_quill(
-                value=html_content,
-                html=True,
-                key=f"quill_editor_{i}"
-            )
+    # ########################################################################## #
+    # ################ INIZIO SEZIONE UX COMPETITOR AGGIORNATA ################# #
+    # ########################################################################## #
     
     st.divider()
+    st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
+
+    # Inizializza la lista dei contenuti editati se non esiste
+    if 'edited_html_contents' not in st.session_state:
+        st.session_state.edited_html_contents = st.session_state.initial_html_contents[:]
+
+    # Logica per salvare le modifiche prima di cambiare la visualizzazione
+    if 'quill_editor_main' in st.session_state and 'last_selected_index' in st.session_state:
+        last_index = st.session_state.last_selected_index
+        edited_content = st.session_state.quill_editor_main
+        st.session_state.edited_html_contents[last_index] = edited_content
+
+    # Preparazione delle etichette per la navigazione
+    nav_labels = []
+    for i, result in enumerate(organic_results):
+        url = result.get('url', '')
+        domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
+        nav_labels.append(f"{i+1}. {domain_clean}")
+
+    col_nav, col_content = st.columns([1, 2.5], gap="large")
+
+    with col_nav:
+        st.markdown("<h6>Competitors</h6>", unsafe_allow_html=True)
+        selected_index = st.radio(
+            "Seleziona un competitor",
+            options=range(len(nav_labels)),
+            format_func=lambda i: nav_labels[i],
+            key="competitor_selector", # Chiave per il radio button
+            label_visibility="collapsed"
+        )
+        # Salva l'indice correntemente visualizzato per il prossimo re-run
+        st.session_state.last_selected_index = selected_index
+
+    with col_content:
+        selected_url = organic_results[selected_index].get('url', '')
+        # Carica il contenuto dalla lista dei contenuti *editati*
+        html_to_display = st.session_state.edited_html_contents[selected_index]
+
+        st.markdown(f"**URL Selezionato:**")
+        st.markdown(f"`{selected_url}`")
+        st.markdown("---")
+        
+        st_quill(
+            value=html_to_display,
+            html=True,
+            key="quill_editor_main"
+        )
+
+    st.divider()
+
+    # ######################################################################## #
+    # ################## FINE SEZIONE UX COMPETITOR AGGIORNATA ################# #
+    # ######################################################################## #
 
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
@@ -576,13 +601,15 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
     
-    # Recupera l'HTML dagli editor Quill
-    edited_competitor_htmls = [st.session_state.get(f"quill_editor_{i}", "") for i in range(len(organic_results))]
+    # La logica di salvataggio finale deve assicurarsi di catturare l'ULTIMA modifica
+    # fatta nell'editor prima di procedere.
+    if 'quill_editor_main' in st.session_state and 'last_selected_index' in st.session_state:
+        last_index = st.session_state.last_selected_index
+        st.session_state.edited_html_contents[last_index] = st.session_state.quill_editor_main
 
-    # Converti l'HTML editato in testo pulito usando BeautifulSoup per un'analisi NLU pulita
+    # Usa la lista dei contenuti MODIFICATI per l'analisi finale
+    edited_competitor_htmls = st.session_state.edited_html_contents
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in edited_competitor_htmls]
-    
-    # Ora unisci il testo pulito per l'analisi NLU
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
 
     nlu_comp_text = st.session_state.nlu_comp_text
@@ -610,7 +637,7 @@ if st.session_state.get('analysis_started', False):
             paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
             prompt_mining_args = {
                 "keyword": st.session_state.query, "country": st.session_state.country, "language": st.session_state.language, 
-                "texts": final_joined_texts, # <-- USA IL TESTO PULITO
+                "texts": final_joined_texts, # <-- USA IL TESTO PULITO E MODIFICATO
                 "entities_table": edited_df_entities.to_markdown(index=False),
                 "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
                 "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
