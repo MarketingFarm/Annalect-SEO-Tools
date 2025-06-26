@@ -307,17 +307,29 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 
-# --- MODIFICA 2: Altezza fissa a 300px ---
 # CSS per forzare l'altezza dell'editor Quill
 st.markdown("""
 <style>
     .ql-editor {
         height: 300px !important;
-        max-height: 300px !important;
         overflow-y: scroll !important;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# ---> INIZIO CODICE AGGIUNTO <---
+# CSS per applicare uno stile alla prima colonna (quella dei competitors)
+st.markdown("""
+<style>
+    /* Seleziona il contenitore della prima colonna */
+    [data-testid="stHorizontalBlock"] > div:nth-child(1) {
+        background-color: rgb(247, 248, 249);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+# ---> FINE CODICE AGGIUNTO <---
 
 st.divider()
 
