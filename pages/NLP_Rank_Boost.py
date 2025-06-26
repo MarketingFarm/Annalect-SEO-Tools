@@ -179,7 +179,16 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
     """Esegue una singola chiamata al modello Gemini usando il client."""
     try:
-        response = gemini_client.models.generate_content(model=f"models/{model_name}", contents=[prompt])
+        # Aggiunta di istruzioni specifiche per l'output JSON dove serve
+        if "JSON_OUTPUT" in prompt or "Restituisci ESATTAMENTE e SOLO un oggetto JSON" in prompt:
+            generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
+            response = gemini_client.models.generate_content(
+                model=f"models/{model_name}", 
+                contents=[prompt],
+                generation_config=generation_config
+            )
+        else:
+             response = gemini_client.models.generate_content(model=f"models/{model_name}", contents=[prompt])
         return response.text
     except Exception as e:
         st.error(f"Errore durante la chiamata a Gemini: {e}")
@@ -230,33 +239,37 @@ def get_position_from_item(item: dict) -> int | None:
 
     return None
 
-# --- NUOVA FUNZIONE PER FILTRO BRAND ---
-def is_branded_keyword(keyword: str, domain: str) -> bool:
+def filter_unbranded_keywords_with_gemini(keywords: list[str], domain: str) -> list[str]:
     """
-    Determina se una keyword è di brand basandosi sul dominio.
-    Es. per "oliocarli.it", keyword come "olio carli" sono brand.
+    Usa Gemini per analizzare una lista di keyword e restituire solo quelle non-brand.
     """
-    # Estrae il nome del dominio senza 'www.' e TLD (es. .it, .com)
-    # es. 'www.olio-carli.it' -> 'olio-carli'
+    if not keywords:
+        return []
+
+    base_name = domain.removeprefix("www.").rsplit('.', 1)[0].replace('-', ' ').title()
+
+    prompt = f"""
+    **RUOLO**: Sei un esperto SEO specializzato in analisi della brand identity.
+    **CONTESTO**: Sto analizzando le keyword per cui si posiziona il dominio '{domain}', il cui brand è verosimilmente '{base_name}'.
+    **COMPITO**: Data la seguente lista di keyword in formato JSON, identifica quali sono puramente "unbranded" (generiche/informative) e quali sono "branded" (contengono il nome del brand, sue variazioni o acronimi noti).
+    **FORMATO DI OUTPUT**: Restituisci ESATTAMENTE e SOLO un oggetto JSON con una singola chiave, "unbranded_keywords". Il valore di questa chiave deve essere una lista di stringhe contenente SOLO le keyword che hai identificato come unbranded. Non includere le keyword branded.
+
+    **LISTA KEYWORD DA ANALIZZARE**:
+    {json.dumps(keywords)}
+    """
+    
     try:
-        netloc = urlparse(f"http://{domain}").netloc.removeprefix("www.")
-        base_name = netloc.rsplit('.', 1)[0]
-    except Exception:
-        return False # In caso di dominio malformato
-
-    # Crea una lista di possibili termini brand
-    # es. 'olio-carli' -> ['olio carli', 'oliocarli']
-    brand_terms = [base_name.replace('-', ' ')]
-    if '-' in base_name:
-        brand_terms.append(base_name.replace('-', ''))
-
-    # Controlla se uno dei termini brand è nella keyword (case-insensitive)
-    keyword_lower = keyword.lower()
-    for term in brand_terms:
-        if term.lower() in keyword_lower:
-            return True
-            
-    return False
+        response_text = run_nlu(prompt)
+        cleaned_response = re.sub(r'```json\n?|```', '', response_text).strip()
+        data = json.loads(cleaned_response)
+        unbranded = data.get("unbranded_keywords", [])
+        if isinstance(unbranded, list):
+            return unbranded
+        else: # Fallback nel caso Gemini restituisca un formato imprevisto
+             return keywords
+    except (json.JSONDecodeError, AttributeError, KeyError) as e:
+        st.warning(f"Impossibile analizzare le keyword con Gemini per il dominio {domain}. Errore: {e}. Le keyword non verranno filtrate per questo dominio.")
+        return keywords
 
 
 # --- 3. FUNZIONI PER LA COSTRUZIONE DEI PROMPT ---
@@ -438,7 +451,7 @@ if st.session_state.get('analysis_started', False):
         if 'edited_html_contents' not in st.session_state:
             st.session_state.edited_html_contents = list(st.session_state.initial_html_contents)
 
-    with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
+    with st.spinner("Fase 2/4: Estrazione e filtro keyword posizionate..."):
         if 'ranked_keywords_results' not in st.session_state:
             ranked_keywords_api_results = []
             urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
@@ -456,7 +469,7 @@ if st.session_state.get('analysis_started', False):
         st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
         st.stop()
 
-    with st.spinner("Fase 3/4: Esecuzione analisi NLU..."):
+    with st.spinner("Fase 3/4: Esecuzione analisi NLU strategica..."):
         if 'nlu_strat_text' not in st.session_state or 'nlu_comp_text' not in st.session_state:
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(st.session_state.query, initial_joined_texts))
@@ -578,7 +591,7 @@ if st.session_state.get('analysis_started', False):
 
     st.divider()
 
-    st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
+    st.subheader("Keyword Ranking dei Competitor (Filtrato per Brand)")
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
     
     with st.expander("Mostra report dettagliato dell'estrazione keyword"):
@@ -596,25 +609,28 @@ if st.session_state.get('analysis_started', False):
     for result in ranked_keywords_results:
         if result['status'] == 'ok' and result.get('items'):
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
+            
+            all_competitor_keywords = [item.get("keyword_data", {}).get("keyword") for item in result['items'] if item.get("keyword_data", {}).get("keyword")]
+            
+            if not all_competitor_keywords:
+                continue
+
+            unbranded_keywords_list = filter_unbranded_keywords_with_gemini(all_competitor_keywords, competitor_domain)
+            unbranded_keywords_set = set(unbranded_keywords_list)
+
             for item in result['items']:
-                keyword_data = item.get("keyword_data") if item.get("keyword_data") is not None else {}
-                
+                keyword_data = item.get("keyword_data", {})
                 keyword = keyword_data.get("keyword")
-                
-                # --- INTEGRAZIONE FILTRO BRAND ---
-                # Se la keyword è di brand, la saltiamo e passiamo alla successiva
-                if keyword and is_branded_keyword(keyword, competitor_domain):
-                    continue
 
-                keyword_info = keyword_data.get("keyword_info", {})
-                search_intent_info = keyword_data.get("search_intent_info", {})
-                
-                search_volume = keyword_info.get("search_volume") if keyword_info else None
-                main_intent = search_intent_info.get("main_intent", "N/D") if search_intent_info else "N/D"
-                
-                position = get_position_from_item(item)
+                if keyword in unbranded_keywords_set:
+                    keyword_info = keyword_data.get("keyword_info", {})
+                    search_intent_info = keyword_data.get("search_intent_info", {})
+                    
+                    search_volume = keyword_info.get("search_volume") if keyword_info else None
+                    main_intent = search_intent_info.get("main_intent", "N/D") if search_intent_info else "N/D"
+                    
+                    position = get_position_from_item(item)
 
-                if keyword:
                     all_keywords_data.append({
                         "Competitor": competitor_domain,
                         "Keyword": keyword,
