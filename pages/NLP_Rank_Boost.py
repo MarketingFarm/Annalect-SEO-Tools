@@ -329,7 +329,7 @@ st.markdown("""
     }
     /* Seleziona il contenitore della seconda colonna (destra) */
     [data-testid="stHorizontalBlock"] > div:nth-child(2) {
-        padding-left: 1rem;
+        padding: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
