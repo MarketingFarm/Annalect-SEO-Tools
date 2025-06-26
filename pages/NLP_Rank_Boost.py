@@ -292,6 +292,7 @@ st.markdown("""
 <style>
     .ql-editor {
         height: 300px !important;
+        max-height: 300px !important;
         overflow-y: scroll !important;
     }
 </style>
