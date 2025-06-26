@@ -10,9 +10,9 @@ import streamlit as st
 from google import genai
 # Importazione per gli editor di testo
 from streamlit_quill import st_quill
-# Importazioni per la conversione Markdown <-> HTML <-> Testo
-import markdown
+# Importazione per ripulire l'output HTML dell'editor
 from bs4 import BeautifulSoup
+# La libreria 'markdown' non è più necessaria
 
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
@@ -93,8 +93,8 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """
-    Estrae il 'main_topic' dal contenuto di un URL, lo processa in modo intelligente
-    per gestire paragrafi ed elenchi, e lo restituisce come una stringa formattata in Markdown.
+    Estrae il 'main_topic' e lo restituisce come una stringa HTML pulita,
+    pronta per essere usata da st_quill.
     """
     post_data = [{"url": url, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
@@ -104,50 +104,52 @@ def parse_url_content(url: str) -> str:
 
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks", [{}])[0].get("status_message", "Nessun risultato nell'API.")
-            return f"## Errore API ##\n{error_message}"
+            return f"<h2>Errore API</h2><p>{error_message}</p>"
 
         items = data["tasks"][0]["result"][0].get("items", [{}])[0]
         page_content = items.get("page_content")
 
         if page_content:
             main_topic_data = page_content.get('main_topic')
-            
             if not isinstance(main_topic_data, list):
-                return "Struttura 'main_topic' non valida o non trovata."
+                return "<h2>Struttura 'main_topic' non valida o non trovata.</h2>"
 
-            content_parts = []
+            html_parts = []
             for section in main_topic_data:
                 h_title = section.get('h_title')
                 if h_title:
                     level = section.get('level', 2)
-                    content_parts.append(f"{'#' * level} {h_title}")
+                    html_parts.append(f"<h{level}>{h_title}</h{level}>")
 
                 primary_content_list = section.get('primary_content')
                 if isinstance(primary_content_list, list) and primary_content_list:
-                    # --- NUOVA LOGICA INTELLIGENTE PER RILEVARE GLI ELENCHI ---
+                    
                     first_item_text = primary_content_list[0].get("text", "").strip()
                     is_a_list = first_item_text.startswith(("- ", "* "))
 
                     if is_a_list:
-                        # Se è un elenco, uniamo le righe con un singolo "a capo"
-                        list_items = [item.get("text", "").strip() for item in primary_content_list if item.get("text")]
-                        content_parts.append("\n".join(list_items))
-                    else:
-                        # Se sono paragrafi, li aggiungiamo separatamente per mantenere la spaziatura
-                        for content_item in primary_content_list:
-                            text = content_item.get('text')
+                        html_parts.append("<ul>")
+                        for item in primary_content_list:
+                            text = item.get("text", "").strip()
                             if text:
-                                content_parts.append(text.strip())
+                                # Pulisce il testo dal marcatore di lista iniziale
+                                cleaned_text = text.lstrip("-* ").strip()
+                                html_parts.append(f"<li>{cleaned_text}</li>")
+                        html_parts.append("</ul>")
+                    else:
+                        for item in primary_content_list:
+                            text = item.get('text')
+                            if text:
+                                html_parts.append(f"<p>{text.strip()}</p>")
             
-            # Unisci tutte le parti con doppi "a capo" per separare i blocchi (titoli, paragrafi, intere liste)
-            return "\n\n".join(content_parts)
+            return "".join(html_parts)
         else:
-            return f"## Contenuto non Estratto ##\nL'API non ha restituito il campo 'page_content' per l'URL: {url}"
+            return f"<h2>Contenuto non Estratto</h2><p>L'API non ha restituito il campo 'page_content' per l'URL: {url}</p>"
 
     except requests.RequestException as e:
-        return f"## Errore di Rete ##\nDurante l'analisi dell'URL {url}: {str(e)}"
+        return f"<h2>Errore di Rete</h2><p>Durante l'analisi dell'URL {url}: {str(e)}</p>"
     except Exception as e:
-        return f"## Errore Imprevisto nell'Analisi della Risposta ##\nURL: {url}\nErrore: {str(e)}"
+        return f"<h2>Errore Imprevisto</h2><p>URL: {url}<br>Errore: {str(e)}</p>"
 
 # ########################################################################## #
 # ################# FINE SEZIONE DI CODICE AGGIORNATA ###################### #
@@ -390,8 +392,12 @@ if st.session_state.get('analysis_started', False):
                     ranked_keywords_api_results.append(future.result())
             st.session_state.ranked_keywords_results = ranked_keywords_api_results
 
+    # Qui riceviamo una lista di stringhe HTML da parse_url_content
     initial_texts = st.session_state.get('competitor_texts_list', [])
-    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, initial_texts))
+    # Per l'analisi NLU iniziale, dobbiamo pulire l'HTML
+    initial_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
+        filter(None, [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in initial_texts])
+    )
 
     if not initial_joined_texts.strip():
         st.error("Impossibile recuperare il contenuto testuale da analizzare. L'analisi non può continuare.")
@@ -489,12 +495,9 @@ if st.session_state.get('analysis_started', False):
         with st.expander(f"**Competitor #{i+1}:** {domain_clean}"):
             st.markdown(f"**URL:** `{url}`")
 
-            # Prendi il testo Markdown (ora generato dalla nuova funzione)
-            markdown_text = initial_texts[i] if i < len(initial_texts) else ""
+            # Prendi la stringa HTML direttamente da initial_texts
+            html_content = initial_texts[i] if i < len(initial_texts) else ""
             
-            # Converti il Markdown in HTML per la visualizzazione in Quill
-            html_content = markdown.markdown(markdown_text)
-
             st_quill(
                 value=html_content,
                 html=True,
