@@ -322,13 +322,13 @@ st.markdown("""
 st.markdown("""
 <style>
     /* Seleziona il contenitore della prima colonna */
-    [data-testid="stHorizontalBlock"] > div:nth-child(1) {
+    #competitor-layout-wrapper [data-testid="stHorizontalBlock"] > div:nth-child(1) {
         background-color: rgb(247, 248, 249);
         border-radius: 8px;
         padding: 1rem;
     }
     /* Seleziona il contenitore della seconda colonna (destra) */
-    [data-testid="stHorizontalBlock"] > div:nth-child(2) {
+    #competitor-layout-wrapper [data-testid="stHorizontalBlock"] > div:nth-child(2) {
         padding: 1rem;
     }
 </style>
