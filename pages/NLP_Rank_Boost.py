@@ -501,9 +501,9 @@ if st.session_state.get('analysis_started', False):
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    # Apriamo il nostro contenitore con un ID univoco PRIMA di creare le colonne
-    st.markdown('<div id="competitor-layout-wrapper">', unsafe_allow_html=True)
-
+    # Inseriamo un marcatore invisibile con un ID univoco
+    st.markdown('<div id="competitor-columns-marker"></div>', unsafe_allow_html=True)
+    
     col_nav, col_content = st.columns([1.5, 5])
 
     with col_nav:
@@ -530,9 +530,6 @@ if st.session_state.get('analysis_started', False):
         if edited_content != content_to_display:
             st.session_state.edited_html_contents[selected_index] = edited_content
             st.rerun()
-
-    # Chiudiamo il nostro contenitore DOPO che le colonne sono state popolate
-    st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
 
