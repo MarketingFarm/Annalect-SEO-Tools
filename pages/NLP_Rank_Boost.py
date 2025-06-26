@@ -93,8 +93,8 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
     """
-    Estrae il 'main_topic' dal contenuto di un URL, lo processa per estrarre
-    titoli e testi, e lo restituisce come una singola stringa formattata in Markdown.
+    Estrae il 'main_topic' dal contenuto di un URL, lo processa in modo intelligente
+    per gestire paragrafi ed elenchi, e lo restituisce come una stringa formattata in Markdown.
     """
     post_data = [{"url": url, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
@@ -112,28 +112,34 @@ def parse_url_content(url: str) -> str:
         if page_content:
             main_topic_data = page_content.get('main_topic')
             
-            # Controlla se main_topic_data esiste ed è una lista
             if not isinstance(main_topic_data, list):
                 return "Struttura 'main_topic' non valida o non trovata."
 
             content_parts = []
             for section in main_topic_data:
-                # Aggiungi il titolo della sezione se esiste
                 h_title = section.get('h_title')
                 if h_title:
-                    # Usa il livello del titolo per formattare correttamente in Markdown (es. ##, ###)
                     level = section.get('level', 2)
                     content_parts.append(f"{'#' * level} {h_title}")
 
-                # Aggiungi il contenuto primario se esiste
                 primary_content_list = section.get('primary_content')
-                if isinstance(primary_content_list, list):
-                    for content_item in primary_content_list:
-                        text = content_item.get('text')
-                        if text:
-                            content_parts.append(text.strip())
+                if isinstance(primary_content_list, list) and primary_content_list:
+                    # --- NUOVA LOGICA INTELLIGENTE PER RILEVARE GLI ELENCHI ---
+                    first_item_text = primary_content_list[0].get("text", "").strip()
+                    is_a_list = first_item_text.startswith(("- ", "* "))
+
+                    if is_a_list:
+                        # Se è un elenco, uniamo le righe con un singolo "a capo"
+                        list_items = [item.get("text", "").strip() for item in primary_content_list if item.get("text")]
+                        content_parts.append("\n".join(list_items))
+                    else:
+                        # Se sono paragrafi, li aggiungiamo separatamente per mantenere la spaziatura
+                        for content_item in primary_content_list:
+                            text = content_item.get('text')
+                            if text:
+                                content_parts.append(text.strip())
             
-            # Unisci tutte le parti con doppi a capo per una corretta formattazione Markdown
+            # Unisci tutte le parti con doppi "a capo" per separare i blocchi (titoli, paragrafi, intere liste)
             return "\n\n".join(content_parts)
         else:
             return f"## Contenuto non Estratto ##\nL'API non ha restituito il campo 'page_content' per l'URL: {url}"
