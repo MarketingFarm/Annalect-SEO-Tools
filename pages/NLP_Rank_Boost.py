@@ -89,7 +89,13 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 def parse_url_content(url: str) -> str:
     """
     Estrae il 'main_topic' e lo restituisce come una stringa HTML pulita.
+    Restituisce una stringa vuota in caso di PDF o errori di parsing noti.
     """
+    # --- MODIFICA 2: Gestione proattiva dei PDF ---
+    # Se l'URL termina con .pdf, non tentiamo nemmeno l'analisi e restituiamo subito una stringa vuota.
+    if url.lower().endswith('.pdf'):
+        return ""
+
     post_data = [{"url": url, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
         response = session.post("https://api.dataforseo.com/v3/on_page/content_parsing/live", json=post_data)
@@ -98,6 +104,11 @@ def parse_url_content(url: str) -> str:
 
         if data.get("tasks_error", 0) > 0 or not data.get("tasks") or not data["tasks"][0].get("result"):
             error_message = data.get("tasks", [{}])[0].get("status_message", "Nessun risultato nell'API.")
+            # --- MODIFICA 2: Gestione reattiva di errori legati a tipi di contenuto non validi ---
+            # Se il messaggio di errore dell'API indica un problema con PDF o Content Type, restituisci vuoto.
+            if 'pdf' in error_message.lower() or 'content type' in error_message.lower():
+                return ""
+            # Altrimenti, mostra un errore generico (ma non bloccante) nel box di testo.
             return f"<h2>Errore API</h2><p>{error_message}</p>"
 
         items = data["tasks"][0]["result"][0].get("items", [{}])[0]
@@ -105,8 +116,10 @@ def parse_url_content(url: str) -> str:
 
         if page_content:
             main_topic_data = page_content.get('main_topic')
+            # --- MODIFICA 1: Gestione 'main_topic' non trovato ---
+            # Se 'main_topic' non è una lista (quindi non è stato trovato o ha una struttura errata), restituisci vuoto.
             if not isinstance(main_topic_data, list):
-                return "<h2>Struttura 'main_topic' non valida o non trovata.</h2>"
+                return ""
 
             html_parts = []
             for section in main_topic_data:
@@ -136,7 +149,10 @@ def parse_url_content(url: str) -> str:
             
             return "".join(html_parts)
         else:
-            return f"<h2>Contenuto non Estratto</h2><p>L'API non ha restituito il campo 'page_content' per l'URL: {url}</p>"
+            # Caso in cui l'API risponde OK ma il campo 'page_content' è assente.
+            # Potremmo voler restituire stringa vuota anche qui. Per ora lascio un avviso.
+            return ""
+            
     except requests.RequestException as e:
         return f"<h2>Errore di Rete</h2><p>Durante l'analisi dell'URL {url}: {str(e)}</p>"
     except Exception as e:
