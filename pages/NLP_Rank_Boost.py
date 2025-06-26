@@ -15,6 +15,8 @@ from dataforseo_client.api.on_page_api import OnPageApi
 from dataforseo_client.models.on_page_content_parsing_live_request_info import OnPageContentParsingLiveRequestInfo
 # Importazione per gli editor di testo
 from streamlit_quill import st_quill
+# Importazione per la gestione dell'errore specifico
+from pydantic import ValidationError
 
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
@@ -97,25 +99,23 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
+# --- MODIFICA: Aggiunta gestione robusta dell'errore di validazione ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
-    """Estrae il contenuto testuale da un URL usando l'API On-Page di DataForSEO."""
-    post_data = [
-        OnPageContentParsingLiveRequestInfo(
-            url=url,
-            markdown_view=True,
-            enable_javascript=True,
-            enable_xhr=True,
-            disable_cookie_popup=True
-        )
-    ]
+    """Estrae il contenuto testuale da un URL, con fallback in caso di errore di validazione."""
+    post_data = [{"url": url, "markdown_view": True, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True }]
+    raw_response_data = None
     try:
-        response = on_page_api.content_parsing_live(post_data)
-        if response.status_code != 20000:
-            return f"## Errore API ##\nCodice: {response.status_code} - Messaggio: {response.status_message}"
-        task = response.tasks[0]
+        # La libreria tenta di parsare la risposta qui, e può fallire
+        api_response_object = on_page_api.content_parsing_live(post_data)
+        raw_response_data = api_response_object.http_info.data
+
+        if api_response_object.status_code != 20000:
+            return f"## Errore API ##\nCodice: {api_response_object.status_code} - Messaggio: {api_response_object.status_message}"
+        task = api_response_object.tasks[0]
         if task.status_code != 20000:
             return f"## Errore Task ##\nCodice: {task.status_code} - Messaggio: {task.status_message}"
+        
         result_item = task.result[0]
         if not result_item.items:
              return "## Nessun Item nel Risultato ##"
@@ -126,10 +126,12 @@ def parse_url_content(url: str) -> str:
         page_content = page_item.page_content
         if not page_content:
             return f"## Contenuto non Trovato ##\nNessun contenuto testuale analizzabile per {url}."
+        
         text_parts = []
         all_topics = (page_content.main_topic or []) + (page_content.secondary_topic or [])
         if not all_topics:
             return f"## Contenuto non Strutturato ##\nNessun topic (h1, h2...) rilevato per {url}."
+        
         all_topics.sort(key=lambda x: x.level or 99)
         for topic in all_topics:
             if topic.h_title:
@@ -139,18 +141,29 @@ def parse_url_content(url: str) -> str:
                     if content.text:
                         text_parts.append(' '.join(content.text.split()))
         return "\n\n".join(text_parts)
+
+    except ValidationError:
+        # Se la libreria fallisce per un errore di validazione, usiamo un fallback manuale
+        st.warning(f"⚠️ Errore di validazione per {url}, attivo il recupero manuale del testo.")
+        if raw_response_data:
+            try:
+                data = json.loads(raw_response_data)
+                if data.get("tasks_error", 0) == 0 and data.get("tasks"):
+                    items = data["tasks"][0].get("result", [{}])[0].get("items", [{}])[0]
+                    markdown_content = items.get("page_as_markdown")
+                    if markdown_content:
+                        return markdown_content
+            except Exception:
+                return f"## Errore di Validazione ##\nLa libreria non è riuscita a processare la risposta per {url} e il fallback non è riuscito."
+        return f"## Errore di Validazione ##\nImpossibile recuperare il contenuto per {url} a causa di un'incoerenza nei dati API."
+        
     except Exception as e:
         return f"## Errore Imprevisto ##\nDurante l'analisi dell'URL {url}: {str(e)}"
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     """Estrae le keyword posizionate e restituisce un dizionario con lo stato."""
-    payload = [{
-        "target": url,
-        "location_name": location,
-        "language_name": language,
-        "limit": 30
-    }]
+    payload = [{"target": url, "location_name": location, "language_name": language, "limit": 30}]
     try:
         response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
         response.raise_for_status()
@@ -506,14 +519,12 @@ if st.session_state.get('analysis_started', False):
 
     all_keywords_data = []
     for result in ranked_keywords_results:
-        # --- MODIFICA: Aggiunto controllo per 'items' non nullo ---
         if result['status'] == 'ok' and result['items']:
             competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
             for item in result['items']:
                 kd = item.get("keyword_data", {})
                 se = item.get("ranked_serp_element", {})
                 
-                # Aggiungo un controllo più robusto prima di aggiungere i dati
                 keyword = kd.get("keyword")
                 search_volume = kd.get("search_volume")
 
@@ -529,9 +540,8 @@ if st.session_state.get('analysis_started', False):
     
     if all_keywords_data:
         ranked_keywords_df = pd.DataFrame(all_keywords_data)
-        # Il dropna diventa una sicurezza aggiuntiva, ma non dovrebbe più essere necessario
-        ranked_keywords_df = ranked_keywords_df.dropna(subset=["Keyword", "Volume di Ricerca"])
         if not ranked_keywords_df.empty:
+            ranked_keywords_df = ranked_keywords_df.dropna(subset=["Keyword", "Volume di Ricerca"])
             ranked_keywords_df["Volume di Ricerca"] = pd.to_numeric(ranked_keywords_df["Volume di Ricerca"])
             ranked_keywords_df = ranked_keywords_df.sort_values(by="Volume di Ricerca", ascending=False).reset_index(drop=True)
 
@@ -553,6 +563,7 @@ if st.session_state.get('analysis_started', False):
                 
                 st.dataframe(coverage_matrix, use_container_width=True, height=350)
             else:
+                # Questo messaggio appare se all_keywords_data non era vuoto ma il df è stato svuotato da dropna
                 st.warning("Nessuna keyword con dati validi trovata per costruire le tabelle.")
         except Exception as e:
             st.warning(f"Non è stato possibile creare la matrice di copertura: {e}")
