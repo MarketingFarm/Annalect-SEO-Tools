@@ -352,12 +352,12 @@ if st.session_state.get('analysis_started', False):
                     results[url] = future.result()
             st.session_state.initial_html_contents = [results.get(url, "") for url in urls_to_parse]
 
-            # ---> INIZIO CODICE AGGIUNTO <---
-            # Creiamo uno stato separato per i contenuti che verranno modificati.
-            # Lo inizializziamo come una copia dei contenuti originali.
-            if 'edited_html_contents' not in st.session_state:
-                st.session_state.edited_html_contents = list(st.session_state.initial_html_contents)
-            # ---> FINE CODICE AGGIUNTO <---
+        # ---> BLOCCO SPOSTATO E CORRETTO <---
+        # Questa inizializzazione ora è al posto giusto.
+        # Viene eseguita DOPO che initial_html_contents è stato potenzialmente creato,
+        # e viene controllata ad ogni esecuzione dello script, risolvendo l'errore.
+        if 'edited_html_contents' not in st.session_state:
+            st.session_state.edited_html_contents = list(st.session_state.initial_html_contents)
 
     with st.spinner("Fase 2/4: Estrazione keyword posizionate per ogni URL..."):
         if 'ranked_keywords_results' not in st.session_state:
