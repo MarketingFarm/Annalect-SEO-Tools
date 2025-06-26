@@ -318,6 +318,31 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
+
+# ########################################################################## #
+# #################### INIZIO BLOCCO CSS AGGIORNATO ######################## #
+# ########################################################################## #
+
+# Inietta CSS per controllare l'altezza dell'editor Quill
+st.markdown("""
+<style>
+    /* Crea un contenitore per l'editor con un'altezza fissa */
+    .quill-container {
+        height: 250px;
+    }
+    /* Adatta l'area di testo effettiva di Quill, sottraendo l'altezza della sua toolbar */
+    .quill-container .ql-container {
+        height: calc(100% - 42px);
+        overflow-y: auto !important; /* Aggiunge la scrollbar verticale se necessario */
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ########################################################################## #
+# ##################### FINE BLOCCO CSS AGGIORNATO ######################### #
+# ########################################################################## #
+
+
 st.divider()
 
 def start_analysis_callback():
@@ -471,10 +496,6 @@ if st.session_state.get('analysis_started', False):
         else:
             st.write("_Nessuna ricerca correlata trovata_")
             
-    # ########################################################################## #
-    # ################ INIZIO SEZIONE UX COMPETITOR AGGIORNATA ################# #
-    # ########################################################################## #
-    
     st.divider()
     st.subheader("Contenuti dei Competitor Analizzati (Main Topic)")
 
@@ -484,7 +505,8 @@ if st.session_state.get('analysis_started', False):
         domain_clean = urlparse(url).netloc.removeprefix("www.") if url else "URL non disponibile"
         nav_labels.append(f"{i+1}. {domain_clean}")
 
-    col_nav, col_content = st.columns([1, 2.5], gap="large")
+    # Rapporto colonne aggiornato per rendere la sinistra più stretta
+    col_nav, col_content = st.columns([1, 3], gap="large")
 
     with col_nav:
         st.markdown("<h6>Competitors</h6>", unsafe_allow_html=True)
@@ -498,28 +520,29 @@ if st.session_state.get('analysis_started', False):
 
     with col_content:
         selected_url_raw = organic_results[selected_index].get('url', '')
-        # Pulisce l'URL dai parametri per la visualizzazione
+        # Pulisce l'URL dai parametri per una visualizzazione pulita
         cleaned_display_url = selected_url_raw.split('?')[0]
         
         # Mostra URL pulito e su una riga
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
         
-        # Carica il contenuto dal suo stato di sessione, che viene creato dinamicamente
-        # dalla chiave unica. Se non è mai stato modificato, carica quello iniziale.
+        # Chiave dinamica per l'editor, fondamentale per il corretto aggiornamento
         editor_key = f"quill_editor_main_{selected_index}"
-        html_to_display = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
         
+        # Carica il contenuto, gestendo il caso in cui sia None
+        html_content = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
+        html_to_display = html_content if html_content is not None else ""
+        
+        # Contenitore div per applicare il CSS dell'altezza
+        st.markdown('<div class="quill-container">', unsafe_allow_html=True)
         st_quill(
             value=html_to_display,
             html=True,
-            key=editor_key # Chiave dinamica per forzare il ricaricamento
+            key=editor_key
         )
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
-
-    # ######################################################################## #
-    # ################## FINE SEZIONE UX COMPETITOR AGGIORNATA ################# #
-    # ######################################################################## #
 
     st.subheader("Keyword Ranking dei Competitor (Top 30 per URL)")
     ranked_keywords_results = st.session_state.get('ranked_keywords_results', [])
@@ -595,9 +618,9 @@ if st.session_state.get('analysis_started', False):
     final_edited_htmls = []
     for i in range(len(organic_results)):
         editor_key = f"quill_editor_main_{i}"
-        # Se l'utente ha modificato il testo, usa quello. Altrimenti, usa l'originale.
         content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
-        final_edited_htmls.append(content)
+        # Assicura che non venga mai aggiunto un valore None alla lista finale
+        final_edited_htmls.append(content if content is not None else "")
 
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in final_edited_htmls]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
@@ -627,7 +650,7 @@ if st.session_state.get('analysis_started', False):
             paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
             prompt_mining_args = {
                 "keyword": st.session_state.query, "country": st.session_state.country, "language": st.session_state.language, 
-                "texts": final_joined_texts, # <-- USA IL TESTO PULITO E MODIFICATO
+                "texts": final_joined_texts,
                 "entities_table": edited_df_entities.to_markdown(index=False),
                 "related_table": pd.DataFrame(related_list, columns=["Query Correlata"]).to_markdown(index=False),
                 "paa_table": pd.DataFrame(paa_list, columns=["Domanda"]).to_markdown(index=False)
