@@ -480,26 +480,23 @@ if st.session_state.get('analysis_started', False):
         
         editor_key = f"quill_editor_{selected_index}"
         
-        # Determina il valore da visualizzare
-        # Se un valore modificato esiste in session_state, usa quello.
-        # Altrimenti, usa il valore iniziale.
-        if editor_key in st.session_state:
-            html_to_display = st.session_state[editor_key]
-        else:
-            html_to_display = st.session_state.initial_html_contents[selected_index]
-
+        # Determina esplicitamente il valore da mostrare
+        # Cerca prima un valore modificato in session_state.
+        # Se non lo trova, usa il valore iniziale.
+        value_to_display = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
+        
         # Assicura che il valore non sia mai None per evitare errori
-        final_value_to_display = html_to_display if html_to_display is not None else ""
-
+        if value_to_display is None:
+            value_to_display = ""
+        
         # Usa un contenitore con una classe custom per il CSS
         st.markdown('<div class="quill-container">', unsafe_allow_html=True)
         st_quill(
-            value=final_value_to_display,
+            value=value_to_display,
             html=True,
             key=editor_key
         )
         st.markdown('</div>', unsafe_allow_html=True)
-
 
     st.divider()
 
@@ -577,7 +574,6 @@ if st.session_state.get('analysis_started', False):
     final_edited_htmls = []
     for i in range(len(organic_results)):
         editor_key = f"quill_editor_{i}"
-        # Prende il valore dallo stato (se modificato) o usa il valore iniziale come fallback
         content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
         final_edited_htmls.append(content if content is not None else "")
 
