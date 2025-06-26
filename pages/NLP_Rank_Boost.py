@@ -8,8 +8,8 @@ import pandas as pd
 import requests
 import streamlit as st
 from google import genai
-# Importazione del nuovo editor di testo con il nome corretto
-from st_tinymce import st_tinymce
+# Importazione per gli editor di testo
+from streamlit_quill import st_quill
 # Importazione per ripulire l'output HTML dell'editor
 from bs4 import BeautifulSoup
 
@@ -285,6 +285,18 @@ Genera **ESCLUSIVAMENTE** la tabella Markdown finale, iniziando dalla riga dell'
 
 st.title("Analisi SEO Competitiva Multi-Step")
 st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
+
+# CSS per forzare l'altezza dell'editor Quill
+st.markdown("""
+<style>
+    .quill-container .ql-editor {
+        min-height: 250px !important;
+        max-height: 250px !important;
+        overflow-y: scroll !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.divider()
 
 def start_analysis_callback():
@@ -466,22 +478,28 @@ if st.session_state.get('analysis_started', False):
         cleaned_display_url = selected_url_raw.split('?')[0]
         st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
         
-        # Sostituzione di st_quill con il componente stabile st_tinymce
-        editor_key = f"tinymce_editor_{selected_index}"
+        editor_key = f"quill_editor_{selected_index}"
         
-        # Logica di stato robusta: determina il valore da mostrare
-        value_to_display = st.session_state.get(editor_key, st.session_state.initial_html_contents[selected_index])
-        
+        # Determina il valore da visualizzare
+        # Se un valore modificato esiste in session_state, usa quello.
+        # Altrimenti, usa il valore iniziale.
+        if editor_key in st.session_state:
+            html_to_display = st.session_state[editor_key]
+        else:
+            html_to_display = st.session_state.initial_html_contents[selected_index]
+
         # Assicura che il valore non sia mai None per evitare errori
-        if value_to_display is None:
-            value_to_display = ""
-        
-        # st_tinymce accetta un parametro height diretto
-        content = st_tinymce(
-            value=value_to_display,
-            key=editor_key,
-            height=250 
+        final_value_to_display = html_to_display if html_to_display is not None else ""
+
+        # Usa un contenitore con una classe custom per il CSS
+        st.markdown('<div class="quill-container">', unsafe_allow_html=True)
+        st_quill(
+            value=final_value_to_display,
+            html=True,
+            key=editor_key
         )
+        st.markdown('</div>', unsafe_allow_html=True)
+
 
     st.divider()
 
@@ -558,7 +576,8 @@ if st.session_state.get('analysis_started', False):
     # Raccoglie i contenuti finali, tenendo conto delle modifiche
     final_edited_htmls = []
     for i in range(len(organic_results)):
-        editor_key = f"tinymce_editor_{i}"
+        editor_key = f"quill_editor_{i}"
+        # Prende il valore dallo stato (se modificato) o usa il valore iniziale come fallback
         content = st.session_state.get(editor_key, st.session_state.initial_html_contents[i])
         final_edited_htmls.append(content if content is not None else "")
 
