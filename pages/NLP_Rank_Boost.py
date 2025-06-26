@@ -84,10 +84,10 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         st.error(f"Errore chiamata a DataForSEO: {e}")
         return None
 
-# --- MODIFICA DEFINITIVA: Utilizzo di 'requests' per bypassare la libreria client ---
+# --- MODIFICA DEFINITIVA: Utilizzo di 'requests' e solo del campo 'page_as_markdown' ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> str:
-    """Estrae il contenuto testuale usando una chiamata API diretta per ignorare campi problematici."""
+    """Estrae il contenuto Markdown da un URL usando una chiamata API diretta."""
     post_data = [{"url": url, "markdown_view": True, "enable_javascript": True, "enable_xhr": True, "disable_cookie_popup": True}]
     try:
         response = session.post("https://api.dataforseo.com/v3/on_page/content_parsing/live", json=post_data)
@@ -103,32 +103,13 @@ def parse_url_content(url: str) -> str:
         markdown_content = items.get("page_as_markdown")
         if markdown_content:
             return markdown_content
-
-        page_content = items.get("page_content", {})
-        if not page_content:
-            return f"## Contenuto non Trovato ##\nNessun contenuto testuale analizzabile per {url}."
-
-        text_parts = []
-        all_topics = (page_content.get("main_topic") or []) + (page_content.get("secondary_topic") or [])
-        if not all_topics:
-            return f"## Contenuto non Strutturato ##\nNessun topic (h1, h2...) rilevato per {url}."
-        
-        all_topics.sort(key=lambda x: x.get('level') or 99)
-        for topic in all_topics:
-            if topic.get('h_title'):
-                text_parts.append(f"<h{topic.get('level')}>{topic.get('h_title')}</h{topic.get('level')}>")
-            if topic.get('primary_content'):
-                for content in topic.get('primary_content'):
-                    if content.get('text'):
-                        text_parts.append(content.get('text'))
-        
-        return "\n\n".join(text_parts)
+        else:
+            return f"## Contenuto non Estratto ##\nL'API non ha restituito il contenuto in formato Markdown per l'URL: {url}"
 
     except requests.RequestException as e:
         return f"## Errore di Rete ##\nDurante l'analisi dell'URL {url}: {str(e)}"
     except Exception as e:
-        return f"## Errore Imprevisto ##\nDurante l'analisi manuale della risposta per {url}: {str(e)}"
-
+        return f"## Errore Imprevisto ##\nDurante l'analisi della risposta per {url}: {str(e)}"
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
