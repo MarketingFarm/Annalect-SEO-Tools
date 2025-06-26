@@ -108,7 +108,8 @@ def parse_url_content(url: str) -> str:
     except requests.RequestException as e:
         return f"## Errore di Rete ##\nDurante l'analisi dell'URL {url}: {str(e)}"
     except Exception as e:
-        return f"## Errore Imprevisto ##\nDurante l'analisi della risposta per {url}: {str(e)}"
+        # Questo cattura errori nel parsing del JSON, se la risposta non è quella attesa
+        return f"## Errore Imprevisto nell'Analisi della Risposta ##\nURL: {url}\nErrore: {str(e)}"
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
