@@ -480,41 +480,38 @@ if st.session_state.get('analysis_started', False):
             label_visibility="collapsed"
         )
 
-# --- CODICE NUOVO E DEFINITIVO PER L'EDITOR ---
+    # --- CODICE NUOVO E DEFINITIVO PER L'EDITOR ---
+    with col_content:
+        selected_url_raw = organic_results[selected_index].get('url', '')
+        cleaned_display_url = selected_url_raw.split('?')[0]
+        st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
 
-with col_content:
-    selected_url_raw = organic_results[selected_index].get('url', '')
-    cleaned_display_url = selected_url_raw.split('?')[0]
-    st.markdown(f"**URL Selezionato:** `{cleaned_display_url}`")
+        # === LA MODIFICA CHIAVE ===
+        # Ripristiniamo la chiave dinamica basata sull'indice del competitor.
+        # Questo dice a Streamlit di "distruggere" il vecchio editor e crearne uno
+        # nuovo quando l'utente seleziona un competitor diverso, forzandolo
+        # a caricare il nuovo testo correttamente.
+        editor_key = f"quill_editor_{selected_index}"
 
-    # === LA MODIFICA CHIAVE ===
-    # Ripristiniamo la chiave dinamica basata sull'indice del competitor.
-    # Questo dice a Streamlit di "distruggere" il vecchio editor e crearne uno
-    # nuovo quando l'utente seleziona un competitor diverso, forzandolo
-    # a caricare il nuovo testo correttamente.
-    editor_key = f"quill_editor_{selected_index}"
+        # La nostra logica per leggere il contenuto corretto dallo stato centralizzato
+        # rimane la stessa, ed è robusta.
+        content_to_display = st.session_state.edited_html_contents[selected_index]
 
-    # La nostra logica per leggere il contenuto corretto dallo stato centralizzato
-    # rimane la stessa, ed è robusta.
-    content_to_display = st.session_state.edited_html_contents[selected_index]
+        st.markdown('<div class="quill-container">', unsafe_allow_html=True)
+        
+        # Passiamo la chiave dinamica e il valore corretto all'editor.
+        edited_content = st_quill(
+            value=content_to_display,
+            html=True,
+            key=editor_key
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="quill-container">', unsafe_allow_html=True)
-    
-    # Passiamo la chiave dinamica e il valore corretto all'editor.
-    edited_content = st_quill(
-        value=content_to_display,
-        html=True,
-        key=editor_key
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # La nostra logica per salvare le modifiche nello stato centralizzato
-    # rimane invariata e funziona correttamente.
-    if edited_content != content_to_display:
-        st.session_state.edited_html_contents[selected_index] = edited_content
-        st.rerun()
-    # ---> FINE BLOCCO MODIFICATO <---
-
+        # La nostra logica per salvare le modifiche nello stato centralizzato
+        # rimane invariata e funziona correttamente.
+        if edited_content != content_to_display:
+            st.session_state.edited_html_contents[selected_index] = edited_content
+            st.rerun()
 
     st.divider()
 
@@ -588,11 +585,9 @@ with col_content:
 
     st.divider()
     
-    # ---> INIZIO BLOCCO MODIFICATO <---
     # Raccoglie i contenuti finali direttamente dalla nostra variabile di stato
     # che contiene tutte le modifiche apportate dall'utente.
     final_edited_htmls = st.session_state.edited_html_contents
-    # ---> FINE BLOCCO MODIFICATO <---
 
     cleaned_texts = [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in final_edited_htmls]
     final_joined_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(filter(None, cleaned_texts))
