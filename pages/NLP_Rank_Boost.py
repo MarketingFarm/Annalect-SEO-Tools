@@ -16,10 +16,10 @@ from bs4 import BeautifulSoup
 
 # --- 1. CONFIGURAZIONE E COSTANTI ---
 
-# Configura la libreria Gemini (metodo aggiornato)
+# Configura il client Gemini (METODO ORIGINALE RIPRISTINATO)
 try:
     GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 except KeyError:
     st.error("GEMINI_API_KEY non trovata. Imposta la variabile d'ambiente.")
     st.stop()
@@ -176,21 +176,18 @@ def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
     except requests.RequestException as e:
         return {"url": url, "status": "failed", "error": str(e), "items": []}
 
-# --- FUNZIONE RUN_NLU AGGIORNATA ---
+# --- FUNZIONE RUN_NLU CORRETTA PER USARE IL CLIENT ---
 def run_nlu(prompt: str, model_name: str = GEMINI_MODEL) -> str:
-    """Esegue una singola chiamata al modello Gemini usando il pattern GenerativeModel."""
+    """Esegue una singola chiamata al modello Gemini usando il Client object."""
     try:
-        generation_config = None
-        # Se il prompt richiede un output JSON, configuriamo il modello di conseguenza
-        if "JSON_OUTPUT" in prompt or "Restituisci ESATTAMENTE e SOLO un oggetto JSON" in prompt:
-            generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
-
-        model = genai.GenerativeModel(model_name, generation_config=generation_config)
-        response = model.generate_content(prompt)
+        response = gemini_client.models.generate_content(
+            model=f"models/{model_name}",
+            contents=[prompt]
+        )
         return response.text
     except Exception as e:
         st.warning(f"Errore durante la chiamata a Gemini: {str(e)}")
-        return "" # Restituisce una stringa vuota per causare un fallimento controllato
+        return "" # Restituisce una stringa vuota per un fallimento controllato
 
 def parse_markdown_tables(text: str) -> list[pd.DataFrame]:
     """Estrae tutte le tabelle Markdown da un testo e le converte in DataFrame."""
@@ -217,7 +214,6 @@ def get_position_from_item(item: dict) -> int | None:
     if not isinstance(item, dict):
         return None
 
-    # Percorso 1: `serp_info` (come da documentazione principale)
     serp_info = item.get("serp_info")
     if isinstance(serp_info, dict):
         serp_item = serp_info.get("serp_item")
@@ -226,7 +222,6 @@ def get_position_from_item(item: dict) -> int | None:
             if position is not None:
                 return position
 
-    # Percorso 2: `ranked_serp_element` (struttura alternativa comune)
     ranked_serp_element = item.get("ranked_serp_element")
     if isinstance(ranked_serp_element, dict):
         serp_item = ranked_serp_element.get("serp_item")
@@ -258,7 +253,7 @@ def filter_unbranded_keywords_with_gemini(keywords: list[str], domain: str) -> l
     
     try:
         response_text = run_nlu(prompt)
-        if not response_text: # Gestisce il caso in cui run_nlu restituisce stringa vuota per errore
+        if not response_text:
             raise json.JSONDecodeError("Risposta vuota da Gemini", "", 0)
 
         cleaned_response = re.sub(r'```json\n?|```', '', response_text).strip()
