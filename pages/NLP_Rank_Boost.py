@@ -23,7 +23,6 @@ try:
     
     genai.configure(api_key=GEMINI_API_KEY)
     
-    # MODELLO AGGIORNATO COME RICHIESTO
     gemini_client = genai.GenerativeModel("gemini-2.5-pro")
     
 except AttributeError:
@@ -48,42 +47,9 @@ session.auth = DFS_AUTH
 
 # --- 2. FUNZIONI DI UTILITY E API ---
 
-@st.cache_data(show_spinner="Caricamento Paesi...")
-def get_countries() -> list[str]:
-    """Recupera e cachea la lista dei paesi da DataForSEO."""
-    try:
-        resp = session.get('https://api.dataforseo.com/v3/serp/google/locations')
-        resp.raise_for_status()
-        locs = resp.json()['tasks'][0]['result']
-        return sorted(loc['location_name'] for loc in locs if loc.get('location_type') == 'Country')
-    except (requests.RequestException, KeyError, IndexError) as e:
-        st.warning(f"Impossibile caricare la lista dei paesi: {e}")
-        return ["United States", "Italy", "United Kingdom", "Germany", "France", "Spain"]
-
-@st.cache_data(show_spinner="Caricamento Lingue...")
-def get_languages() -> list[str]:
-    """Recupera e cachea la lista delle lingue da DataForSEO."""
-    try:
-        resp = session.get('https://api.dataforseo.com/v3/serp/google/languages')
-        resp.raise_for_status()
-        langs = resp.json()['tasks'][0]['result']
-        return sorted(lang['language_name'] for lang in langs)
-    except (requests.RequestException, KeyError, IndexError) as e:
-        st.warning(f"Impossibile caricare la lista delle lingue: {e}")
-        return ["English", "Italian", "German", "French", "Spanish"]
-
-def clean_url(url: str) -> str:
-    """Rimuove parametri e frammenti da un URL."""
-    parsed = urlparse(url)
-    return urlunparse(parsed._replace(query="", params="", fragment=""))
-
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
 def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
-    """
-    Esegue la chiamata API a DataForSEO per ottenere i dati della SERP,
-    incluse le AI Overviews.
-    """
-    # CORREZIONE: Manteniamo il parametro per le AI Overviews ma usiamo l'endpoint corretto
+    """Esegue la chiamata API a DataForSEO per ottenere i dati della SERP."""
     payload = [{
         "keyword": query,
         "location_name": country,
@@ -91,12 +57,10 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         "get_generative_answers": True
     }]
     try:
-        # CORREZIONE: Torniamo all'endpoint /organic/ che è quello corretto
         response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=payload)
         response.raise_for_status()
         data = response.json()
         
-        # Aggiungiamo un controllo sull'errore specifico del task
         if data.get("tasks_error", 0) > 0:
              st.error("DataForSEO ha restituito un errore nel task:")
              st.json(data["tasks"])
@@ -113,9 +77,7 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def parse_url_content(url: str) -> dict:
-    """
-    Estrae il 'main_topic' e gli headings da una pagina.
-    """
+    """Estrae il 'main_topic' e gli headings da una pagina."""
     default_return = {"html_content": "", "headings": []}
     if not url or url.lower().endswith('.pdf'):
         return default_return
@@ -285,7 +247,7 @@ def get_topic_clusters_prompt(keyword: str, entities_md: str, headings_str: str,
 **COMPITO E FORMATO DI OUTPUT:**
 1.  **Analisi e Sintesi:** Analizza TUTTI i dati per identificare i sotto-argomenti principali.
 2.  **Clustering:** Raggruppa entità, headings e domande correlate in **5-7 cluster tematici**.
-3.  **Formattazione:** Genera **ESCLUSIVAMENTE** una tabella Markdown. Non aggiungere introduzioni o commenti.
+3.  **Formattazione:** Genera **ESCLUSIVamente** una tabella Markdown. Non aggiungere introduzioni o commenti.
 | Topic Cluster (Sotto-argomento Principale) | Concetti, Entità e Domande Chiave del Cluster |
 | :--- | :--- |
 """
@@ -372,22 +334,28 @@ st.divider()
 if st.session_state.analysis_started:
     query, country, language = st.session_state.query, st.session_state.country, st.session_state.language
 
+    # --- FASE 1: ESTRAZIONE E PARSING DATI SERP ---
+    # Fetch dei dati solo se non esistono
     if 'serp_result' not in st.session_state:
-        with st.spinner("Fase 1/5: Analizzo la SERP, estraggo AI Overviews e contenuti..."):
+        with st.spinner("Fase 1/5: Analizzo la SERP e i competitor..."):
             st.session_state.serp_result = fetch_serp_data(query, country, language)
             if not st.session_state.serp_result:
                 st.error("Analisi interrotta: impossibile ottenere i dati dalla SERP.")
                 st.stop()
+    
+    # CORREZIONE: Parsing dei dati SERP ad ogni esecuzione per garantire lo stato
+    items = st.session_state.serp_result.get('items', [])
+    st.session_state.organic_results = [item for item in items if item.get("type") == "organic"][:10]
+    
+    ai_overview = next((item for item in items if item.get("type") == "generative_answers"), None)
+    st.session_state.ai_overview_text = ai_overview.get("answer") if ai_overview else None
+    st.session_state.ai_overview_sources = [src.get('url') for src in ai_overview.get("links", [])] if ai_overview else []
 
-            items = st.session_state.serp_result.get('items', [])
-            st.session_state.organic_results = [item for item in items if item.get("type") == "organic"][:10]
-            
-            ai_overview = next((item for item in items if item.get("type") == "generative_answers"), None)
-            st.session_state.ai_overview_text = ai_overview.get("answer") if ai_overview else None
-            st.session_state.ai_overview_sources = [src.get('url') for src in ai_overview.get("links", [])] if ai_overview else []
-
-            st.session_state.serp_feature_counts = Counter(item.get("type") for item in items)
-
+    st.session_state.serp_feature_counts = Counter(item.get("type") for item in items)
+    
+    # Estrazione contenuti on-page
+    if 'parsed_contents' not in st.session_state:
+        with st.spinner("Fase 1.5/5: Estraggo i contenuti delle pagine..."):
             urls_to_parse = [r.get("url") for r in st.session_state.organic_results if r.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
@@ -396,30 +364,33 @@ if st.session_state.analysis_started:
             st.session_state.parsed_contents = [results.get(url, {"html_content": "", "headings": []}) for url in urls_to_parse]
             st.session_state.edited_html_contents = [res['html_content'] for res in st.session_state.parsed_contents]
 
+    # --- FASE 2: ESTRAZIONE KEYWORD RANKING ---
     if 'ranked_keywords_results' not in st.session_state:
-        with st.spinner("Fase 2/5: Scopro le keyword per cui si posizionano i competitor..."):
+        with st.spinner("Fase 2/5: Scopro le keyword dei competitor..."):
             urls_for_ranking = [clean_url(res.get("url")) for res in st.session_state.organic_results if res.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(fetch_ranked_keywords, url, country, language) for url in urls_for_ranking]
                 st.session_state.ranked_keywords_results = [f.result() for f in as_completed(futures)]
     
-    initial_cleaned_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
-        filter(None, [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in st.session_state.edited_html_contents])
-    )
-
-    if not initial_cleaned_texts.strip():
-        st.error("Impossibile recuperare contenuto testuale significativo. L'analisi non può continuare.")
-        st.stop()
-
+    # --- FASE 3: ANALISI NLU ---
     if 'nlu_strat_text' not in st.session_state:
-        with st.spinner("Fase 3/5: L'AI definisce l'intento, il target e le entità chiave..."):
+        with st.spinner("Fase 3/5: L'AI definisce l'intento e le entità..."):
+            initial_cleaned_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
+                filter(None, [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in st.session_state.edited_html_contents])
+            )
+            if not initial_cleaned_texts.strip():
+                st.error("Impossibile recuperare contenuto testuale significativo. L'analisi non può continuare.")
+                st.stop()
+
             with ThreadPoolExecutor() as executor:
                 future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_cleaned_texts))
-                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_joined_texts))
+                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_cleaned_texts))
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
 
+    # --- INIZIO VISUALIZZAZIONE ---
     st.header("1. Analisi Strategica della SERP")
+    
     nlu_strat_text = st.session_state.nlu_strat_text
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     if dfs_strat:
@@ -433,8 +404,7 @@ if st.session_state.analysis_started:
     col1, col2 = st.columns([1, 2])
     with col1:
         st.write("**Feature Rilevate in SERP:**")
-        df_features = pd.DataFrame(st.session_state.serp_feature_counts.items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False)
-        st.dataframe(df_features, hide_index=True)
+        st.dataframe(pd.DataFrame(st.session_state.serp_feature_counts.items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
     with col2:
         st.write("**Analisi AI Overview (Risposta Generativa)**")
         if st.session_state.ai_overview_text:
@@ -454,12 +424,7 @@ if st.session_state.analysis_started:
     st.header("2. Analisi dei Competitor")
     items = st.session_state.serp_result.get('items', [])
     paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-    
-    related_list = list(dict.fromkeys(
-        (s.get("query") if isinstance(s, dict) else s) 
-        for item in items if item.get("type") in ("related_searches", "related_search") 
-        for s in item.get("items", [])
-    ))
+    related_list = list(dict.fromkeys((s.get("query") if isinstance(s, dict) else s) for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])))
     related_list = [q for q in related_list if q]
 
     st.subheader("Entità Rilevanti (Common Ground dei Competitor)")
@@ -473,10 +438,9 @@ if st.session_state.analysis_started:
     if 'edited_df_entities' not in st.session_state:
         st.session_state.edited_df_entities = df_entities
     
-    st.session_state.edited_df_entities = st.data_editor(
-        st.session_state.edited_df_entities, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_entities"
-    )
+    st.session_state.edited_df_entities = st.data_editor(st.session_state.edited_df_entities, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_entities")
 
+    # --- FASE 4: TOPICAL MODELING ---
     if 'df_topic_clusters' not in st.session_state:
          with st.spinner("Fase 4/5: Raggruppo le entità in Topic Cluster semantici..."):
             all_headings = [h for res in st.session_state.parsed_contents for h in res['headings']]
@@ -491,15 +455,14 @@ if st.session_state.analysis_started:
             st.session_state.df_topic_clusters = dfs_topics[0] if dfs_topics else pd.DataFrame(columns=['Topic Cluster (Sotto-argomento Principale)', 'Concetti, Entità e Domande Chiave del Cluster'])
 
     st.header("3. Architettura del Topic (Topic Modeling)")
-    st.info("ℹ️ Questa è la mappa concettuale del tuo contenuto. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster. Puoi modificare i nomi prima di generare il brief.")
+    st.info("ℹ️ Questa è la mappa concettuale. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster. Puoi modificare i nomi prima di generare il brief.")
 
     if 'edited_df_topic_clusters' not in st.session_state:
         st.session_state.edited_df_topic_clusters = st.session_state.df_topic_clusters
 
-    st.session_state.edited_df_topic_clusters = st.data_editor(
-        st.session_state.edited_df_topic_clusters, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_topics"
-    )
+    st.session_state.edited_df_topic_clusters = st.data_editor(st.session_state.edited_df_topic_clusters, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_topics")
 
+    # --- FASE 5: GENERAZIONE CONTENT BRIEF ---
     st.header("4. Content Brief Strategico Finale")
     if st.button("✍️ Genera Brief Dettagliato", type="primary", use_container_width=True):
         with st.spinner("Fase 5/5: Sto scrivendo il brief per il tuo copywriter..."):
