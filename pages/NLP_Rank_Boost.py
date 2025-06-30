@@ -47,6 +47,35 @@ session.auth = DFS_AUTH
 
 # --- 2. FUNZIONI DI UTILITY E API ---
 
+@st.cache_data(show_spinner="Caricamento Paesi...")
+def get_countries() -> list[str]:
+    """Recupera e cachea la lista dei paesi da DataForSEO."""
+    try:
+        resp = session.get('https://api.dataforseo.com/v3/serp/google/locations')
+        resp.raise_for_status()
+        locs = resp.json()['tasks'][0]['result']
+        return sorted(loc['location_name'] for loc in locs if loc.get('location_type') == 'Country')
+    except (requests.RequestException, KeyError, IndexError) as e:
+        st.warning(f"Impossibile caricare la lista dei paesi: {e}")
+        return ["United States", "Italy", "United Kingdom", "Germany", "France", "Spain"]
+
+@st.cache_data(show_spinner="Caricamento Lingue...")
+def get_languages() -> list[str]:
+    """Recupera e cachea la lista delle lingue da DataForSEO."""
+    try:
+        resp = session.get('https://api.dataforseo.com/v3/serp/google/languages')
+        resp.raise_for_status()
+        langs = resp.json()['tasks'][0]['result']
+        return sorted(lang['language_name'] for lang in langs)
+    except (requests.RequestException, KeyError, IndexError) as e:
+        st.warning(f"Impossibile caricare la lista delle lingue: {e}")
+        return ["English", "Italian", "German", "French", "Spanish"]
+
+def clean_url(url: str) -> str:
+    """Rimuove parametri e frammenti da un URL."""
+    parsed = urlparse(url)
+    return urlunparse(parsed._replace(query="", params="", fragment=""))
+
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
 def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
     """Esegue la chiamata API a DataForSEO per ottenere i dati della SERP."""
@@ -247,7 +276,7 @@ def get_topic_clusters_prompt(keyword: str, entities_md: str, headings_str: str,
 **COMPITO E FORMATO DI OUTPUT:**
 1.  **Analisi e Sintesi:** Analizza TUTTI i dati per identificare i sotto-argomenti principali.
 2.  **Clustering:** Raggruppa entità, headings e domande correlate in **5-7 cluster tematici**.
-3.  **Formattazione:** Genera **ESCLUSIVamente** una tabella Markdown. Non aggiungere introduzioni o commenti.
+3.  **Formattazione:** Genera **ESCLUSIVAMENTE** una tabella Markdown. Non aggiungere introduzioni o commenti.
 | Topic Cluster (Sotto-argomento Principale) | Concetti, Entità e Domande Chiave del Cluster |
 | :--- | :--- |
 """
@@ -303,16 +332,20 @@ def start_analysis():
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.warning("Per favore, compila tutti i campi: Query, Country e Lingua.")
         return
+    # Pulisce lo stato per una nuova analisi, conservando solo gli input
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'country', 'language', 'analysis_started']:
+        if key not in ['query', 'country', 'language']:
             del st.session_state[key]
     st.session_state.analysis_started = True
+    st.rerun() # Forza un rerun per iniziare subito il flusso
 
 def new_analysis():
     st.session_state.analysis_started = False
+    # Pulisce tutti i dati dell'analisi precedente
     for key in list(st.session_state.keys()):
         if key not in ['query', 'country', 'language']:
-            st.session_state[key] = '' if isinstance(st.session_state[key], str) else None
+            del st.session_state[key]
+    st.rerun()
 
 with st.container():
     c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 1.5])
@@ -335,28 +368,21 @@ if st.session_state.analysis_started:
     query, country, language = st.session_state.query, st.session_state.country, st.session_state.language
 
     # --- FASE 1: ESTRAZIONE E PARSING DATI SERP ---
-    # Fetch dei dati solo se non esistono
     if 'serp_result' not in st.session_state:
         with st.spinner("Fase 1/5: Analizzo la SERP e i competitor..."):
             st.session_state.serp_result = fetch_serp_data(query, country, language)
             if not st.session_state.serp_result:
                 st.error("Analisi interrotta: impossibile ottenere i dati dalla SERP.")
                 st.stop()
-    
-    # CORREZIONE: Parsing dei dati SERP ad ogni esecuzione per garantire lo stato
-    items = st.session_state.serp_result.get('items', [])
-    st.session_state.organic_results = [item for item in items if item.get("type") == "organic"][:10]
-    
-    ai_overview = next((item for item in items if item.get("type") == "generative_answers"), None)
-    st.session_state.ai_overview_text = ai_overview.get("answer") if ai_overview else None
-    st.session_state.ai_overview_sources = [src.get('url') for src in ai_overview.get("links", [])] if ai_overview else []
 
-    st.session_state.serp_feature_counts = Counter(item.get("type") for item in items)
+    # CORREZIONE DI STATO: Queste variabili vengono definite ad ogni esecuzione
+    items = st.session_state.serp_result.get('items', [])
+    organic_results = [item for item in items if item.get("type") == "organic"][:10]
+    ai_overview = next((item for item in items if item.get("type") == "generative_answers"), None)
     
-    # Estrazione contenuti on-page
     if 'parsed_contents' not in st.session_state:
         with st.spinner("Fase 1.5/5: Estraggo i contenuti delle pagine..."):
-            urls_to_parse = [r.get("url") for r in st.session_state.organic_results if r.get("url")]
+            urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
                 results = {future_to_url[future]: future.result() for future in as_completed(future_to_url)}
@@ -367,7 +393,7 @@ if st.session_state.analysis_started:
     # --- FASE 2: ESTRAZIONE KEYWORD RANKING ---
     if 'ranked_keywords_results' not in st.session_state:
         with st.spinner("Fase 2/5: Scopro le keyword dei competitor..."):
-            urls_for_ranking = [clean_url(res.get("url")) for res in st.session_state.organic_results if res.get("url")]
+            urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(fetch_ranked_keywords, url, country, language) for url in urls_for_ranking]
                 st.session_state.ranked_keywords_results = [f.result() for f in as_completed(futures)]
@@ -404,15 +430,16 @@ if st.session_state.analysis_started:
     col1, col2 = st.columns([1, 2])
     with col1:
         st.write("**Feature Rilevate in SERP:**")
-        st.dataframe(pd.DataFrame(st.session_state.serp_feature_counts.items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
+        st.dataframe(pd.DataFrame(st.session_state.serp_result.get('items', Counter()).get('types', {}).items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
     with col2:
         st.write("**Analisi AI Overview (Risposta Generativa)**")
-        if st.session_state.ai_overview_text:
-            st.info(st.session_state.ai_overview_text)
+        if ai_overview:
+            st.info(ai_overview.get("answer"))
+            ai_overview_sources = [src.get('url') for src in ai_overview.get("links", [])]
             st.write("**Fonti Citate nell'AI Overview:**")
-            if st.session_state.ai_overview_sources:
-                for source_url in st.session_state.ai_overview_sources:
-                    if any(clean_url(org_url.get('url','')) == clean_url(source_url) for org_url in st.session_state.organic_results):
+            if ai_overview_sources:
+                for source_url in ai_overview_sources:
+                    if any(clean_url(org_url.get('url','')) == clean_url(source_url) for org_url in organic_results):
                         st.success(f"✅ {urlparse(source_url).netloc} (Presente nei Top 10)")
                     else:
                         st.warning(f"⚠️ {urlparse(source_url).netloc} (Esterno ai Top 10)")
@@ -422,7 +449,6 @@ if st.session_state.analysis_started:
             st.write("_Nessuna AI Overview rilevata per questa query._")
 
     st.header("2. Analisi dei Competitor")
-    items = st.session_state.serp_result.get('items', [])
     paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
     related_list = list(dict.fromkeys((s.get("query") if isinstance(s, dict) else s) for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])))
     related_list = [q for q in related_list if q]
@@ -494,10 +520,10 @@ if st.session_state.analysis_started:
     st.header("Appendice: Dati di Dettaglio")
 
     with st.expander("Visualizza/Modifica Contenuti Estratti dai Competitor"):
-        nav_labels = [f"{i+1}. {urlparse(res.get('url', '')).netloc.replace('www.', '')}" for i, res in enumerate(st.session_state.organic_results)]
+        nav_labels = [f"{i+1}. {urlparse(res.get('url', '')).netloc.replace('www.', '')}" for i, res in enumerate(organic_results)]
         selected_index = st.selectbox("Seleziona un competitor:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i])
         
-        st.markdown(f"**URL:** `{st.session_state.organic_results[selected_index].get('url', '')}`")
+        st.markdown(f"**URL:** `{organic_results[selected_index].get('url', '')}`")
         edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
         if edited_content != st.session_state.edited_html_contents[selected_index]:
             st.session_state.edited_html_contents[selected_index] = edited_content
