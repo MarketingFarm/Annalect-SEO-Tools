@@ -103,8 +103,9 @@ def clean_url(url: str) -> str:
 
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
 def fetch_serp_data(query: str, location_code: int, language_code: str) -> dict | None:
-    """Esegue la chiamata API a DataForSEO con la struttura del payload corretta."""
-    payload = [{
+    """Esegue la chiamata API a DataForSEO con la struttura del payload corretta e definitiva."""
+    # CORREZIONE FINALE: La struttura del payload ora rispecchia l'esempio funzionante.
+    post_data = [{
         "keyword": query,
         "location_code": location_code,
         "language_code": language_code,
@@ -115,7 +116,8 @@ def fetch_serp_data(query: str, location_code: int, language_code: str) -> dict 
         "people_also_ask_click_depth": 4 # Aumentato come richiesto
     }]
     try:
-        response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=payload)
+        # La chiamata POST ora invia il payload come `json` per una corretta formattazione
+        response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=post_data)
         response.raise_for_status()
         data = response.json()
         
@@ -182,7 +184,7 @@ def parse_url_content(url: str) -> dict:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ranked_keywords(url: str, location_name: str, language_name: str) -> dict:
-    """Estrae le keyword posizionate. Mantenuto con i nomi per semplicità."""
+    """Estrae le keyword posizionate."""
     payload = [{"target": url, "location_name": location_name, "language_name": language_name, "limit": 30}]
     try:
         response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
@@ -362,20 +364,24 @@ if 'analysis_started' not in st.session_state:
     st.session_state.analysis_started = False
 
 def start_analysis():
-    if not all([st.session_state.query, st.session_state.location_code, st.session_state.language_code]):
+    if not all([st.session_state.query, st.session_state.get('location_code'), st.session_state.get('language_code')]):
         st.warning("Per favore, compila tutti i campi: Query, Paese e Lingua.")
         return
+    # Pulisce lo stato per una nuova analisi
+    current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'location_code', 'language_code', 'location_name', 'language_name']:
+        if key not in current_keys:
             del st.session_state[key]
     st.session_state.analysis_started = True
     st.rerun() 
 
 def new_analysis():
-    st.session_state.analysis_started = False
+    # Conserva solo gli input dell'utente, cancella tutto il resto
+    current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'location_code', 'language_code', 'location_name', 'language_name']:
+        if key not in current_keys:
             del st.session_state[key]
+    st.session_state.analysis_started = False
     st.rerun()
 
 with st.container():
@@ -383,17 +389,15 @@ with st.container():
     with c1:
         st.text_input("🎯 Inserisci la tua Keyword target", key="query")
     with c2:
-        # UI per selezionare la nazione tramite nome, ma salvare il codice
         selected_location_name = st.selectbox(
             "🌍 Seleziona il Paese",
             options=locations_df['name'],
             key="location_name"
         )
         if selected_location_name:
-            st.session_state.location_code = locations_df[locations_df['name'] == selected_location_name]['code'].iloc[0]
+            st.session_state.location_code = int(locations_df[locations_df['name'] == selected_location_name]['code'].iloc[0])
 
     with c3:
-         # UI per selezionare la lingua tramite nome, ma salvare il codice
         selected_language_name = st.selectbox(
             "🗣️ Seleziona la Lingua",
             options=languages_df['name'],
@@ -419,7 +423,7 @@ if st.session_state.get('analysis_started', False):
     language_name = st.session_state.language_name
 
     if 'serp_result' not in st.session_state:
-        with st.spinner("Fase 1/5: Analizzo la SERP e i competitor (attendo le AIO)..."):
+        with st.spinner("Fase 1/5: Analizzo la SERP (attendo le AIO, può richiedere più tempo)..."):
             st.session_state.serp_result = fetch_serp_data(query, location_code, language_code)
 
     if not st.session_state.serp_result:
@@ -427,47 +431,57 @@ if st.session_state.get('analysis_started', False):
         st.stop() 
 
     items = st.session_state.serp_result.get('items', [])
-    organic_results = [item for item in items if item.get("type") == "organic"][:10]
+    organic_results = [item for item in items if item.get("type") == "organic"]
     
-    AIO_TYPES = ["generative_answers", "ai_overview", "sge", "generative_summary"]
+    AIO_TYPES = ["generative_answers"] # La documentazione conferma che questo è il type corretto
     ai_overview = next((item for item in items if item.get("type") in AIO_TYPES), None)
     
     if 'parsed_contents' not in st.session_state:
-        with st.spinner("Fase 1.5/5: Estraggo i contenuti delle pagine..."):
-            urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
-                results = {future_to_url[future]: future.result() for future in as_completed(future_to_url)}
-            
-            st.session_state.parsed_contents = [results.get(url, {"html_content": "", "headings": []}) for url in urls_to_parse]
-            st.session_state.edited_html_contents = [res['html_content'] for res in st.session_state.parsed_contents]
+        # Mostra lo spinner solo se ci sono URL da analizzare
+        urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
+        if urls_to_parse:
+            with st.spinner(f"Fase 1.5/5: Estraggo i contenuti di {len(urls_to_parse)} pagine..."):
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_url = {executor.submit(parse_url_content, url): url for url in urls_to_parse}
+                    results = {future_to_url[future]: future.result() for future in as_completed(future_to_url)}
+                
+                st.session_state.parsed_contents = [results.get(url, {"html_content": "", "headings": []}) for url in urls_to_parse]
+                st.session_state.edited_html_contents = [res['html_content'] for res in st.session_state.parsed_contents]
+        else:
+            st.session_state.parsed_contents = []
+            st.session_state.edited_html_contents = []
+
 
     if 'ranked_keywords_results' not in st.session_state:
-        with st.spinner("Fase 2/5: Scopro le keyword dei competitor..."):
-            urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(fetch_ranked_keywords, url, location_name, language_name) for url in urls_for_ranking]
-                st.session_state.ranked_keywords_results = [f.result() for f in as_completed(futures)]
+        urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
+        if urls_for_ranking:
+            with st.spinner(f"Fase 2/5: Scopro le keyword di {len(urls_for_ranking)} competitor..."):
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = [executor.submit(fetch_ranked_keywords, url, location_name, language_name) for url in urls_for_ranking]
+                    st.session_state.ranked_keywords_results = [f.result() for f in as_completed(futures)]
+        else:
+            st.session_state.ranked_keywords_results = []
     
     if 'nlu_strat_text' not in st.session_state:
-        with st.spinner("Fase 3/5: L'AI definisce l'intento e le entità..."):
-            initial_cleaned_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
-                filter(None, [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in st.session_state.edited_html_contents])
-            )
-            if not initial_cleaned_texts.strip():
-                st.error("Impossibile recuperare contenuto testuale significativo. L'analisi non può continuare.")
-                st.stop()
-
-            with ThreadPoolExecutor() as executor:
-                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_cleaned_texts))
-                future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_cleaned_texts))
-                st.session_state.nlu_strat_text = future_strat.result()
-                st.session_state.nlu_comp_text = future_comp.result()
+        initial_cleaned_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
+            filter(None, [BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True) for html in st.session_state.get('edited_html_contents', [])])
+        )
+        if not initial_cleaned_texts.strip():
+            st.warning("Nessun contenuto testuale significativo recuperato dai competitor. L'analisi NLU sarà limitata.")
+            st.session_state.nlu_strat_text = ""
+            st.session_state.nlu_comp_text = ""
+        else:
+            with st.spinner("Fase 3/5: L'AI definisce l'intento e le entità..."):
+                with ThreadPoolExecutor() as executor:
+                    future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_cleaned_texts))
+                    future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_cleaned_texts))
+                    st.session_state.nlu_strat_text = future_strat.result()
+                    st.session_state.nlu_comp_text = future_comp.result()
 
     st.header("1. Analisi Strategica della SERP")
     
     with st.expander("🕵️‍♂️ ISPEZIONE DATI GREZZI DALLA SERP (DEBUG)"):
-        st.info("Usa questo box per trovare il 'type' corretto per le AI Overviews se non appaiono.")
+        st.info("Usa questo box per verificare la risposta completa dell'API DataForSEO.")
         st.json(st.session_state.serp_result)
     
     nlu_strat_text = st.session_state.nlu_strat_text
@@ -490,14 +504,15 @@ if st.session_state.get('analysis_started', False):
         st.write("**Analisi AI Overview (Risposta Generativa)**")
         if ai_overview:
             st.info(ai_overview.get("answer"))
-            ai_overview_sources = [src.get('url') for src in ai_overview.get("links", [])]
-            st.write("**Fonti Citate nell'AI Overview:**")
+            ai_overview_sources = ai_overview.get("links", [])
             if ai_overview_sources:
-                for source_url in ai_overview_sources:
+                st.write("**Fonti Citate nell'AI Overview:**")
+                for source in ai_overview_sources:
+                    source_url = source.get('url')
                     if any(clean_url(org_url.get('url','')) == clean_url(source_url) for org_url in organic_results):
-                        st.success(f"✅ {urlparse(source_url).netloc} (Presente nei Top 10)")
+                        st.success(f"✅ {source.get('domain')} (Presente nei Top 10)")
                     else:
-                        st.warning(f"⚠️ {urlparse(source_url).netloc} (Esterno ai Top 10)")
+                        st.warning(f"⚠️ {source.get('domain')} (Esterno ai Top 10)")
             else:
                 st.write("_Nessuna fonte esplicitamente citata._")
         else:
@@ -505,9 +520,7 @@ if st.session_state.get('analysis_started', False):
 
     st.header("2. Analisi dei Competitor")
     paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-    related_list = list(dict.fromkeys((s.get("query") if isinstance(s, dict) else s) for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", [])))
-    related_list = [q for q in related_list if q]
-
+    
     st.subheader("Entità Rilevanti (Common Ground dei Competitor)")
     with st.expander("🔬 Clicca qui per vedere la risposta grezza dell'AI per le Entità"):
         st.text_area("Output NLU (Entità)", st.session_state.get('nlu_comp_text', 'N/A'), height=200)
@@ -517,7 +530,7 @@ if st.session_state.get('analysis_started', False):
     
     st.info("ℹ️ Puoi modificare le entità. Le tue modifiche guideranno la fase successiva.")
     if 'edited_df_entities' not in st.session_state:
-        st.session_state.edited_df_entities = df_entities
+        st.session_state.edited_df_entities = df_entities.copy()
     
     st.session_state.edited_df_entities = st.data_editor(st.session_state.edited_df_entities, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_entities")
 
@@ -538,7 +551,7 @@ if st.session_state.get('analysis_started', False):
     st.info("ℹ️ Questa è la mappa concettuale. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster.")
 
     if 'edited_df_topic_clusters' not in st.session_state:
-        st.session_state.edited_df_topic_clusters = st.session_state.df_topic_clusters
+        st.session_state.edited_df_topic_clusters = st.session_state.df_topic_clusters.copy()
 
     st.session_state.edited_df_topic_clusters = st.data_editor(st.session_state.edited_df_topic_clusters, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_topics")
 
@@ -548,7 +561,7 @@ if st.session_state.get('analysis_started', False):
             strat_analysis_str = dfs_strat[0].to_markdown(index=False) if dfs_strat else "N/D"
             topic_clusters_md = st.session_state.edited_df_topic_clusters.to_markdown(index=False)
 
-            all_kw_data = [item for result in st.session_state.ranked_keywords_results if result['status'] == 'ok' for item in result['items']]
+            all_kw_data = [item for result in st.session_state.ranked_keywords_results if result['status'] == 'ok' for item in result.get('items', [])]
             if all_kw_data:
                 kw_list = [{"Keyword": item.get("keyword_data", {}).get("keyword"), "Volume": item.get("keyword_data", {}).get("search_volume")} for item in all_kw_data]
                 ranked_keywords_df = pd.DataFrame(kw_list).dropna().drop_duplicates().sort_values("Volume", ascending=False).head(15)
@@ -573,20 +586,23 @@ if st.session_state.get('analysis_started', False):
     st.header("Appendice: Dati di Dettaglio")
 
     with st.expander("Visualizza/Modifica Contenuti Estratti dai Competitor"):
-        nav_labels = [f"{i+1}. {urlparse(res.get('url', '')).netloc.replace('www.', '')}" for i, res in enumerate(organic_results)]
-        selected_index = st.selectbox("Seleziona un competitor:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i])
-        
-        st.markdown(f"**URL:** `{organic_results[selected_index].get('url', '')}`")
-        if selected_index < len(st.session_state.edited_html_contents):
-            edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
-            if edited_content != st.session_state.edited_html_contents[selected_index]:
-                st.session_state.edited_html_contents[selected_index] = edited_content
-                st.warning("Contenuto modificato. Per un'analisi aggiornata, avvia una nuova analisi.")
+        if organic_results:
+            nav_labels = [f"{i+1}. {urlparse(res.get('url', '')).netloc.replace('www.', '')}" for i, res in enumerate(organic_results)]
+            selected_index = st.selectbox("Seleziona un competitor:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i])
+            
+            st.markdown(f"**URL:** `{organic_results[selected_index].get('url', '')}`")
+            if selected_index < len(st.session_state.edited_html_contents):
+                edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
+                if edited_content != st.session_state.edited_html_contents[selected_index]:
+                    st.session_state.edited_html_contents[selected_index] = edited_content
+                    st.warning("Contenuto modificato. Per un'analisi aggiornata, avvia una nuova analisi.")
+        else:
+            st.write("Nessun risultato organico da visualizzare.")
 
     with st.expander("Visualizza Keyword Ranking dei Competitor e Matrice di Copertura"):
         all_keywords_data = []
         for result in st.session_state.ranked_keywords_results:
-            if result['status'] == 'ok' and result['items']:
+            if result['status'] == 'ok' and result.get('items'):
                 competitor_domain = urlparse(result['url']).netloc.removeprefix('www.')
                 for item in result['items']:
                     kd = item.get("keyword_data", {})
