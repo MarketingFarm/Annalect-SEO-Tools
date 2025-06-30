@@ -350,8 +350,8 @@ st.markdown("""
     .stButton>button:hover { border: 1px solid #1565C0; background-color: #1565C0; color: white; }
     .ql-editor { min-height: 250px; }
     .block-container { padding-top: 2rem; }
-    h1, h2 { color: #1E88E5; }
-    h3 { border-bottom: 2px solid #90CAF9; padding-bottom: 5px; margin-top: 2rem; color: #1E88E5; }
+    h1, h2, h3 { color: #1E88E5; }
+    h3 { border-bottom: 2px solid #90CAF9; padding-bottom: 5px; margin-top: 1.5rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -476,6 +476,7 @@ if st.session_state.get('analysis_started', False):
                     st.session_state.nlu_strat_text = future_strat.result()
                     st.session_state.nlu_comp_text = future_comp.result()
 
+    # --- INIZIO VISUALIZZAZIONE ---
     st.header("1. Analisi Strategica della SERP")
     
     nlu_strat_text = st.session_state.nlu_strat_text
@@ -508,13 +509,15 @@ if st.session_state.get('analysis_started', False):
 
     with left_col:
         st.subheader("Risultati Organici")
-        # --- NUOVA VISUALIZZAZIONE GOOGLE-LIKE ---
         html_string = ""
         for res in organic_results:
             url_raw = res.get("url", "")
+            if not url_raw: continue
             p = urlparse(url_raw)
             pretty_url = str(p.netloc + p.path).replace("www.","")
 
+            name = res.get("breadcrumb", "").split("›")[0].strip() if res.get("breadcrumb") else p.netloc.replace('www.','')
+            
             title = res.get("title", "")
             desc = res.get("description", "")
 
@@ -525,7 +528,7 @@ if st.session_state.get('analysis_started', False):
                          onerror="this.onerror=null;this.src='https://www.google.com/favicon.ico';" 
                          style="width: 20px; height: 20px; margin-right: 8px; border-radius: 50%;">
                     <div>
-                        <div style="color: #202124; font-size: 14px; line-height: 20px;">{p.netloc.replace('www.','')}</div>
+                        <div style="color: #202124; font-size: 14px; line-height: 20px;">{name}</div>
                         <div style="color: #4d5156; font-size: 12px; line-height: 16px;">{pretty_url}</div>
                     </div>
                 </div>
@@ -541,16 +544,23 @@ if st.session_state.get('analysis_started', False):
 
     with right_col:
         if paa_items:
-            with st.container(border=True):
-                st.subheader("People Also Ask")
-                for paa in paa_items:
-                    st.markdown(f"- {paa.get('title')}")
+            st.subheader("People Also Ask")
+            paa_pills = ''.join(f'<span style="background-color:#f1f3f4;border:1px solid #dadce0;padding:8px 12px;border-radius:20px;font-size:14px;margin-right:6px;margin-bottom:8px;display:inline-block;color:#3c4043;">{paa.get("title")}</span>' for paa in paa_items)
+            st.markdown(f"<div>{paa_pills}</div>", unsafe_allow_html=True)
         
         if related_searches:
-            with st.container(border=True):
-                st.subheader("Ricerche Correlate")
-                for rel in related_searches:
-                    st.markdown(f"- {rel}")
+            st.subheader("Ricerche Correlate")
+            pat = re.compile(st.session_state.query, re.IGNORECASE) if st.session_state.query else None
+            related_pills = ""
+            for r in related_searches:
+                txt = r.strip()
+                if pat and (m := pat.search(txt)):
+                    # Questa logica di bold non è standard in f-string, la semplifichiamo
+                    formatted_txt = pat.sub(f"<strong>{m.group(0)}</strong>", txt)
+                else:
+                    formatted_txt = txt
+                related_pills += f'<span style="background-color:#f1f3f4;border:1px solid #dadce0;padding:8px 12px;border-radius:20px;font-size:14px;margin-right:6px;margin-bottom:8px;display:inline-block;color:#3c4043;">{formatted_txt}</span>'
+            st.markdown(f"<div>{related_pills}</div>", unsafe_allow_html=True)
 
     st.divider()
 
