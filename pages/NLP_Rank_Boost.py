@@ -476,7 +476,13 @@ if st.session_state.analysis_started:
     # Estrazione PAA e Correlate per uso futuro
     items = st.session_state.serp_result.get('items', [])
     paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-    related_list = list(dict.fromkeys(s.get("query", "") for item in items if item.get("type") in ("related_searches", "related_search") for s in item.get("items", []) if s.get("query")))
+    related_list = list(dict.fromkeys(
+    (s.get("query") if isinstance(s, dict) else s) 
+    for item in items if item.get("type") in ("related_searches", "related_search") 
+    for s in item.get("items", [])
+))
+# Rimuoviamo eventuali valori vuoti o None che potrebbero essere stati generati
+related_list = [q for q in related_list if q]
 
     # Editor Entità
     st.subheader("Entità Rilevanti (Common Ground dei Competitor)")
