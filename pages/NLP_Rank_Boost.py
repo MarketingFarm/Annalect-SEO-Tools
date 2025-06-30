@@ -8,7 +8,8 @@ from collections import Counter
 import pandas as pd
 import requests
 import streamlit as st
-from google import genai
+# CORREZIONE: Importazione esplicita e corretta della libreria Gemini
+import google.generativeai as genai
 from streamlit_quill import st_quill
 from bs4 import BeautifulSoup
 
@@ -21,10 +22,17 @@ try:
     if not GEMINI_API_KEY:
         st.error("GEMINI_API_KEY non trovata. Impostala nei Secrets di Streamlit o come variabile d'ambiente.")
         st.stop()
+    
+    # Questa riga ora funzionerà correttamente grazie all'import corretto
     genai.configure(api_key=GEMINI_API_KEY)
+    
     gemini_client = genai.GenerativeModel("gemini-1.5-pro-latest")
+    
+except AttributeError:
+    st.error("Errore di configurazione di Gemini (AttributeError). Assicurati di avere l'ultima versione della libreria: 'pip install --upgrade google-generativeai'")
+    st.stop()
 except Exception as e:
-    st.error(f"Errore nella configurazione di Gemini: {e}")
+    st.error(f"Errore generico nella configurazione di Gemini: {e}")
     st.stop()
 
 
@@ -40,7 +48,7 @@ session = requests.Session()
 session.auth = DFS_AUTH
 
 # Modello Gemini da utilizzare (già definito nella creazione del client)
-GEMINI_MODEL_NAME = "gemini-1.5-pro-latest"
+GEMINI_MODEL_NAME = "gemini-2.5-pro"
 
 
 # --- 2. FUNZIONI DI UTILITY E API ---
