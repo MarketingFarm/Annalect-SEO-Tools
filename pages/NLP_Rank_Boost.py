@@ -79,11 +79,13 @@ def clean_url(url: str) -> str:
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
 def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
     """Esegue la chiamata API a DataForSEO per ottenere i dati della SERP."""
+    # CORREZIONE FINALE: Aggiunto il parametro 'load_async_ai_overview'
     payload = [{
         "keyword": query,
         "location_name": country,
         "language_name": language,
-        "get_generative_answers": True
+        "get_generative_answers": True,
+        "load_async_ai_overview": True  # FORZA L'API AD ASPETTARE LA RISPOSTA AIO
     }]
     try:
         response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=payload)
@@ -332,7 +334,6 @@ def start_analysis():
     if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
         st.warning("Per favore, compila tutti i campi: Query, Country e Lingua.")
         return
-    # Pulisce lo stato per una nuova analisi, conservando solo gli input
     for key in list(st.session_state.keys()):
         if key not in ['query', 'country', 'language']:
             del st.session_state[key]
@@ -341,7 +342,6 @@ def start_analysis():
 
 def new_analysis():
     st.session_state.analysis_started = False
-    # Pulisce tutti i dati dell'analisi precedente
     for key in list(st.session_state.keys()):
         if key not in ['query', 'country', 'language']:
             st.session_state[key] = '' if isinstance(st.session_state[key], str) else None
@@ -369,17 +369,16 @@ if st.session_state.analysis_started:
 
     # --- FASE 1: ESTRAZIONE E PARSING DATI SERP ---
     if 'serp_result' not in st.session_state:
-        with st.spinner("Fase 1/5: Analizzo la SERP e i competitor..."):
+        with st.spinner("Fase 1/5: Analizzo la SERP e i competitor (potrebbe richiedere più tempo per le AIO)..."):
             st.session_state.serp_result = fetch_serp_data(query, country, language)
 
     if not st.session_state.serp_result:
-        st.error("Analisi interrotta perché i dati della SERP non sono stati recuperati correttamente. Controllare i log sopra per i dettagli dell'errore API.")
+        st.error("Analisi interrotta: i dati della SERP non sono stati recuperati. Controllare i log sopra per l'errore API.")
         st.stop() 
 
     items = st.session_state.serp_result.get('items', [])
     organic_results = [item for item in items if item.get("type") == "organic"][:10]
     
-    # MODIFICA: Ricerca robusta dell'AI Overview con una lista di possibili nomi
     AIO_TYPES = ["generative_answers", "ai_overview", "sge", "generative_summary"]
     ai_overview = next((item for item in items if item.get("type") in AIO_TYPES), None)
     
@@ -420,7 +419,6 @@ if st.session_state.analysis_started:
     # --- INIZIO VISUALIZZAZIONE ---
     st.header("1. Analisi Strategica della SERP")
     
-    # AGGIUNTA: Expander di debug per ispezionare i dati grezzi
     with st.expander("🕵️‍♂️ ISPEZIONE DATI GREZZI DALLA SERP (DEBUG)"):
         st.info("Usa questo box per trovare il 'type' corretto per le AI Overviews se non appaiono. Cerca (Ctrl+F) un pezzo del testo dell'AIO e vedi come si chiama il campo 'type'.")
         st.json(st.session_state.serp_result)
