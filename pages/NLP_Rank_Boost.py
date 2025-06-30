@@ -343,7 +343,6 @@ st.set_page_config(layout="wide", page_title="Advanced SEO Content Engine")
 st.title("🚀 Advanced SEO Content Engine")
 st.markdown("Da SERP a Content Brief: un flusso di lavoro potenziato da AI per creare contenuti dominanti.")
 
-# Stili CSS per un look & feel simile a Google
 st.markdown("""
 <style>
     .reportview-container { background: #f0f2f6; }
@@ -477,10 +476,21 @@ if st.session_state.get('analysis_started', False):
                     st.session_state.nlu_strat_text = future_strat.result()
                     st.session_state.nlu_comp_text = future_comp.result()
 
-    # --- INIZIO VISUALIZZAZIONE ---
-    st.header("1. Rappresentazione Grafica della SERP")
+    st.header("1. Analisi Strategica della SERP")
+    
+    nlu_strat_text = st.session_state.nlu_strat_text
+    dfs_strat = parse_markdown_tables(nlu_strat_text)
+    if dfs_strat:
+        df_strat = dfs_strat[0]
+        if all(col in df_strat.columns for col in ['Caratteristica SEO', 'Analisi Sintetica']):
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
+            cols = st.columns(len(analysis_map))
+            for col, (label, value) in zip(cols, analysis_map.items()):
+                 col.metric(label, value.replace('`', ''))
+    
+    st.divider()
+    st.header("2. Rappresentazione Grafica della SERP")
 
-    # MOSTRA AI OVERVIEW IN ALTO
     if ai_overview:
         with st.container(border=True):
             st.subheader("🤖 AI Overview")
@@ -494,24 +504,16 @@ if st.session_state.get('analysis_started', False):
                         st.markdown(f"- [{ref.get('title')}]({ref.get('url')}) ({ref.get('domain')})")
         st.divider()
 
-    # LAYOUT A COLONNE PER RISULTATI E SIDEBAR
     left_col, right_col = st.columns([0.7, 0.3])
 
     with left_col:
         st.subheader("Risultati Organici")
-        # INTEGRAZIONE VISUALIZZAZIONE GOOGLE-LIKE
+        # --- NUOVA VISUALIZZAZIONE GOOGLE-LIKE ---
         html_string = ""
         for res in organic_results:
             url_raw = res.get("url", "")
             p = urlparse(url_raw)
-            base, segs = f"{p.scheme}://{p.netloc}", [s for s in p.path.split("/") if s]
-            pretty_url = base + (" › " + " › ".join(segs) if segs else "")
-            
-            # Tenta di estrarre il nome del sito dal breadcrumb o dal dominio
-            name = res.get("breadcrumb", "").split("›")[0].strip()
-            if not name:
-                hn = p.netloc.split('.')
-                name = (hn[1] if len(hn) > 2 and hn[0] == 'www' else hn[0]).replace('-', ' ').title()
+            pretty_url = str(p.netloc + p.path).replace("www.","")
 
             title = res.get("title", "")
             desc = res.get("description", "")
@@ -523,14 +525,14 @@ if st.session_state.get('analysis_started', False):
                          onerror="this.onerror=null;this.src='https://www.google.com/favicon.ico';" 
                          style="width: 20px; height: 20px; margin-right: 8px; border-radius: 50%;">
                     <div>
-                        <div style="color: #202124; font-size: 14px; line-height: 20px;">{name}</div>
+                        <div style="color: #202124; font-size: 14px; line-height: 20px;">{p.netloc.replace('www.','')}</div>
                         <div style="color: #4d5156; font-size: 12px; line-height: 16px;">{pretty_url}</div>
                     </div>
                 </div>
-                <a href="{url_raw}" target="_blank" style="color: #1a0dab; text-decoration: none; font-size: 20px; font-weight: 400;">
+                <a href="{url_raw}" target="_blank" style="color: #1a0dab; text-decoration: none; font-size: 20px; font-weight: 400; display: block; margin-bottom: 3px;">
                     {title}
                 </a>
-                <div style="color: #4d5156; font-size: 14px; line-height: 20px; margin-top: 4px;">
+                <div style="color: #4d5156; font-size: 14px; line-height: 20px;">
                     {desc}
                 </div>
             </div>
@@ -551,18 +553,7 @@ if st.session_state.get('analysis_started', False):
                     st.markdown(f"- {rel}")
 
     st.divider()
-    
-    st.header("2. Analisi Strategica (AI)")
-    nlu_strat_text = st.session_state.nlu_strat_text
-    dfs_strat = parse_markdown_tables(nlu_strat_text)
-    if dfs_strat:
-        df_strat = dfs_strat[0]
-        if all(col in df_strat.columns for col in ['Caratteristica SEO', 'Analisi Sintetica']):
-            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
-            cols = st.columns(len(analysis_map))
-            for col, (label, value) in zip(cols, analysis_map.items()):
-                 col.metric(label, value.replace('`', ''))
-    
+
     st.header("3. Analisi dei Competitor")
     st.subheader("Entità Rilevanti (Common Ground dei Competitor)")
     with st.expander("🔬 Clicca qui per vedere la risposta grezza dell'AI per le Entità"):
