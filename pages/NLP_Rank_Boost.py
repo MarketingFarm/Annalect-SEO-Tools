@@ -334,7 +334,7 @@ def start_analysis():
         return
     # Pulisce lo stato per una nuova analisi, conservando solo gli input
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'country', 'language', 'analysis_started']:
+        if key not in ['query', 'country', 'language']:
             del st.session_state[key]
     st.session_state.analysis_started = True
     st.rerun() 
@@ -372,14 +372,16 @@ if st.session_state.analysis_started:
         with st.spinner("Fase 1/5: Analizzo la SERP e i competitor..."):
             st.session_state.serp_result = fetch_serp_data(query, country, language)
 
-    # CORREZIONE CRITICA: Controlliamo se la chiamata API ha fallito prima di procedere.
     if not st.session_state.serp_result:
         st.error("Analisi interrotta perché i dati della SERP non sono stati recuperati correttamente. Controllare i log sopra per i dettagli dell'errore API.")
-        st.stop() # Ferma l'esecuzione dello script qui.
+        st.stop() 
 
     items = st.session_state.serp_result.get('items', [])
     organic_results = [item for item in items if item.get("type") == "organic"][:10]
-    ai_overview = next((item for item in items if item.get("type") == "generative_answers"), None)
+    
+    # MODIFICA: Ricerca robusta dell'AI Overview con una lista di possibili nomi
+    AIO_TYPES = ["generative_answers", "ai_overview", "sge", "generative_summary"]
+    ai_overview = next((item for item in items if item.get("type") in AIO_TYPES), None)
     
     if 'parsed_contents' not in st.session_state:
         with st.spinner("Fase 1.5/5: Estraggo i contenuti delle pagine..."):
@@ -418,11 +420,15 @@ if st.session_state.analysis_started:
     # --- INIZIO VISUALIZZAZIONE ---
     st.header("1. Analisi Strategica della SERP")
     
+    # AGGIUNTA: Expander di debug per ispezionare i dati grezzi
+    with st.expander("🕵️‍♂️ ISPEZIONE DATI GREZZI DALLA SERP (DEBUG)"):
+        st.info("Usa questo box per trovare il 'type' corretto per le AI Overviews se non appaiono. Cerca (Ctrl+F) un pezzo del testo dell'AIO e vedi come si chiama il campo 'type'.")
+        st.json(st.session_state.serp_result)
+    
     nlu_strat_text = st.session_state.nlu_strat_text
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     if dfs_strat:
         df_strat = dfs_strat[0]
-        # Controllo robusto delle colonne prima di creare la mappa
         if all(col in df_strat.columns for col in ['Caratteristica SEO', 'Analisi Sintetica']):
             analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
             cols = st.columns(len(analysis_map))
@@ -433,7 +439,6 @@ if st.session_state.analysis_started:
     col1, col2 = st.columns([1, 2])
     with col1:
         st.write("**Feature Rilevate in SERP:**")
-        # Il conteggio delle feature viene ora fatto in modo diverso
         feature_counts = Counter(item.get("type") for item in items)
         st.dataframe(pd.DataFrame(feature_counts.items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
     with col2:
@@ -529,7 +534,6 @@ if st.session_state.analysis_started:
         selected_index = st.selectbox("Seleziona un competitor:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i])
         
         st.markdown(f"**URL:** `{organic_results[selected_index].get('url', '')}`")
-        # Assicuriamoci che l'indice esista prima di accedere
         if selected_index < len(st.session_state.edited_html_contents):
             edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
             if edited_content != st.session_state.edited_html_contents[selected_index]:
