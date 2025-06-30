@@ -334,17 +334,17 @@ def start_analysis():
         return
     # Pulisce lo stato per una nuova analisi, conservando solo gli input
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'country', 'language']:
+        if key not in ['query', 'country', 'language', 'analysis_started']:
             del st.session_state[key]
     st.session_state.analysis_started = True
-    st.rerun() # Forza un rerun per iniziare subito il flusso
+    st.rerun() 
 
 def new_analysis():
     st.session_state.analysis_started = False
     # Pulisce tutti i dati dell'analisi precedente
     for key in list(st.session_state.keys()):
         if key not in ['query', 'country', 'language']:
-            del st.session_state[key]
+            st.session_state[key] = '' if isinstance(st.session_state[key], str) else None
     st.rerun()
 
 with st.container():
@@ -371,11 +371,12 @@ if st.session_state.analysis_started:
     if 'serp_result' not in st.session_state:
         with st.spinner("Fase 1/5: Analizzo la SERP e i competitor..."):
             st.session_state.serp_result = fetch_serp_data(query, country, language)
-            if not st.session_state.serp_result:
-                st.error("Analisi interrotta: impossibile ottenere i dati dalla SERP.")
-                st.stop()
 
-    # CORREZIONE DI STATO: Queste variabili vengono definite ad ogni esecuzione
+    # CORREZIONE CRITICA: Controlliamo se la chiamata API ha fallito prima di procedere.
+    if not st.session_state.serp_result:
+        st.error("Analisi interrotta perché i dati della SERP non sono stati recuperati correttamente. Controllare i log sopra per i dettagli dell'errore API.")
+        st.stop() # Ferma l'esecuzione dello script qui.
+
     items = st.session_state.serp_result.get('items', [])
     organic_results = [item for item in items if item.get("type") == "organic"][:10]
     ai_overview = next((item for item in items if item.get("type") == "generative_answers"), None)
@@ -421,16 +422,20 @@ if st.session_state.analysis_started:
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     if dfs_strat:
         df_strat = dfs_strat[0]
-        analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
-        cols = st.columns(len(analysis_map))
-        for col, (label, value) in zip(cols, analysis_map.items()):
-             col.metric(label, value.replace('`', ''))
+        # Controllo robusto delle colonne prima di creare la mappa
+        if all(col in df_strat.columns for col in ['Caratteristica SEO', 'Analisi Sintetica']):
+            analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
+            cols = st.columns(len(analysis_map))
+            for col, (label, value) in zip(cols, analysis_map.items()):
+                 col.metric(label, value.replace('`', ''))
     
     st.subheader("Paesaggio della SERP e AI Overviews")
     col1, col2 = st.columns([1, 2])
     with col1:
         st.write("**Feature Rilevate in SERP:**")
-        st.dataframe(pd.DataFrame(st.session_state.serp_result.get('items', Counter()).get('types', {}).items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
+        # Il conteggio delle feature viene ora fatto in modo diverso
+        feature_counts = Counter(item.get("type") for item in items)
+        st.dataframe(pd.DataFrame(feature_counts.items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
     with col2:
         st.write("**Analisi AI Overview (Risposta Generativa)**")
         if ai_overview:
@@ -524,10 +529,12 @@ if st.session_state.analysis_started:
         selected_index = st.selectbox("Seleziona un competitor:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i])
         
         st.markdown(f"**URL:** `{organic_results[selected_index].get('url', '')}`")
-        edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
-        if edited_content != st.session_state.edited_html_contents[selected_index]:
-            st.session_state.edited_html_contents[selected_index] = edited_content
-            st.warning("Contenuto modificato. Per un'analisi aggiornata, avvia una nuova analisi.")
+        # Assicuriamoci che l'indice esista prima di accedere
+        if selected_index < len(st.session_state.edited_html_contents):
+            edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
+            if edited_content != st.session_state.edited_html_contents[selected_index]:
+                st.session_state.edited_html_contents[selected_index] = edited_content
+                st.warning("Contenuto modificato. Per un'analisi aggiornata, avvia una nuova analisi.")
 
     with st.expander("Visualizza Keyword Ranking dei Competitor e Matrice di Copertura"):
         all_keywords_data = []
