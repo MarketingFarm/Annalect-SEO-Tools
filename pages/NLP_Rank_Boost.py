@@ -80,9 +80,10 @@ def clean_url(url: str) -> str:
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
 def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
     """
-    Esegue la chiamata API a DataForSEO per ottenere i dati COMPLETI della SERP,
+    Esegue la chiamata API a DataForSEO per ottenere i dati della SERP,
     incluse le AI Overviews.
     """
+    # CORREZIONE: Manteniamo il parametro per le AI Overviews ma usiamo l'endpoint corretto
     payload = [{
         "keyword": query,
         "location_name": country,
@@ -90,9 +91,17 @@ def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
         "get_generative_answers": True
     }]
     try:
-        response = session.post("https://api.dataforseo.com/v3/serp/google/search/live/advanced", json=payload)
+        # CORREZIONE: Torniamo all'endpoint /organic/ che è quello corretto
+        response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=payload)
         response.raise_for_status()
         data = response.json()
+        
+        # Aggiungiamo un controllo sull'errore specifico del task
+        if data.get("tasks_error", 0) > 0:
+             st.error("DataForSEO ha restituito un errore nel task:")
+             st.json(data["tasks"])
+             return None
+
         if not data.get("tasks") or not data["tasks"][0].get("result"):
             st.error("Risposta da DataForSEO non valida o senza risultati.")
             st.json(data)
@@ -405,7 +414,7 @@ if st.session_state.analysis_started:
     if 'nlu_strat_text' not in st.session_state:
         with st.spinner("Fase 3/5: L'AI definisce l'intento, il target e le entità chiave..."):
             with ThreadPoolExecutor() as executor:
-                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_joined_texts))
+                future_strat = executor.submit(run_nlu, get_strategica_prompt(query, initial_cleaned_texts))
                 future_comp = executor.submit(run_nlu, get_competitiva_prompt(query, initial_joined_texts))
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
@@ -433,7 +442,7 @@ if st.session_state.analysis_started:
             st.write("**Fonti Citate nell'AI Overview:**")
             if st.session_state.ai_overview_sources:
                 for source_url in st.session_state.ai_overview_sources:
-                    if any(clean_url(org_url['url']) == clean_url(source_url) for org_url in st.session_state.organic_results):
+                    if any(clean_url(org_url.get('url','')) == clean_url(source_url) for org_url in st.session_state.organic_results):
                         st.success(f"✅ {urlparse(source_url).netloc} (Presente nei Top 10)")
                     else:
                         st.warning(f"⚠️ {urlparse(source_url).netloc} (Esterno ai Top 10)")
