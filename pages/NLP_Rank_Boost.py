@@ -343,7 +343,7 @@ st.set_page_config(layout="wide", page_title="Advanced SEO Content Engine")
 st.title("🚀 Advanced SEO Content Engine")
 st.markdown("Da SERP a Content Brief: un flusso di lavoro potenziato da AI per creare contenuti dominanti.")
 
-# RIPRISTINO STILI CSS
+# Stili CSS per un look & feel simile a Google
 st.markdown("""
 <style>
     .reportview-container { background: #f0f2f6; }
@@ -353,34 +353,6 @@ st.markdown("""
     .block-container { padding-top: 2rem; }
     h1, h2 { color: #1E88E5; }
     h3 { border-bottom: 2px solid #90CAF9; padding-bottom: 5px; margin-top: 2rem; color: #1E88E5; }
-    .serp-item {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        background-color: white;
-    }
-    .serp-item a {
-        color: #1a0dab;
-        text-decoration: none;
-    }
-    .serp-item a:hover {
-        text-decoration: underline;
-    }
-    .serp-item .url {
-        color: #006621;
-        font-size: 0.9rem;
-    }
-    .serp-item .snippet {
-        color: #4d5156;
-    }
-    .sidebar-box {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        background-color: #f8f9fa;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -512,11 +484,9 @@ if st.session_state.get('analysis_started', False):
     if ai_overview:
         with st.container(border=True):
             st.subheader("🤖 AI Overview")
-            # Unisci il testo da tutti gli elementi 'ai_overview_element'
             full_text = "\n\n".join(item.get('text', '') for item in ai_overview.get('items', []) if item.get('text'))
             st.markdown(full_text)
             
-            # Mostra le fonti
             references = ai_overview.get("references", [])
             if references:
                 with st.expander("Visualizza fonti dell'AI Overview"):
@@ -529,11 +499,43 @@ if st.session_state.get('analysis_started', False):
 
     with left_col:
         st.subheader("Risultati Organici")
-        for result in organic_results:
-            with st.container(border=True):
-                st.markdown(f"##### <a href='{result.get('url')}' target='_blank'>{result.get('title')}</a>", unsafe_allow_html=True)
-                st.markdown(f"<div class='url'>{result.get('breadcrumb', result.get('url'))}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='snippet'>{result.get('description', '')}</div>", unsafe_allow_html=True)
+        # INTEGRAZIONE VISUALIZZAZIONE GOOGLE-LIKE
+        html_string = ""
+        for res in organic_results:
+            url_raw = res.get("url", "")
+            p = urlparse(url_raw)
+            base, segs = f"{p.scheme}://{p.netloc}", [s for s in p.path.split("/") if s]
+            pretty_url = base + (" › " + " › ".join(segs) if segs else "")
+            
+            # Tenta di estrarre il nome del sito dal breadcrumb o dal dominio
+            name = res.get("breadcrumb", "").split("›")[0].strip()
+            if not name:
+                hn = p.netloc.split('.')
+                name = (hn[1] if len(hn) > 2 and hn[0] == 'www' else hn[0]).replace('-', ' ').title()
+
+            title = res.get("title", "")
+            desc = res.get("description", "")
+
+            html_string += f"""
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                    <img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=32" 
+                         onerror="this.onerror=null;this.src='https://www.google.com/favicon.ico';" 
+                         style="width: 20px; height: 20px; margin-right: 8px; border-radius: 50%;">
+                    <div>
+                        <div style="color: #202124; font-size: 14px; line-height: 20px;">{name}</div>
+                        <div style="color: #4d5156; font-size: 12px; line-height: 16px;">{pretty_url}</div>
+                    </div>
+                </div>
+                <a href="{url_raw}" target="_blank" style="color: #1a0dab; text-decoration: none; font-size: 20px; font-weight: 400;">
+                    {title}
+                </a>
+                <div style="color: #4d5156; font-size: 14px; line-height: 20px; margin-top: 4px;">
+                    {desc}
+                </div>
+            </div>
+            """
+        st.markdown(html_string, unsafe_allow_html=True)
 
     with right_col:
         if paa_items:
