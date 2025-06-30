@@ -98,25 +98,24 @@ def get_languages_data() -> pd.DataFrame:
 
 def clean_url(url: str) -> str:
     """Rimuove parametri e frammenti da un URL."""
+    if not isinstance(url, str): return ""
     parsed = urlparse(url)
     return urlunparse(parsed._replace(query="", params="", fragment=""))
 
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
 def fetch_serp_data(query: str, location_code: int, language_code: str) -> dict | None:
     """Esegue la chiamata API a DataForSEO con la struttura del payload corretta e definitiva."""
-    # CORREZIONE FINALE: La struttura del payload ora rispecchia l'esempio funzionante.
     post_data = [{
         "keyword": query,
         "location_code": location_code,
         "language_code": language_code,
         "device": "desktop",
         "os": "windows",
-        "depth": 10,  # Limite a 10 risultati come richiesto
+        "depth": 10,
         "load_async_ai_overview": True,
-        "people_also_ask_click_depth": 4 # Aumentato come richiesto
+        "people_also_ask_click_depth": 4
     }]
     try:
-        # La chiamata POST ora invia il payload come `json` per una corretta formattazione
         response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=post_data)
         response.raise_for_status()
         data = response.json()
@@ -344,6 +343,7 @@ st.set_page_config(layout="wide", page_title="Advanced SEO Content Engine")
 st.title("🚀 Advanced SEO Content Engine")
 st.markdown("Da SERP a Content Brief: un flusso di lavoro potenziato da AI per creare contenuti dominanti.")
 
+# RIPRISTINO STILI CSS
 st.markdown("""
 <style>
     .reportview-container { background: #f0f2f6; }
@@ -353,6 +353,34 @@ st.markdown("""
     .block-container { padding-top: 2rem; }
     h1, h2 { color: #1E88E5; }
     h3 { border-bottom: 2px solid #90CAF9; padding-bottom: 5px; margin-top: 2rem; color: #1E88E5; }
+    .serp-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background-color: white;
+    }
+    .serp-item a {
+        color: #1a0dab;
+        text-decoration: none;
+    }
+    .serp-item a:hover {
+        text-decoration: underline;
+    }
+    .serp-item .url {
+        color: #006621;
+        font-size: 0.9rem;
+    }
+    .serp-item .snippet {
+        color: #4d5156;
+    }
+    .sidebar-box {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background-color: #f8f9fa;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -367,7 +395,6 @@ def start_analysis():
     if not all([st.session_state.query, st.session_state.get('location_code'), st.session_state.get('language_code')]):
         st.warning("Per favore, compila tutti i campi: Query, Paese e Lingua.")
         return
-    # Pulisce lo stato per una nuova analisi
     current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
         if key not in current_keys:
@@ -376,7 +403,6 @@ def start_analysis():
     st.rerun() 
 
 def new_analysis():
-    # Conserva solo gli input dell'utente, cancella tutto il resto
     current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
         if key not in current_keys:
@@ -433,11 +459,13 @@ if st.session_state.get('analysis_started', False):
     items = st.session_state.serp_result.get('items', [])
     organic_results = [item for item in items if item.get("type") == "organic"]
     
-    AIO_TYPES = ["generative_answers"] # La documentazione conferma che questo è il type corretto
+    AIO_TYPES = ["ai_overview", "generative_answers"]
     ai_overview = next((item for item in items if item.get("type") in AIO_TYPES), None)
     
+    paa_items = next((item for item in items if item.get("type") == "people_also_ask"), {}).get("items", [])
+    related_searches = next((item for item in items if item.get("type") == "related_searches"), {}).get("items", [])
+
     if 'parsed_contents' not in st.session_state:
-        # Mostra lo spinner solo se ci sono URL da analizzare
         urls_to_parse = [r.get("url") for r in organic_results if r.get("url")]
         if urls_to_parse:
             with st.spinner(f"Fase 1.5/5: Estraggo i contenuti di {len(urls_to_parse)} pagine..."):
@@ -450,7 +478,6 @@ if st.session_state.get('analysis_started', False):
         else:
             st.session_state.parsed_contents = []
             st.session_state.edited_html_contents = []
-
 
     if 'ranked_keywords_results' not in st.session_state:
         urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
@@ -478,12 +505,52 @@ if st.session_state.get('analysis_started', False):
                     st.session_state.nlu_strat_text = future_strat.result()
                     st.session_state.nlu_comp_text = future_comp.result()
 
-    st.header("1. Analisi Strategica della SERP")
+    # --- INIZIO VISUALIZZAZIONE ---
+    st.header("1. Rappresentazione Grafica della SERP")
+
+    # MOSTRA AI OVERVIEW IN ALTO
+    if ai_overview:
+        with st.container(border=True):
+            st.subheader("🤖 AI Overview")
+            # Unisci il testo da tutti gli elementi 'ai_overview_element'
+            full_text = "\n\n".join(item.get('text', '') for item in ai_overview.get('items', []) if item.get('text'))
+            st.markdown(full_text)
+            
+            # Mostra le fonti
+            references = ai_overview.get("references", [])
+            if references:
+                with st.expander("Visualizza fonti dell'AI Overview"):
+                    for ref in references:
+                        st.markdown(f"- [{ref.get('title')}]({ref.get('url')}) ({ref.get('domain')})")
+        st.divider()
+
+    # LAYOUT A COLONNE PER RISULTATI E SIDEBAR
+    left_col, right_col = st.columns([0.7, 0.3])
+
+    with left_col:
+        st.subheader("Risultati Organici")
+        for result in organic_results:
+            with st.container(border=True):
+                st.markdown(f"##### <a href='{result.get('url')}' target='_blank'>{result.get('title')}</a>", unsafe_allow_html=True)
+                st.markdown(f"<div class='url'>{result.get('breadcrumb', result.get('url'))}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='snippet'>{result.get('description', '')}</div>", unsafe_allow_html=True)
+
+    with right_col:
+        if paa_items:
+            with st.container(border=True):
+                st.subheader("People Also Ask")
+                for paa in paa_items:
+                    st.markdown(f"- {paa.get('title')}")
+        
+        if related_searches:
+            with st.container(border=True):
+                st.subheader("Ricerche Correlate")
+                for rel in related_searches:
+                    st.markdown(f"- {rel}")
+
+    st.divider()
     
-    with st.expander("🕵️‍♂️ ISPEZIONE DATI GREZZI DALLA SERP (DEBUG)"):
-        st.info("Usa questo box per verificare la risposta completa dell'API DataForSEO.")
-        st.json(st.session_state.serp_result)
-    
+    st.header("2. Analisi Strategica (AI)")
     nlu_strat_text = st.session_state.nlu_strat_text
     dfs_strat = parse_markdown_tables(nlu_strat_text)
     if dfs_strat:
@@ -494,33 +561,7 @@ if st.session_state.get('analysis_started', False):
             for col, (label, value) in zip(cols, analysis_map.items()):
                  col.metric(label, value.replace('`', ''))
     
-    st.subheader("Paesaggio della SERP e AI Overviews")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.write("**Feature Rilevate in SERP:**")
-        feature_counts = Counter(item.get("type") for item in items)
-        st.dataframe(pd.DataFrame(feature_counts.items(), columns=['Feature', 'Conteggio']).sort_values('Conteggio', ascending=False), hide_index=True)
-    with col2:
-        st.write("**Analisi AI Overview (Risposta Generativa)**")
-        if ai_overview:
-            st.info(ai_overview.get("answer"))
-            ai_overview_sources = ai_overview.get("links", [])
-            if ai_overview_sources:
-                st.write("**Fonti Citate nell'AI Overview:**")
-                for source in ai_overview_sources:
-                    source_url = source.get('url')
-                    if any(clean_url(org_url.get('url','')) == clean_url(source_url) for org_url in organic_results):
-                        st.success(f"✅ {source.get('domain')} (Presente nei Top 10)")
-                    else:
-                        st.warning(f"⚠️ {source.get('domain')} (Esterno ai Top 10)")
-            else:
-                st.write("_Nessuna fonte esplicitamente citata._")
-        else:
-            st.write("_Nessuna AI Overview rilevata per questa query._")
-
-    st.header("2. Analisi dei Competitor")
-    paa_list = list(dict.fromkeys(q.get("title", "") for item in items if item.get("type") == "people_also_ask" for q in item.get("items", []) if q.get("title")))
-    
+    st.header("3. Analisi dei Competitor")
     st.subheader("Entità Rilevanti (Common Ground dei Competitor)")
     with st.expander("🔬 Clicca qui per vedere la risposta grezza dell'AI per le Entità"):
         st.text_area("Output NLU (Entità)", st.session_state.get('nlu_comp_text', 'N/A'), height=200)
@@ -538,7 +579,7 @@ if st.session_state.get('analysis_started', False):
          with st.spinner("Fase 4/5: Raggruppo le entità in Topic Cluster semantici..."):
             all_headings = [h for res in st.session_state.parsed_contents for h in res['headings']]
             headings_str = "\n".join(list(dict.fromkeys(all_headings))[:30])
-            paa_str = "\n".join(paa_list)
+            paa_str = "\n".join([paa.get('title', '') for paa in paa_items])
             entities_md = st.session_state.edited_df_entities.to_markdown(index=False)
             
             topic_prompt = get_topic_clusters_prompt(query, entities_md, headings_str, paa_str)
@@ -547,7 +588,7 @@ if st.session_state.get('analysis_started', False):
             dfs_topics = parse_markdown_tables(nlu_topic_text)
             st.session_state.df_topic_clusters = dfs_topics[0] if dfs_topics else pd.DataFrame(columns=['Topic Cluster (Sotto-argomento Principale)', 'Concetti, Entità e Domande Chiave del Cluster'])
 
-    st.header("3. Architettura del Topic (Topic Modeling)")
+    st.header("4. Architettura del Topic (Topic Modeling)")
     st.info("ℹ️ Questa è la mappa concettuale. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster.")
 
     if 'edited_df_topic_clusters' not in st.session_state:
@@ -555,7 +596,7 @@ if st.session_state.get('analysis_started', False):
 
     st.session_state.edited_df_topic_clusters = st.data_editor(st.session_state.edited_df_topic_clusters, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_topics")
 
-    st.header("4. Content Brief Strategico Finale")
+    st.header("5. Content Brief Strategico Finale")
     if st.button("✍️ Genera Brief Dettagliato", type="primary", use_container_width=True):
         with st.spinner("Fase 5/5: Sto scrivendo il brief per il tuo copywriter..."):
             strat_analysis_str = dfs_strat[0].to_markdown(index=False) if dfs_strat else "N/D"
@@ -569,11 +610,11 @@ if st.session_state.get('analysis_started', False):
             else:
                 ranked_keywords_md = "Nessun dato sulle keyword."
             
-            paa_str = "\n".join(f"- {q}" for q in paa_list)
+            paa_str_for_prompt = "\n".join(f"- {paa.get('title', '')}" for paa in paa_items)
 
             brief_prompt_args = {
                 "keyword": query, "strat_analysis_str": strat_analysis_str, "topic_clusters_md": topic_clusters_md,
-                "ranked_keywords_md": ranked_keywords_md, "paa_str": paa_str,
+                "ranked_keywords_md": ranked_keywords_md, "paa_str": paa_str_for_prompt,
             }
 
             final_brief = run_nlu(get_content_brief_prompt(**brief_prompt_args))
@@ -629,3 +670,7 @@ if st.session_state.get('analysis_started', False):
                 st.warning(f"Impossibile creare la matrice di copertura: {e}")
         else:
             st.write("_Nessuna keyword posizionata trovata per i competitor._")
+            
+    with st.expander("🕵️‍♂️ ISPEZIONE DATI GREZZI DALLA SERP (DEBUG)"):
+        st.info("Usa questo box per verificare la risposta completa dell'API DataForSEO.")
+        st.json(st.session_state.serp_result)
