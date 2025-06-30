@@ -47,29 +47,54 @@ session.auth = DFS_AUTH
 
 # --- 2. FUNZIONI DI UTILITY E API ---
 
-@st.cache_data(show_spinner="Caricamento Paesi...")
-def get_countries() -> list[str]:
-    """Recupera e cachea la lista dei paesi da DataForSEO."""
+@st.cache_data(show_spinner="Caricamento Nazioni (con codici)...")
+def get_locations_data() -> pd.DataFrame:
+    """Recupera e cachea la lista completa delle nazioni con i relativi codici."""
     try:
         resp = session.get('https://api.dataforseo.com/v3/serp/google/locations')
         resp.raise_for_status()
         locs = resp.json()['tasks'][0]['result']
-        return sorted(loc['location_name'] for loc in locs if loc.get('location_type') == 'Country')
+        
+        country_data = [
+            {
+                "name": loc.get("location_name"),
+                "code": loc.get("location_code")
+            }
+            for loc in locs if loc.get('location_type') == 'Country' and loc.get("location_code")
+        ]
+        return pd.DataFrame(country_data).sort_values('name').reset_index(drop=True)
     except (requests.RequestException, KeyError, IndexError) as e:
-        st.warning(f"Impossibile caricare la lista dei paesi: {e}")
-        return ["United States", "Italy", "United Kingdom", "Germany", "France", "Spain"]
+        st.warning(f"Impossibile caricare le nazioni dall'API: {e}. Uso una lista di default.")
+        default_data = [
+            {'name': 'Italy', 'code': 2380}, {'name': 'United States', 'code': 2840},
+            {'name': 'United Kingdom', 'code': 2826}, {'name': 'Germany', 'code': 2276},
+            {'name': 'France', 'code': 2250}, {'name': 'Spain', 'code': 2724}
+        ]
+        return pd.DataFrame(default_data)
 
-@st.cache_data(show_spinner="Caricamento Lingue...")
-def get_languages() -> list[str]:
-    """Recupera e cachea la lista delle lingue da DataForSEO."""
+@st.cache_data(show_spinner="Caricamento Lingue (con codici)...")
+def get_languages_data() -> pd.DataFrame:
+    """Recupera e cachea la lista completa delle lingue con i relativi codici."""
     try:
         resp = session.get('https://api.dataforseo.com/v3/serp/google/languages')
         resp.raise_for_status()
         langs = resp.json()['tasks'][0]['result']
-        return sorted(lang['language_name'] for lang in langs)
+        lang_data = [
+            {
+                "name": lang.get("language_name"),
+                "code": lang.get("language_code")
+            }
+            for lang in langs if lang.get("language_code")
+        ]
+        return pd.DataFrame(lang_data).sort_values('name').reset_index(drop=True)
     except (requests.RequestException, KeyError, IndexError) as e:
-        st.warning(f"Impossibile caricare la lista delle lingue: {e}")
-        return ["English", "Italian", "German", "French", "Spanish"]
+        st.warning(f"Impossibile caricare le lingue dall'API: {e}. Uso una lista di default.")
+        default_data = [
+            {'name': 'Italian', 'code': 'it'}, {'name': 'English', 'code': 'en'},
+            {'name': 'German', 'code': 'de'}, {'name': 'French', 'code': 'fr'},
+            {'name': 'Spanish', 'code': 'es'}
+        ]
+        return pd.DataFrame(default_data)
 
 def clean_url(url: str) -> str:
     """Rimuove parametri e frammenti da un URL."""
@@ -77,15 +102,17 @@ def clean_url(url: str) -> str:
     return urlunparse(parsed._replace(query="", params="", fragment=""))
 
 @st.cache_data(ttl=600, show_spinner="Analisi SERP in corso...")
-def fetch_serp_data(query: str, country: str, language: str) -> dict | None:
-    """Esegue la chiamata API a DataForSEO per ottenere i dati della SERP."""
-    # CORREZIONE FINALE: Aggiunto il parametro 'load_async_ai_overview'
+def fetch_serp_data(query: str, location_code: int, language_code: str) -> dict | None:
+    """Esegue la chiamata API a DataForSEO con la struttura del payload corretta."""
     payload = [{
         "keyword": query,
-        "location_name": country,
-        "language_name": language,
-        "get_generative_answers": True,
-        "load_async_ai_overview": True  # FORZA L'API AD ASPETTARE LA RISPOSTA AIO
+        "location_code": location_code,
+        "language_code": language_code,
+        "device": "desktop",
+        "os": "windows",
+        "depth": 10,  # Limite a 10 risultati come richiesto
+        "load_async_ai_overview": True,
+        "people_also_ask_click_depth": 4 # Aumentato come richiesto
     }]
     try:
         response = session.post("https://api.dataforseo.com/v3/serp/google/organic/live/advanced", json=payload)
@@ -154,9 +181,9 @@ def parse_url_content(url: str) -> dict:
         return default_return
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_ranked_keywords(url: str, location: str, language: str) -> dict:
-    """Estrae le keyword posizionate."""
-    payload = [{"target": url, "location_name": location, "language_name": language, "limit": 30}]
+def fetch_ranked_keywords(url: str, location_name: str, language_name: str) -> dict:
+    """Estrae le keyword posizionate. Mantenuto con i nomi per semplicità."""
+    payload = [{"target": url, "location_name": location_name, "language_name": language_name, "limit": 30}]
     try:
         response = session.post("https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live", json=payload)
         response.raise_for_status()
@@ -327,15 +354,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Carica i dati una sola volta
+locations_df = get_locations_data()
+languages_df = get_languages_data()
+
 if 'analysis_started' not in st.session_state:
     st.session_state.analysis_started = False
 
 def start_analysis():
-    if not all([st.session_state.query, st.session_state.country, st.session_state.language]):
-        st.warning("Per favore, compila tutti i campi: Query, Country e Lingua.")
+    if not all([st.session_state.query, st.session_state.location_code, st.session_state.language_code]):
+        st.warning("Per favore, compila tutti i campi: Query, Paese e Lingua.")
         return
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'country', 'language']:
+        if key not in ['query', 'location_code', 'language_code', 'location_name', 'language_name']:
             del st.session_state[key]
     st.session_state.analysis_started = True
     st.rerun() 
@@ -343,8 +374,8 @@ def start_analysis():
 def new_analysis():
     st.session_state.analysis_started = False
     for key in list(st.session_state.keys()):
-        if key not in ['query', 'country', 'language']:
-            st.session_state[key] = '' if isinstance(st.session_state[key], str) else None
+        if key not in ['query', 'location_code', 'language_code', 'location_name', 'language_name']:
+            del st.session_state[key]
     st.rerun()
 
 with st.container():
@@ -352,25 +383,44 @@ with st.container():
     with c1:
         st.text_input("🎯 Inserisci la tua Keyword target", key="query")
     with c2:
-        st.selectbox("🌍 Seleziona il Paese", options=[""] + get_countries(), key="country")
+        # UI per selezionare la nazione tramite nome, ma salvare il codice
+        selected_location_name = st.selectbox(
+            "🌍 Seleziona il Paese",
+            options=locations_df['name'],
+            key="location_name"
+        )
+        if selected_location_name:
+            st.session_state.location_code = locations_df[locations_df['name'] == selected_location_name]['code'].iloc[0]
+
     with c3:
-        st.selectbox("🗣️ Seleziona la Lingua", options=[""] + get_languages(), key="language")
+         # UI per selezionare la lingua tramite nome, ma salvare il codice
+        selected_language_name = st.selectbox(
+            "🗣️ Seleziona la Lingua",
+            options=languages_df['name'],
+            key="language_name"
+        )
+        if selected_language_name:
+            st.session_state.language_code = languages_df[languages_df['name'] == selected_language_name]['code'].iloc[0]
+
     with c4:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
-        if st.session_state.analysis_started:
+        if st.session_state.get('analysis_started', False):
             st.button("🔄 Nuova Analisi", on_click=new_analysis, use_container_width=True)
         else:
             st.button("⚡ Avvia Analisi", on_click=start_analysis, type="primary", use_container_width=True)
 
 st.divider()
 
-if st.session_state.analysis_started:
-    query, country, language = st.session_state.query, st.session_state.country, st.session_state.language
+if st.session_state.get('analysis_started', False):
+    query = st.session_state.query
+    location_code = st.session_state.location_code
+    language_code = st.session_state.language_code
+    location_name = st.session_state.location_name
+    language_name = st.session_state.language_name
 
-    # --- FASE 1: ESTRAZIONE E PARSING DATI SERP ---
     if 'serp_result' not in st.session_state:
-        with st.spinner("Fase 1/5: Analizzo la SERP e i competitor (potrebbe richiedere più tempo per le AIO)..."):
-            st.session_state.serp_result = fetch_serp_data(query, country, language)
+        with st.spinner("Fase 1/5: Analizzo la SERP e i competitor (attendo le AIO)..."):
+            st.session_state.serp_result = fetch_serp_data(query, location_code, language_code)
 
     if not st.session_state.serp_result:
         st.error("Analisi interrotta: i dati della SERP non sono stati recuperati. Controllare i log sopra per l'errore API.")
@@ -392,15 +442,13 @@ if st.session_state.analysis_started:
             st.session_state.parsed_contents = [results.get(url, {"html_content": "", "headings": []}) for url in urls_to_parse]
             st.session_state.edited_html_contents = [res['html_content'] for res in st.session_state.parsed_contents]
 
-    # --- FASE 2: ESTRAZIONE KEYWORD RANKING ---
     if 'ranked_keywords_results' not in st.session_state:
         with st.spinner("Fase 2/5: Scopro le keyword dei competitor..."):
             urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
             with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(fetch_ranked_keywords, url, country, language) for url in urls_for_ranking]
+                futures = [executor.submit(fetch_ranked_keywords, url, location_name, language_name) for url in urls_for_ranking]
                 st.session_state.ranked_keywords_results = [f.result() for f in as_completed(futures)]
     
-    # --- FASE 3: ANALISI NLU ---
     if 'nlu_strat_text' not in st.session_state:
         with st.spinner("Fase 3/5: L'AI definisce l'intento e le entità..."):
             initial_cleaned_texts = "\n\n--- SEPARATORE TESTO ---\n\n".join(
@@ -416,11 +464,10 @@ if st.session_state.analysis_started:
                 st.session_state.nlu_strat_text = future_strat.result()
                 st.session_state.nlu_comp_text = future_comp.result()
 
-    # --- INIZIO VISUALIZZAZIONE ---
     st.header("1. Analisi Strategica della SERP")
     
     with st.expander("🕵️‍♂️ ISPEZIONE DATI GREZZI DALLA SERP (DEBUG)"):
-        st.info("Usa questo box per trovare il 'type' corretto per le AI Overviews se non appaiono. Cerca (Ctrl+F) un pezzo del testo dell'AIO e vedi come si chiama il campo 'type'.")
+        st.info("Usa questo box per trovare il 'type' corretto per le AI Overviews se non appaiono.")
         st.json(st.session_state.serp_result)
     
     nlu_strat_text = st.session_state.nlu_strat_text
@@ -468,13 +515,12 @@ if st.session_state.analysis_started:
     dfs_comp = parse_markdown_tables(st.session_state.nlu_comp_text)
     df_entities = dfs_comp[0] if dfs_comp else pd.DataFrame(columns=['Categoria', 'Entità', 'Rilevanza Strategica'])
     
-    st.info("ℹ️ Puoi modificare le entità in questa tabella. Le tue modifiche guideranno la fase successiva di analisi dei Topic.")
+    st.info("ℹ️ Puoi modificare le entità. Le tue modifiche guideranno la fase successiva.")
     if 'edited_df_entities' not in st.session_state:
         st.session_state.edited_df_entities = df_entities
     
     st.session_state.edited_df_entities = st.data_editor(st.session_state.edited_df_entities, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_entities")
 
-    # --- FASE 4: TOPICAL MODELING ---
     if 'df_topic_clusters' not in st.session_state:
          with st.spinner("Fase 4/5: Raggruppo le entità in Topic Cluster semantici..."):
             all_headings = [h for res in st.session_state.parsed_contents for h in res['headings']]
@@ -489,14 +535,13 @@ if st.session_state.analysis_started:
             st.session_state.df_topic_clusters = dfs_topics[0] if dfs_topics else pd.DataFrame(columns=['Topic Cluster (Sotto-argomento Principale)', 'Concetti, Entità e Domande Chiave del Cluster'])
 
     st.header("3. Architettura del Topic (Topic Modeling)")
-    st.info("ℹ️ Questa è la mappa concettuale. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster. Puoi modificare i nomi prima di generare il brief.")
+    st.info("ℹ️ Questa è la mappa concettuale. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster.")
 
     if 'edited_df_topic_clusters' not in st.session_state:
         st.session_state.edited_df_topic_clusters = st.session_state.df_topic_clusters
 
     st.session_state.edited_df_topic_clusters = st.data_editor(st.session_state.edited_df_topic_clusters, use_container_width=True, hide_index=True, num_rows="dynamic", key="editor_topics")
 
-    # --- FASE 5: GENERAZIONE CONTENT BRIEF ---
     st.header("4. Content Brief Strategico Finale")
     if st.button("✍️ Genera Brief Dettagliato", type="primary", use_container_width=True):
         with st.spinner("Fase 5/5: Sto scrivendo il brief per il tuo copywriter..."):
