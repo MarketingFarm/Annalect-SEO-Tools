@@ -340,20 +340,20 @@ Inizia direttamente con `## ✍️ Content Brief: {kwargs.get('keyword', '')}`.
 
 st.set_page_config(layout="wide", page_title="Advanced SEO Content Engine")
 
-st.title("🚀 Advanced SEO Content Engine")
-st.markdown("Da SERP a Content Brief: un flusso di lavoro potenziato da AI per creare contenuti dominanti.")
+st.title("Analisi SEO Competitiva Multi-Step")
+st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione di contenuti on-page e NLU.")
 
 st.markdown("""
 <style>
     :root { --m3c23: #8E87FF; } /* Colore per il logo AIO */
     .reportview-container { background: #f0f2f6; }
-    .stButton>button { border-radius: 20px; border: 1px solid #1E88E5; background-color: #1E88E5; color: white; }
-    .stButton>button:hover { border: 1px solid #1565C0; background-color: #1565C0; color: white; }
+    .stButton>button { border-radius: 4px; }
     .ql-editor { min-height: 250px; }
     .block-container { padding-top: 2rem; }
-    h1, h2 { color: #1E88E5; }
-    h3 { border-bottom: 2px solid #90CAF9; padding-bottom: 5px; margin-top: 1.5rem; }
-    .aio-header h2 { /* Targeting h2 per AIO */
+    h1 { font-size: 2.5rem; }
+    h2, h3 { color: #1E88E5; }
+    h3 { border-bottom: 1px solid #dfe1e5; padding-bottom: 5px; margin-top: 1.5rem; }
+    .aio-header h2 {
         border: none;
         margin: 0;
         padding: 0;
@@ -361,7 +361,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Carica i dati una sola volta
 locations_df = get_locations_data()
 languages_df = get_languages_data()
 
@@ -370,7 +369,7 @@ if 'analysis_started' not in st.session_state:
 
 def start_analysis():
     if not all([st.session_state.query, st.session_state.get('location_code'), st.session_state.get('language_code')]):
-        st.warning("Per favore, compila tutti i campi: Query, Paese e Lingua.")
+        st.warning("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
         return
     current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
@@ -387,23 +386,36 @@ def new_analysis():
     st.session_state.analysis_started = False
     st.rerun()
 
-# --- INPUT FORM CON STILI ---
 with st.container():
     col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2])
     with col1:
-        st.text_input("Query", key="query", help="Inserisci la keyword principale da analizzare.")
+        st.text_input("Query", key="query")
     with col2:
-        selected_location_name = st.selectbox("Country", locations_df['name'], key="location_name", help="Seleziona la nazione per l'analisi.")
+        selected_location_name = st.selectbox(
+            "Country",
+            options=pd.concat([pd.DataFrame([{'name': '', 'code': None}]), locations_df], ignore_index=True)['name'],
+            key="location_name"
+        )
         if selected_location_name:
             st.session_state.location_code = int(locations_df[locations_df['name'] == selected_location_name]['code'].iloc[0])
+        else:
+            st.session_state.location_code = None
+
     with col3:
-        selected_language_name = st.selectbox("Lingua", languages_df['name'], key="language_name", help="Seleziona la lingua per l'analisi.")
+        selected_language_name = st.selectbox(
+            "Lingua",
+            options=pd.concat([pd.DataFrame([{'name': '', 'code': None}]), languages_df], ignore_index=True)['name'],
+            key="language_name"
+        )
         if selected_language_name:
             st.session_state.language_code = languages_df[languages_df['name'] == selected_language_name]['code'].iloc[0]
+        else:
+            st.session_state.language_code = None
+
     with col4:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         if st.session_state.get('analysis_started', False):
-            st.button("↩️ Nuova Analisi", on_click=new_analysis, use_container_width=True)
+            st.button("↩️ Nuova Analisi", on_click=new_analysis, type="primary", use_container_width=True)
         else:
             st.button("🚀 Avvia Analisi", on_click=start_analysis, type="primary", use_container_width=True)
 
@@ -473,24 +485,21 @@ if st.session_state.get('analysis_started', False):
                     st.session_state.nlu_strat_text = future_strat.result()
                     st.session_state.nlu_comp_text = future_comp.result()
 
-    # --- INIZIO VISUALIZZAZIONE ---
-    st.header("1. Analisi Strategica della SERP")
-    
+    st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
-    dfs_strat = parse_markdown_tables(nlu_strat_text)
+    dfs_strat = parse_markdown_tables(nlu_strat_text.split("### Analisi Approfondita Audience ###")[0])
     if dfs_strat:
         df_strat = dfs_strat[0]
         if all(col in df_strat.columns for col in ['Caratteristica SEO', 'Analisi Sintetica']):
             analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
-            # RIPRISTINO STILE CARD
             labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
             cols = st.columns(len(labels_to_display))
             for col, label in zip(cols, labels_to_display):
                 value = analysis_map.get(label, "N/D").replace('`', '')
-                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(222, 222, 222); border-radius: 0.5rem; background-color: rgb(255, 255, 255); height: 100%;"><div style="font-size:0.8rem; color: #5f6368;">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
+                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
     
     st.divider()
-    st.header("2. Rappresentazione Grafica della SERP")
+    st.subheader("Rappresentazione Grafica della SERP")
 
     if ai_overview:
         svg_logo = """<svg class="fWWlmf JzISke" height="24" width="24" aria-hidden="true" viewBox="0 0 471 471" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;"><path fill="var(--m3c23)" d="M235.5 471C235.5 438.423 229.22 407.807 216.66 379.155C204.492 350.503 187.811 325.579 166.616 304.384C145.421 283.189 120.498 266.508 91.845 254.34C63.1925 241.78 32.5775 235.5 0 235.5C32.5775 235.5 63.1925 229.416 91.845 217.249C120.498 204.689 145.421 187.811 166.616 166.616C187.811 145.421 204.492 120.497 216.66 91.845C229.22 63.1925 235.5 32.5775 235.5 0C235.5 32.5775 241.584 63.1925 253.751 91.845C266.311 120.497 283.189 145.421 304.384 166.616C325.579 187.811 350.503 204.689 379.155 217.249C407.807 229.416 438.423 235.5 471 235.5C438.423 235.5 407.807 241.78 379.155 254.34C350.503 266.508 325.579 283.189 304.384 304.384C283.189 325.579 266.311 350.503 253.751 379.155C241.584 407.807 235.5 438.423 235.5 471Z"></path></svg>"""
@@ -514,7 +523,7 @@ if st.session_state.get('analysis_started', False):
             {header_html}
             <div style="display: flex; flex-wrap: wrap; gap: 2rem; margin-top: 1rem;">
                 <div style="flex: 3; min-width: 300px;">{main_text_html}</div>
-                <div style="flex: 2; min-width: 250px; background-color: #f0f4ff; border-radius: 16px; padding: 16px; align-self: flex-start;">
+                <div style="flex: 2; min-width: 250px; background-color: #e5edff; border-radius: 16px; padding: 16px; align-self: flex-start;">
                     {sources_html}
                 </div>
             </div>
@@ -523,10 +532,10 @@ if st.session_state.get('analysis_started', False):
         st.markdown(full_aio_html, unsafe_allow_html=True)
         st.divider()
 
-    left_col, right_col = st.columns([0.7, 0.3])
+    left_col, right_col = st.columns([2, 1], gap="large")
 
     with left_col:
-        st.subheader("Risultati Organici")
+        st.markdown('<h3 style="margin-top:0; padding-top:0;">Risultati Organici</h3>', unsafe_allow_html=True)
         html_string = ""
         for res in organic_results:
             url_raw = res.get("url", "")
@@ -537,20 +546,20 @@ if st.session_state.get('analysis_started', False):
             title = res.get("title", "")
             desc = res.get("description", "")
             html_string += f"""
-            <div style="margin-bottom: 24px;">
-                <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                    <img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=32" 
+            <div style="margin-bottom: 2rem;">
+                <div style="display: flex; align-items: center; margin-bottom: 0.2rem;">
+                    <img src="https://www.google.com/s2/favicons?domain={p.netloc}&sz=64" 
                          onerror="this.onerror=null;this.src='https://www.google.com/favicon.ico';" 
-                         style="width: 20px; height: 20px; margin-right: 8px; border-radius: 50%;">
+                         style="width: 26px; height: 26px; border-radius: 50%; border: 1px solid #d2d2d2; margin-right: 0.5rem;">
                     <div>
-                        <div style="color: #202124; font-size: 14px; line-height: 20px;">{name}</div>
-                        <div style="color: #4d5156; font-size: 12px; line-height: 16px;">{pretty_url}</div>
+                        <div style="color: #202124; font-size: 16px; line-height: 20px;">{name}</div>
+                        <div style="color: #4d5156; font-size: 14px; line-height: 18px;">{pretty_url}</div>
                     </div>
                 </div>
-                <a href="{url_raw}" target="_blank" style="color: #1a0dab; text-decoration: none; font-size: 20px; font-weight: 400; display: block; margin-bottom: 3px;">
+                <a href="{url_raw}" target="_blank" style="color: #1a0dab; text-decoration: none; font-size: 23px; font-weight: 500;">
                     {title}
                 </a>
-                <div style="color: #4d5156; font-size: 14px; line-height: 20px;">
+                <div style="font-size: 16px; line-height: 22px; color: #474747;">
                     {desc}
                 </div>
             </div>
@@ -559,18 +568,32 @@ if st.session_state.get('analysis_started', False):
 
     with right_col:
         if paa_items:
-            st.subheader("People Also Ask")
-            paa_pills = ''.join(f'<span style="background-color:#f1f3f4;border:1px solid #dadce0;padding:8px 12px;border-radius:20px;font-size:14px;margin-right:6px;margin-bottom:8px;display:inline-block;color:#3c4043;">{paa.get("title")}</span>' for paa in paa_items)
+            st.markdown('<h3 style="margin-top:0; padding-top:0;">People Also Ask</h3>', unsafe_allow_html=True)
+            paa_pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{paa.get("title")}</span>' for paa in paa_items)
             st.markdown(f"<div>{paa_pills}</div>", unsafe_allow_html=True)
         
         if related_searches:
-            st.subheader("Ricerche Correlate")
-            related_pills = ''.join(f'<span style="background-color:#f1f3f4;border:1px solid #dadce0;padding:8px 12px;border-radius:20px;font-size:14px;margin-right:6px;margin-bottom:8px;display:inline-block;color:#3c4043;">{r}</span>' for r in related_searches)
+            st.markdown('<h3 style="margin-top:1.5rem;">Ricerche Correlate</h3>', unsafe_allow_html=True)
+            related_pills = ''.join(f'<span style="background-color:#f7f8f9;padding:8px 12px;border-radius:4px;font-size:16px;margin-right:4px;margin-bottom:8px;display:inline-block;">{r}</span>' for r in related_searches)
             st.markdown(f"<div>{related_pills}</div>", unsafe_allow_html=True)
 
     st.divider()
+    
+    st.header("3. Contenuti dei Competitor")
+    if organic_results:
+        nav_labels = [f"{i+1}. {urlparse(res.get('url', '')).netloc.replace('www.', '')}" for i, res in enumerate(organic_results)]
+        selected_index = st.radio("Seleziona un competitor da analizzare:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i], horizontal=True, label_visibility="collapsed")
+        
+        if selected_index < len(st.session_state.edited_html_contents):
+            edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
+            if edited_content != st.session_state.edited_html_contents[selected_index]:
+                st.session_state.edited_html_contents[selected_index] = edited_content
+                st.rerun()
+    else:
+        st.write("Nessun contenuto da analizzare.")
 
-    st.header("3. Analisi dei Competitor")
+    st.header("4. Analisi NLU Avanzata")
+    
     st.subheader("Entità Rilevanti (Common Ground dei Competitor)")
     with st.expander("🔬 Clicca qui per vedere la risposta grezza dell'AI per le Entità"):
         st.text_area("Output NLU (Entità)", st.session_state.get('nlu_comp_text', 'N/A'), height=200)
@@ -597,7 +620,7 @@ if st.session_state.get('analysis_started', False):
             dfs_topics = parse_markdown_tables(nlu_topic_text)
             st.session_state.df_topic_clusters = dfs_topics[0] if dfs_topics else pd.DataFrame(columns=['Topic Cluster (Sotto-argomento Principale)', 'Concetti, Entità e Domande Chiave del Cluster'])
 
-    st.header("4. Architettura del Topic (Topic Modeling)")
+    st.subheader("Architettura del Topic (Topic Modeling)")
     st.info("ℹ️ Questa è la mappa concettuale. Gli H2 del tuo articolo dovrebbero basarsi su questi cluster.")
 
     if 'edited_df_topic_clusters' not in st.session_state:
@@ -634,20 +657,6 @@ if st.session_state.get('analysis_started', False):
     
     st.markdown("---")
     st.header("Appendice: Dati di Dettaglio")
-
-    with st.expander("Visualizza/Modifica Contenuti Estratti dai Competitor"):
-        if organic_results:
-            nav_labels = [f"{i+1}. {urlparse(res.get('url', '')).netloc.replace('www.', '')}" for i, res in enumerate(organic_results)]
-            selected_index = st.selectbox("Seleziona un competitor:", options=range(len(nav_labels)), format_func=lambda i: nav_labels[i])
-            
-            st.markdown(f"**URL:** `{organic_results[selected_index].get('url', '')}`")
-            if selected_index < len(st.session_state.edited_html_contents):
-                edited_content = st_quill(value=st.session_state.edited_html_contents[selected_index], html=True, key=f"quill_{selected_index}")
-                if edited_content != st.session_state.edited_html_contents[selected_index]:
-                    st.session_state.edited_html_contents[selected_index] = edited_content
-                    st.warning("Contenuto modificato. Per un'analisi aggiornata, avvia una nuova analisi.")
-        else:
-            st.write("Nessun risultato organico da visualizzare.")
 
     with st.expander("Visualizza Keyword Ranking dei Competitor e Matrice di Copertura"):
         all_keywords_data = []
