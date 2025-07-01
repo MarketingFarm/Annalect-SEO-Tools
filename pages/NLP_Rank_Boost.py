@@ -96,6 +96,31 @@ def get_languages_data() -> pd.DataFrame:
         ]
         return pd.DataFrame(default_data)
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def fetch_main_image_url(url: str) -> str | None:
+    """Tenta di estrarre l'immagine principale (og:image) da un URL."""
+    if not url:
+        return None
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, timeout=5, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Cerca prima og:image
+        og_image = soup.find("meta", property="og:image")
+        if og_image and og_image.get("content"):
+            return og_image["content"]
+        
+        # Altrimenti, cerca twitter:image
+        twitter_image = soup.find("meta", attrs={"name": "twitter:image"})
+        if twitter_image and twitter_image.get("content"):
+            return twitter_image["content"]
+
+    except requests.RequestException:
+        return None # Ignora errori di rete
+    return None
+
 def clean_url(url: str) -> str:
     """Rimuove parametri e frammenti da un URL."""
     if not isinstance(url, str): return ""
@@ -452,6 +477,19 @@ if st.session_state.get('analysis_started', False):
             st.session_state.parsed_contents = []
             st.session_state.edited_html_contents = []
 
+    # NUOVA LOGICA: Estrazione immagini per le fonti AIO in parallelo
+    if 'aio_source_images' not in st.session_state and ai_overview:
+        aio_references = ai_overview.get("references", [])
+        urls_to_fetch_images = [ref.get("url") for ref in aio_references if ref.get("url")]
+        if urls_to_fetch_images:
+            with st.spinner(f"Fase 1.6/5: Estraggo le immagini per {len(urls_to_fetch_images)} fonti AIO..."):
+                 with ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_url = {executor.submit(fetch_main_image_url, url): url for url in urls_to_fetch_images}
+                    image_results = {future_to_url[future]: future.result() for future in as_completed(future_to_url)}
+                    st.session_state.aio_source_images = image_results
+    elif not ai_overview:
+         st.session_state.aio_source_images = {}
+
     if 'ranked_keywords_results' not in st.session_state:
         urls_for_ranking = [clean_url(res.get("url")) for res in organic_results if res.get("url")]
         if urls_for_ranking:
@@ -499,25 +537,27 @@ if st.session_state.get('analysis_started', False):
         svg_logo = """<svg class="fWWlmf JzISke" height="24" width="24" aria-hidden="true" viewBox="0 0 471 471" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;"><path fill="var(--m3c23)" d="M235.5 471C235.5 438.423 229.22 407.807 216.66 379.155C204.492 350.503 187.811 325.579 166.616 304.384C145.421 283.189 120.498 266.508 91.845 254.34C63.1925 241.78 32.5775 235.5 0 235.5C32.5775 235.5 63.1925 229.416 91.845 217.249C120.498 204.689 145.421 187.811 166.616 166.616C187.811 145.421 204.492 120.497 216.66 91.845C229.22 63.1925 235.5 32.5775 235.5 0C235.5 32.5775 241.584 63.1925 253.751 91.845C266.311 120.497 283.189 145.421 304.384 166.616C325.579 187.811 350.503 204.689 379.155 217.249C407.807 229.416 438.423 235.5 471 235.5C438.423 235.5 407.807 241.78 379.155 254.34C350.503 266.508 325.579 283.189 304.384 304.384C283.189 325.579 266.311 350.503 253.751 379.155C241.584 407.807 235.5 438.423 235.5 471Z"></path></svg>"""
         header_html = f'<div class="aio-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">{svg_logo}<h2 style="margin: 0; border: none; font-size: 28px;">AI Overview</h2></div>'
         st.markdown(header_html, unsafe_allow_html=True)
-
-        main_text_html = "<p>" + "</p><p>".join(item.get('text', '').replace('\n', '<br>') for item in ai_overview.get('items', []) if item.get('text')) + "</p>"
+        
+        main_text_html = "<div style='font-size: 16px; line-height: 1.6;'>" + "<p>" + "</p><p>".join(item.get('text', '').replace('\n', '<br>') for item in ai_overview.get('items', []) if item.get('text')) + "</p></div>"
         st.markdown(main_text_html, unsafe_allow_html=True)
         
         references = ai_overview.get("references", [])
         if references:
             st.markdown("---")
-            cols = st.columns(2)
+            cols = st.columns(3) # Griglia a 3 colonne per le card
             for i, ref in enumerate(references):
-                with cols[i % 2]:
-                    # NOTA: L'API non fornisce l'immagine di anteprima, quindi replichiamo la card senza.
+                with cols[i % 3]:
+                    image_url = st.session_state.aio_source_images.get(ref.get("url"))
+                    image_html = f'<img src="{image_url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;">' if image_url else ""
+                    
                     card_html = f"""
                     <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: inherit;">
                         <div style="background-color: #f0f4ff; border-radius: 16px; padding: 16px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
-                                <div style="font-weight: 500; color: #1f1f1f; margin-bottom: 8px;">{ref.get('title')}</div>
-                                <div style="font-size: 14px; color: #4d5156; margin-bottom: 12px;">{ref.get('text', '')[:100]}...</div>
+                                {image_html}
+                                <div style="font-weight: 500; color: #1f1f1f; margin-bottom: 8px; font-size: 14px;">{ref.get('title')}</div>
                             </div>
-                            <div style="font-size: 12px; color: #202124; display: flex; align-items: center;">
+                            <div style="font-size: 12px; color: #202124; display: flex; align-items: center; margin-top: 8px;">
                                 <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 8px;">
                                 <span>{ref.get('source', ref.get('domain'))}</span>
                             </div>
