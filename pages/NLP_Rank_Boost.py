@@ -1,6 +1,3 @@
-Ecco il codice completo ottimizzato con tutte le modifiche richieste:
-
-```python
 import os
 import json
 import re
@@ -1119,133 +1116,133 @@ if st.session_state.get('analysis_started', False):
        st.json(st.session_state.serp_result)
    
 # Footer con riepilogo costi
-   st.markdown("---")
-   col1, col2, col3 = st.columns(3)
-   with col1:
-       st.caption(f"Analisi completata: {datetime.now().strftime('%H:%M:%S')}")
-   with col2:
-       total_api_calls = (st.session_state.api_costs['dataforseo_calls'] + 
-                         st.session_state.api_costs['parse_calls'] + 
-                         st.session_state.api_costs['ranked_keywords_calls'])
-       st.caption(f"API calls totali: {total_api_calls}")
-   with col3:
-       st.caption(f"Costo stimato: ${st.session_state.api_costs['estimated_cost']:.3f}")
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.caption(f"Analisi completata: {datetime.now().strftime('%H:%M:%S')}")
+    with col2:
+        total_api_calls = (st.session_state.api_costs['dataforseo_calls'] + 
+                          st.session_state.api_costs['parse_calls'] + 
+                          st.session_state.api_costs['ranked_keywords_calls'])
+        st.caption(f"API calls totali: {total_api_calls}")
+    with col3:
+        st.caption(f"Costo stimato: ${st.session_state.api_costs['estimated_cost']:.3f}")
 
 # Se l'analisi non è stata avviata, mostra informazioni utili
 else:
-   st.markdown("""
-   ### 🚀 Come utilizzare questo tool
-   
-   1. **Inserisci una Query**: La parola chiave per cui vuoi ottimizzare il contenuto
-   2. **Seleziona Country e Lingua**: Per risultati localizzati
-   3. **Clicca "Avvia Analisi"**: Il tool eseguirà 5 fasi di analisi
-   
-   ### 📊 Cosa analizza il tool:
-   
-   - **SERP Analysis**: Risultati organici, AI Overview, Featured Snippets, Knowledge Graph
-   - **Content Extraction**: Estrae e analizza i contenuti dei top competitor
-   - **Entity Recognition**: Identifica entità e concetti chiave
-   - **Topic Modeling**: Raggruppa i contenuti in cluster tematici
-   - **Content Brief**: Genera un brief dettagliato per la creazione del contenuto
-   
-   ### 💡 Features avanzate:
-   
-   - **Modifica in tempo reale**: Puoi modificare entità e topic cluster
-   - **Export multipli**: PDF report e JSON per integrazioni
-   - **Monitoraggio costi**: Traccia l'uso delle API in tempo reale
-   - **Cache intelligente**: Risparmia sui costi con cache di 24 ore
-   
-   ### 📈 Metriche incluse:
-   
-   - Search Intent primario e secondario
-   - Target audience e Tone of Voice
-   - Keyword posizionate dei competitor
-   - Matrice di copertura keyword
-   - People Also Ask e ricerche correlate
-   """)
-   
-   # Mostra esempi di query
-   with st.expander("💡 Esempi di query da analizzare"):
-       st.markdown("""
-       **E-commerce:**
-       - migliori smartphone 2024
-       - come scegliere lavatrice
-       - recensioni robot aspirapolvere
-       
-       **Informazionali:**
-       - come investire in borsa
-       - dieta mediterranea benefici
-       - intelligenza artificiale cos'è
-       
-       **Local SEO:**
-       - ristoranti Milano centro
-       - dentista Roma prezzi
-       - palestra Napoli economica
-       
-       **B2B:**
-       - software gestionale PMI
-       - consulenza SEO professionale
-       - servizi cloud computing
-       """)
-   
-   # Mostra statistiche di utilizzo se disponibili
-   if st.session_state.api_costs['dataforseo_calls'] > 0:
-       st.markdown("### 📊 Statistiche sessione corrente")
-       col1, col2, col3, col4 = st.columns(4)
-       with col1:
-           st.metric("Analisi completate", st.session_state.api_costs['dataforseo_calls'])
-       with col2:
-           st.metric("Pagine analizzate", st.session_state.api_costs['parse_calls'])
-       with col3:
-           st.metric("Token Gemini", f"{st.session_state.api_costs['gemini_tokens']:,}")
-       with col4:
-           st.metric("Costo totale", f"${st.session_state.api_costs['estimated_cost']:.3f}")
+    st.markdown("""
+    ### 🚀 Come utilizzare questo tool
+    
+    1. **Inserisci una Query**: La parola chiave per cui vuoi ottimizzare il contenuto
+    2. **Seleziona Country e Lingua**: Per risultati localizzati
+    3. **Clicca "Avvia Analisi"**: Il tool eseguirà 5 fasi di analisi
+    
+    ### 📊 Cosa analizza il tool:
+    
+    - **SERP Analysis**: Risultati organici, AI Overview, Featured Snippets, Knowledge Graph
+    - **Content Extraction**: Estrae e analizza i contenuti dei top competitor
+    - **Entity Recognition**: Identifica entità e concetti chiave
+    - **Topic Modeling**: Raggruppa i contenuti in cluster tematici
+    - **Content Brief**: Genera un brief dettagliato per la creazione del contenuto
+    
+    ### 💡 Features avanzate:
+    
+    - **Modifica in tempo reale**: Puoi modificare entità e topic cluster
+    - **Export multipli**: PDF report e JSON per integrazioni
+    - **Monitoraggio costi**: Traccia l'uso delle API in tempo reale
+    - **Cache intelligente**: Risparmia sui costi con cache di 24 ore
+    
+    ### 📈 Metriche incluse:
+    
+    - Search Intent primario e secondario
+    - Target audience e Tone of Voice
+    - Keyword posizionate dei competitor
+    - Matrice di copertura keyword
+    - People Also Ask e ricerche correlate
+    """)
+    
+    # Mostra esempi di query
+    with st.expander("💡 Esempi di query da analizzare"):
+        st.markdown("""
+        **E-commerce:**
+        - migliori smartphone 2024
+        - come scegliere lavatrice
+        - recensioni robot aspirapolvere
+        
+        **Informazionali:**
+        - come investire in borsa
+        - dieta mediterranea benefici
+        - intelligenza artificiale cos'è
+        
+        **Local SEO:**
+        - ristoranti Milano centro
+        - dentista Roma prezzi
+        - palestra Napoli economica
+        
+        **B2B:**
+        - software gestionale PMI
+        - consulenza SEO professionale
+        - servizi cloud computing
+        """)
+    
+    # Mostra statistiche di utilizzo se disponibili
+    if st.session_state.api_costs['dataforseo_calls'] > 0:
+        st.markdown("### 📊 Statistiche sessione corrente")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Analisi completate", st.session_state.api_costs['dataforseo_calls'])
+        with col2:
+            st.metric("Pagine analizzate", st.session_state.api_costs['parse_calls'])
+        with col3:
+            st.metric("Token Gemini", f"{st.session_state.api_costs['gemini_tokens']:,}")
+        with col4:
+            st.metric("Costo totale", f"${st.session_state.api_costs['estimated_cost']:.3f}")
 
 # Aggiungi CSS per migliorare l'aspetto delle tabelle esportate
 st.markdown("""
 <style>
-   /* Stile per le tabelle nel data editor */
-   .stDataFrame {
-       font-size: 14px;
-   }
-   
-   /* Stile per i pulsanti di export */
-   .stDownloadButton {
-       margin-top: 1rem;
-   }
-   
-   /* Migliora leggibilità metriche */
-   [data-testid="metric-container"] {
-       background-color: #f0f2f6;
-       padding: 1rem;
-       border-radius: 0.5rem;
-       margin: 0.5rem 0;
-   }
-   
-   /* Stile per expander */
-   .streamlit-expanderHeader {
-       font-weight: 600;
-       font-size: 1.1rem;
-   }
-   
-   /* Fix per il layout delle colonne */
-   [data-testid="column"] {
-       padding: 0 0.5rem;
-   }
+    /* Stile per le tabelle nel data editor */
+    .stDataFrame {
+        font-size: 14px;
+    }
+    
+    /* Stile per i pulsanti di export */
+    .stDownloadButton {
+        margin-top: 1rem;
+    }
+    
+    /* Migliora leggibilità metriche */
+    [data-testid="metric-container"] {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    
+    /* Stile per expander */
+    .streamlit-expanderHeader {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    /* Fix per il layout delle colonne */
+    [data-testid="column"] {
+        padding: 0 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # Script per tracking analytics (opzionale)
 st.markdown("""
 <script>
-   // Log utilizzo features
-   document.addEventListener('DOMContentLoaded', function() {
-       const buttons = document.querySelectorAll('button');
-       buttons.forEach(button => {
-           button.addEventListener('click', function() {
-               console.log('Feature used:', this.textContent);
-           });
-       });
-   });
+    // Log utilizzo features
+    document.addEventListener('DOMContentLoaded', function() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                console.log('Feature used:', this.textContent);
+            });
+        });
+    });
 </script>
 """, unsafe_allow_html=True)
