@@ -345,13 +345,19 @@ st.markdown("Da SERP a Content Brief: un flusso di lavoro potenziato da AI per c
 
 st.markdown("""
 <style>
+    :root { --m3c23: #8E87FF; } /* Colore per il logo AIO */
     .reportview-container { background: #f0f2f6; }
     .stButton>button { border-radius: 20px; border: 1px solid #1E88E5; background-color: #1E88E5; color: white; }
     .stButton>button:hover { border: 1px solid #1565C0; background-color: #1565C0; color: white; }
     .ql-editor { min-height: 250px; }
     .block-container { padding-top: 2rem; }
-    h1, h2, h3 { color: #1E88E5; }
+    h1, h2 { color: #1E88E5; }
     h3 { border-bottom: 2px solid #90CAF9; padding-bottom: 5px; margin-top: 1.5rem; }
+    .aio-header h2 { /* Targeting h2 per AIO */
+        border: none;
+        margin: 0;
+        padding: 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -381,34 +387,25 @@ def new_analysis():
     st.session_state.analysis_started = False
     st.rerun()
 
+# --- INPUT FORM CON STILI ---
 with st.container():
-    c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 1.5])
-    with c1:
-        st.text_input("🎯 Inserisci la tua Keyword target", key="query")
-    with c2:
-        selected_location_name = st.selectbox(
-            "🌍 Seleziona il Paese",
-            options=locations_df['name'],
-            key="location_name"
-        )
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1.2])
+    with col1:
+        st.text_input("Query", key="query", help="Inserisci la keyword principale da analizzare.")
+    with col2:
+        selected_location_name = st.selectbox("Country", locations_df['name'], key="location_name", help="Seleziona la nazione per l'analisi.")
         if selected_location_name:
             st.session_state.location_code = int(locations_df[locations_df['name'] == selected_location_name]['code'].iloc[0])
-
-    with c3:
-        selected_language_name = st.selectbox(
-            "🗣️ Seleziona la Lingua",
-            options=languages_df['name'],
-            key="language_name"
-        )
+    with col3:
+        selected_language_name = st.selectbox("Lingua", languages_df['name'], key="language_name", help="Seleziona la lingua per l'analisi.")
         if selected_language_name:
             st.session_state.language_code = languages_df[languages_df['name'] == selected_language_name]['code'].iloc[0]
-
-    with c4:
+    with col4:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         if st.session_state.get('analysis_started', False):
-            st.button("🔄 Nuova Analisi", on_click=new_analysis, use_container_width=True)
+            st.button("↩️ Nuova Analisi", on_click=new_analysis, use_container_width=True)
         else:
-            st.button("⚡ Avvia Analisi", on_click=start_analysis, type="primary", use_container_width=True)
+            st.button("🚀 Avvia Analisi", on_click=start_analysis, type="primary", use_container_width=True)
 
 st.divider()
 
@@ -485,24 +482,45 @@ if st.session_state.get('analysis_started', False):
         df_strat = dfs_strat[0]
         if all(col in df_strat.columns for col in ['Caratteristica SEO', 'Analisi Sintetica']):
             analysis_map = pd.Series(df_strat['Analisi Sintetica'].values, index=df_strat['Caratteristica SEO'].str.replace(r'\*\*', '', regex=True)).to_dict()
-            cols = st.columns(len(analysis_map))
-            for col, (label, value) in zip(cols, analysis_map.items()):
-                 col.metric(label, value.replace('`', ''))
+            # RIPRISTINO STILE CARD
+            labels_to_display = ["Search Intent Primario", "Search Intent Secondario", "Target Audience", "Tone of Voice (ToV)"]
+            cols = st.columns(len(labels_to_display))
+            for col, label in zip(cols, labels_to_display):
+                value = analysis_map.get(label, "N/D").replace('`', '')
+                col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(222, 222, 222); border-radius: 0.5rem; background-color: rgb(255, 255, 255); height: 100%;"><div style="font-size:0.8rem; color: #5f6368;">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
     
     st.divider()
     st.header("2. Rappresentazione Grafica della SERP")
 
     if ai_overview:
-        with st.container(border=True):
-            st.subheader("🤖 AI Overview")
-            full_text = "\n\n".join(item.get('text', '') for item in ai_overview.get('items', []) if item.get('text'))
-            st.markdown(full_text)
-            
-            references = ai_overview.get("references", [])
-            if references:
-                with st.expander("Visualizza fonti dell'AI Overview"):
-                    for ref in references:
-                        st.markdown(f"- [{ref.get('title')}]({ref.get('url')}) ({ref.get('domain')})")
+        svg_logo = """<svg class="fWWlmf JzISke" height="24" width="24" aria-hidden="true" viewBox="0 0 471 471" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;"><path fill="var(--m3c23)" d="M235.5 471C235.5 438.423 229.22 407.807 216.66 379.155C204.492 350.503 187.811 325.579 166.616 304.384C145.421 283.189 120.498 266.508 91.845 254.34C63.1925 241.78 32.5775 235.5 0 235.5C32.5775 235.5 63.1925 229.416 91.845 217.249C120.498 204.689 145.421 187.811 166.616 166.616C187.811 145.421 204.492 120.497 216.66 91.845C229.22 63.1925 235.5 32.5775 235.5 0C235.5 32.5775 241.584 63.1925 253.751 91.845C266.311 120.497 283.189 145.421 304.384 166.616C325.579 187.811 350.503 204.689 379.155 217.249C407.807 229.416 438.423 235.5 471 235.5C438.423 235.5 407.807 241.78 379.155 254.34C350.503 266.508 325.579 283.189 304.384 304.384C283.189 325.579 266.311 350.503 253.751 379.155C241.584 407.807 235.5 438.423 235.5 471Z"></path></svg>"""
+        header_html = f'<div class="aio-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">{svg_logo}<h2 style="margin: 0; border: none; font-size: 28px;">AI Overview</h2></div>'
+        main_text_html = "<p>" + "</p><p>".join(item.get('text', '').replace('\n', '<br>') for item in ai_overview.get('items', []) if item.get('text')) + "</p>"
+        references = ai_overview.get("references", [])
+        sources_html = ""
+        if references:
+            sources_html += "<h4 style='margin-top:0; margin-bottom:10px; color: #3c4043;'>Fonti</h4>"
+            for ref in references:
+                sources_html += f"""
+                <div style="margin-bottom: 12px; font-size: 14px;">
+                    <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: #1a0dab; display: flex; align-items: center; gap: 8px;">
+                        <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 6px; vertical-align: middle;">
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{ref.get('title')}</span>
+                    </a>
+                </div>
+                """
+        full_aio_html = f"""
+        <div style="border: 1px solid #dfe1e5; border-radius: 12px; padding: 24px;">
+            {header_html}
+            <div style="display: flex; flex-wrap: wrap; gap: 2rem; margin-top: 1rem;">
+                <div style="flex: 3; min-width: 300px;">{main_text_html}</div>
+                <div style="flex: 2; min-width: 250px; background-color: #f0f4ff; border-radius: 16px; padding: 16px; align-self: flex-start;">
+                    {sources_html}
+                </div>
+            </div>
+        </div>
+        """
+        st.markdown(full_aio_html, unsafe_allow_html=True)
         st.divider()
 
     left_col, right_col = st.columns([0.7, 0.3])
@@ -515,12 +533,9 @@ if st.session_state.get('analysis_started', False):
             if not url_raw: continue
             p = urlparse(url_raw)
             pretty_url = str(p.netloc + p.path).replace("www.","")
-
             name = res.get("breadcrumb", "").split("›")[0].strip() if res.get("breadcrumb") else p.netloc.replace('www.','')
-            
             title = res.get("title", "")
             desc = res.get("description", "")
-
             html_string += f"""
             <div style="margin-bottom: 24px;">
                 <div style="display: flex; align-items: center; margin-bottom: 4px;">
@@ -550,16 +565,7 @@ if st.session_state.get('analysis_started', False):
         
         if related_searches:
             st.subheader("Ricerche Correlate")
-            pat = re.compile(st.session_state.query, re.IGNORECASE) if st.session_state.query else None
-            related_pills = ""
-            for r in related_searches:
-                txt = r.strip()
-                if pat and (m := pat.search(txt)):
-                    # Questa logica di bold non è standard in f-string, la semplifichiamo
-                    formatted_txt = pat.sub(f"<strong>{m.group(0)}</strong>", txt)
-                else:
-                    formatted_txt = txt
-                related_pills += f'<span style="background-color:#f1f3f4;border:1px solid #dadce0;padding:8px 12px;border-radius:20px;font-size:14px;margin-right:6px;margin-bottom:8px;display:inline-block;color:#3c4043;">{formatted_txt}</span>'
+            related_pills = ''.join(f'<span style="background-color:#f1f3f4;border:1px solid #dadce0;padding:8px 12px;border-radius:20px;font-size:14px;margin-right:6px;margin-bottom:8px;display:inline-block;color:#3c4043;">{r}</span>' for r in related_searches)
             st.markdown(f"<div>{related_pills}</div>", unsafe_allow_html=True)
 
     st.divider()
