@@ -513,7 +513,6 @@ if st.session_state.get('analysis_started', False):
                     st.session_state.nlu_strat_text = future_strat.result()
                     st.session_state.nlu_comp_text = future_comp.result()
 
-    # --- INIZIO VISUALIZZAZIONE ---
     st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
     dfs_strat = parse_markdown_tables(nlu_strat_text.split("### Analisi Approfondita Audience ###")[0])
@@ -542,30 +541,25 @@ if st.session_state.get('analysis_started', False):
         if references:
             st.markdown("---")
             for ref in references:
-                with st.container():
-                    col1, col2 = st.columns([2, 1])
-                    with col1:
-                        card_html = f"""
-                        <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: inherit;">
-                            <div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-                                <div>
-                                    <div style="font-weight: 500; color: #1f1f1f; margin-bottom: 8px; font-size: 16px;">{ref.get('title')}</div>
-                                    <div style="font-size: 14px; color: #4d5156; margin-bottom: 12px;">{ref.get('text', '')[:120]}...</div>
-                                </div>
-                                <div style="font-size: 12px; color: #202124; display: flex; align-items: center; margin-top: 8px;">
-                                    <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 8px;">
-                                    <span>{ref.get('source', ref.get('domain'))}</span>
-                                </div>
-                            </div>
+                image_url = st.session_state.aio_source_images.get(ref.get("url"))
+                image_html = f'<div style="flex: 1; min-width: 120px;"><img src="{image_url}" style="width: 100%; border-radius: 8px;"></div>' if image_url else '<div style="flex: 1; min-width: 120px;"></div>'
+                
+                card_html = f"""
+                <div style="background-color: #f0f4ff; border-radius: 12px; padding: 16px; margin-bottom: 1rem; display: flex; gap: 16px;">
+                    <div style="flex: 3; display: flex; flex-direction: column;">
+                        <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: inherit; flex-grow: 1;">
+                            <div style="font-weight: 500; color: #1f1f1f; margin-bottom: 8px; font-size: 16px;">{ref.get('title')}</div>
+                            <div style="font-size: 14px; color: #4d5156;">{ref.get('text', '')[:120]}...</div>
                         </a>
-                        """
-                        st.markdown(card_html, unsafe_allow_html=True)
-                    with col2:
-                        image_url = st.session_state.aio_source_images.get(ref.get("url"))
-                        if image_url:
-                            st.markdown(f'<a href="{ref.get("url")}" target="_blank"><img src="{image_url}" style="width: 100%; height: auto; border-radius: 8px;"></a>', unsafe_allow_html=True)
-                st.markdown('<div style="background-color: #e5edff; padding: 1px; border-radius: 16px; margin-top: 1rem;"></div>', unsafe_allow_html=True)
-
+                        <div style="font-size: 12px; color: #202124; display: flex; align-items: center; margin-top: 12px;">
+                            <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 8px;">
+                            <span>{ref.get('source', ref.get('domain'))}</span>
+                        </div>
+                    </div>
+                    {image_html}
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
         st.divider()
 
     left_col, right_col = st.columns([2, 1], gap="large")
