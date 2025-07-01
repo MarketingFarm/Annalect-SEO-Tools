@@ -393,7 +393,6 @@ def start_analysis():
     if not all([st.session_state.query, st.session_state.get('location_code'), st.session_state.get('language_code')]):
         st.warning("Tutti i campi (Query, Country, Lingua) sono obbligatori.")
         return
-    # Pulisce lo stato per una nuova analisi, conservando solo gli input
     current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
         if key not in current_keys:
@@ -402,7 +401,6 @@ def start_analysis():
     st.rerun() 
 
 def new_analysis():
-    # Conserva solo gli input dell'utente, cancella tutto il resto
     current_keys = ['query', 'location_code', 'language_code', 'location_name', 'language_name']
     for key in list(st.session_state.keys()):
         if key not in current_keys:
@@ -542,6 +540,8 @@ if st.session_state.get('analysis_started', False):
         
         all_references = ai_overview.get("references", [])
         if all_references:
+            st.markdown("---")
+            
             # Logica per "Mostra tutti / Mostra meno"
             if 'num_aio_sources_to_show' not in st.session_state:
                 st.session_state.num_aio_sources_to_show = 3
@@ -553,41 +553,36 @@ if st.session_state.get('analysis_started', False):
 
             references_to_show = all_references[:st.session_state.num_aio_sources_to_show]
             
-            st.markdown("---")
             # Unico contenitore per tutte le fonti
             with st.container():
                 for ref in references_to_show:
-                    # Layout a due colonne INTERNO a ciascuna card
-                    col1, col2 = st.columns([2, 1])
-                    with col1:
-                        card_text_html = f"""
-                        <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: inherit; display: block; height: 100%;">
-                            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
-                                <div>
-                                    <div style="font-weight: 500; color: #1f1f1f; margin-bottom: 8px; font-size: 16px;">{ref.get('title')}</div>
-                                    <div style="font-size: 14px; color: #4d5156;">{ref.get('text', '')[:120]}...</div>
-                                </div>
-                                <div style="font-size: 12px; color: #202124; display: flex; align-items: center; margin-top: 12px;">
-                                    <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 8px;">
-                                    <span>{ref.get('source', ref.get('domain'))}</span>
-                                </div>
+                    card_html = f"""
+                    <div style="background-color: #f0f4ff; border-radius: 12px; padding: 16px; margin-bottom: 1rem; display: flex; gap: 16px; align-items: flex-start;">
+                        <div style="flex: 2; display: flex; flex-direction: column; height: 100%;">
+                            <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: inherit; flex-grow: 1;">
+                                <div style="font-weight: 500; color: #1f1f1f; margin-bottom: 8px; font-size: 16px;">{ref.get('title')}</div>
+                                <div style="font-size: 14px; color: #4d5156;">{ref.get('text', '')[:120]}...</div>
+                            </a>
+                            <div style="font-size: 12px; color: #202124; display: flex; align-items: center; margin-top: 12px;">
+                                <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 8px;">
+                                <span>{ref.get('source', ref.get('domain'))}</span>
                             </div>
-                        </a>
-                        """
-                        st.markdown(card_text_html, unsafe_allow_html=True)
+                        </div>
+                        <div style="flex: 1; min-width: 120px;">
+                    """
+                    image_url = st.session_state.aio_source_images.get(ref.get("url"))
+                    if image_url:
+                        card_html += f'<a href="{ref.get("url")}" target="_blank"><img src="{image_url}" style="width: 100%; border-radius: 8px;"></a>'
                     
-                    with col2:
-                        image_url = st.session_state.aio_source_images.get(ref.get("url"))
-                        if image_url:
-                            st.markdown(f'<a href="{ref.get("url")}" target="_blank"><img src="{image_url}" style="width: 100%; border-radius: 8px;"></a>', unsafe_allow_html=True)
-                
-            # Logica per mostrare i pulsanti "Mostra tutti" o "Chiudi"
+                    card_html += "</div></div>"
+                    st.markdown(card_html, unsafe_allow_html=True)
+
+            # Logica per mostrare i pulsanti "Mostra tutti" o "Mostra meno"
             if len(all_references) > 3:
                 if st.session_state.num_aio_sources_to_show < len(all_references):
                     st.button("Mostra tutti", on_click=show_all_sources, use_container_width=True)
                 else:
                     st.button("Mostra meno", on_click=show_fewer_sources, use_container_width=True)
-
         st.divider()
 
     left_col, right_col = st.columns([2, 1], gap="large")
