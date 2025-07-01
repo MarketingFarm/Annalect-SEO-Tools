@@ -346,17 +346,16 @@ st.markdown("Questo tool esegue analisi SEO integrando SERP scraping, estrazione
 st.markdown("""
 <style>
     :root { --m3c23: #8E87FF; } /* Colore per il logo AIO */
-    .reportview-container { background: #f0f2f6; }
     .stButton>button { border-radius: 4px; }
     .ql-editor { min-height: 250px; }
-    .block-container { padding-top: 2rem; }
-    h1 { font-size: 2.5rem; }
-    h2, h3 { color: #1E88E5; }
-    h3 { border-bottom: 1px solid #dfe1e5; padding-bottom: 5px; margin-top: 1.5rem; }
+    h1, h2 { color: #333; }
+    h3 { color: #555; }
     .aio-header h2 {
         border: none;
         margin: 0;
         padding: 0;
+        color: #333;
+        font-size: 24px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -391,24 +390,27 @@ with st.container():
     with col1:
         st.text_input("Query", key="query")
     with col2:
+        # Aggiunta di un'opzione vuota all'inizio per la selezione di default
+        loc_options = pd.concat([pd.DataFrame([{'name': '', 'code': None}]), locations_df], ignore_index=True)
         selected_location_name = st.selectbox(
             "Country",
-            options=pd.concat([pd.DataFrame([{'name': '', 'code': None}]), locations_df], ignore_index=True)['name'],
+            options=loc_options['name'],
             key="location_name"
         )
         if selected_location_name:
-            st.session_state.location_code = int(locations_df[locations_df['name'] == selected_location_name]['code'].iloc[0])
+            st.session_state.location_code = int(loc_options[loc_options['name'] == selected_location_name]['code'].iloc[0])
         else:
             st.session_state.location_code = None
 
     with col3:
+        lang_options = pd.concat([pd.DataFrame([{'name': '', 'code': None}]), languages_df], ignore_index=True)
         selected_language_name = st.selectbox(
             "Lingua",
-            options=pd.concat([pd.DataFrame([{'name': '', 'code': None}]), languages_df], ignore_index=True)['name'],
+            options=lang_options['name'],
             key="language_name"
         )
         if selected_language_name:
-            st.session_state.language_code = languages_df[languages_df['name'] == selected_language_name]['code'].iloc[0]
+            st.session_state.language_code = lang_options[lang_options['name'] == selected_language_name]['code'].iloc[0]
         else:
             st.session_state.language_code = None
 
@@ -485,6 +487,7 @@ if st.session_state.get('analysis_started', False):
                     st.session_state.nlu_strat_text = future_strat.result()
                     st.session_state.nlu_comp_text = future_comp.result()
 
+    # --- INIZIO VISUALIZZAZIONE ---
     st.subheader("Analisi Strategica")
     nlu_strat_text = st.session_state.nlu_strat_text
     dfs_strat = parse_markdown_tables(nlu_strat_text.split("### Analisi Approfondita Audience ###")[0])
@@ -503,33 +506,30 @@ if st.session_state.get('analysis_started', False):
 
     if ai_overview:
         svg_logo = """<svg class="fWWlmf JzISke" height="24" width="24" aria-hidden="true" viewBox="0 0 471 471" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;"><path fill="var(--m3c23)" d="M235.5 471C235.5 438.423 229.22 407.807 216.66 379.155C204.492 350.503 187.811 325.579 166.616 304.384C145.421 283.189 120.498 266.508 91.845 254.34C63.1925 241.78 32.5775 235.5 0 235.5C32.5775 235.5 63.1925 229.416 91.845 217.249C120.498 204.689 145.421 187.811 166.616 166.616C187.811 145.421 204.492 120.497 216.66 91.845C229.22 63.1925 235.5 32.5775 235.5 0C235.5 32.5775 241.584 63.1925 253.751 91.845C266.311 120.497 283.189 145.421 304.384 166.616C325.579 187.811 350.503 204.689 379.155 217.249C407.807 229.416 438.423 235.5 471 235.5C438.423 235.5 407.807 241.78 379.155 254.34C350.503 266.508 325.579 283.189 304.384 304.384C283.189 325.579 266.311 350.503 253.751 379.155C241.584 407.807 235.5 438.423 235.5 471Z"></path></svg>"""
-        header_html = f'<div class="aio-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">{svg_logo}<h2 style="margin: 0; border: none; font-size: 28px;">AI Overview</h2></div>'
-        main_text_html = "<p>" + "</p><p>".join(item.get('text', '').replace('\n', '<br>') for item in ai_overview.get('items', []) if item.get('text')) + "</p>"
-        references = ai_overview.get("references", [])
-        sources_html = ""
-        if references:
-            sources_html += "<h4 style='margin-top:0; margin-bottom:10px; color: #3c4043;'>Fonti</h4>"
-            for ref in references:
-                sources_html += f"""
-                <div style="margin-bottom: 12px; font-size: 14px;">
-                    <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: #1a0dab; display: flex; align-items: center; gap: 8px;">
-                        <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 6px; vertical-align: middle;">
-                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{ref.get('title')}</span>
-                    </a>
-                </div>
-                """
-        full_aio_html = f"""
-        <div style="border: 1px solid #dfe1e5; border-radius: 12px; padding: 24px;">
-            {header_html}
-            <div style="display: flex; flex-wrap: wrap; gap: 2rem; margin-top: 1rem;">
-                <div style="flex: 3; min-width: 300px;">{main_text_html}</div>
-                <div style="flex: 2; min-width: 250px; background-color: #e5edff; border-radius: 16px; padding: 16px; align-self: flex-start;">
-                    {sources_html}
-                </div>
-            </div>
-        </div>
-        """
-        st.markdown(full_aio_html, unsafe_allow_html=True)
+        header_html = f'<div class="aio-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">{svg_logo}<h2 style="margin: 0; border: none;">AI Overview</h2></div>'
+        
+        st.markdown(header_html, unsafe_allow_html=True)
+        
+        aio_col1, aio_col2 = st.columns([2, 1])
+        with aio_col1:
+            main_text_html = "<p>" + "</p><p>".join(item.get('text', '').replace('\n', '<br>') for item in ai_overview.get('items', []) if item.get('text')) + "</p>"
+            st.markdown(main_text_html, unsafe_allow_html=True)
+        
+        with aio_col2:
+            references = ai_overview.get("references", [])
+            if references:
+                with st.container(border=True):
+                    st.markdown("<h4 style='margin-top:0; margin-bottom:10px; color: #3c4043;'>Fonti</h4>", unsafe_allow_html=True)
+                    for ref in references:
+                        st.markdown(
+                            f"""
+                            <div style="margin-bottom: 12px; font-size: 14px;">
+                                <a href="{ref.get('url')}" target="_blank" style="text-decoration: none; color: #1a0dab; display: flex; align-items: center; gap: 8px;">
+                                    <img src="https://www.google.com/s2/favicons?domain={ref.get('domain')}&sz=16" style="width:16px; height:16px; margin-right: 6px; vertical-align: middle;">
+                                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{ref.get('title')}</span>
+                                </a>
+                            </div>
+                            """, unsafe_allow_html=True)
         st.divider()
 
     left_col, right_col = st.columns([2, 1], gap="large")
