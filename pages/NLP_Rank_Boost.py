@@ -275,15 +275,15 @@ def get_strategica_prompt(keyword: str, texts: str) -> str:
 ---
 **COMPITO E FORMATO DI OUTPUT:**
 **Parte 1: Tabella Sintetica**
-Analizza in modo aggregato i testi e compila la seguente tabella Markdown, rappresentando la tendenza predominante.
-| Caratteristica SEO | Analisi Sintetica |
+Analizza in modo aggregato tutti i testi forniti. Sintetizza le tue scoperte compilando la seguente tabella Markdown. Per ogni riga, la tua analisi deve rappresentare la tendenza predominante o la media osservata in TUTTI i testi. Genera **ESCLUSIVAMENTE** la tabella Markdown completa, iniziando dalla riga dell’header.| Caratteristica SEO | Analisi Sintetica |
 | :--- | :--- |
-| **Search Intent Primario** | `[Determina: Informazionale, Commerciale, Transazionale, Navigazionale. Aggiungi breve approfondimento]` |
-| **Search Intent Secondario** | `[Determina l'intento secondario, se presente. Aggiungi breve approfondimento]` |
-| **Target Audience** | `[Definisci il target audience in massimo 10 parole]` |
+| **Search Intent Primario** | `[Determina e inserisci qui: Informazionale, Commerciale, Transazionale, Navigazionale. Aggiungi tra parentesi un brevissimo approfondimenti di massimo 5/6 parole]` |
+| **Search Intent Secondario** | `[Determina e inserisci qui l'intento secondario. Aggiungi tra parentesi un brevissimo approfondimenti di massimo 5/6 parole]` |
+| **Target Audience** | `[Definisci il target audience in massimo 6 parole]` |
 | **Tone of Voice (ToV)** | `[Sintetizza il ToV predominante con 3 aggettivi chiave]` |
 **Parte 2: Analisi Approfondita Audience**
-Dopo la tabella, inserisci `---` seguito da un'analisi dell'audience con l'intestazione `### Analisi Approfondita Audience ###`. Descrivi il pubblico in termini di conoscenza, bisogni e pain points.
+Dopo la tabella, inserisci un separatore `---` seguito da un'analisi dettagliata del target audience. Inizia questa sezione con l'intestazione esatta: `### Analisi Approfondita Audience ###`.
+Il testo deve essere un paragrafo di 3-4 frasi che descriva il pubblico in termini di livello di conoscenza, bisogni, possibili punti deboli (pain points) e cosa si aspetta di trovare nel contenuto. Questa analisi deve servire come guida per un copywriter.
 """
 
 def get_competitiva_prompt(keyword: str, texts: str) -> str:
