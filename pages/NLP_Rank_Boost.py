@@ -528,7 +528,6 @@ if st.session_state.get('analysis_started', False):
                 col.markdown(f"""<div style="padding: 0.75rem 1.5rem; border: 1px solid rgb(255 166 166); border-radius: 0.5rem; background-color: rgb(255, 246, 246); height: 100%;"><div style="font-size:0.8rem; color: rgb(255 70 70);">{label}</div><div style="font-size:1rem; color:#202124; font-weight:500;">{value}</div></div>""", unsafe_allow_html=True)
     
     st.divider()
-    st.subheader("Rappresentazione Grafica della SERP")
 
     if ai_overview:
         # LOGICA "MOSTRA TUTTI"
