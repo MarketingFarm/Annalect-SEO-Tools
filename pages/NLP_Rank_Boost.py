@@ -134,7 +134,7 @@ def fetch_serp_data(query: str, location_code: int, language_code: str) -> dict 
         "language_code": language_code,
         "device": "desktop",
         "os": "windows",
-        "depth": 10,
+        "depth": 11,
         "load_async_ai_overview": True,
         "people_also_ask_click_depth": 4
     }]
