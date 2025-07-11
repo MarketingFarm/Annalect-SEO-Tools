@@ -1,4 +1,4 @@
-# Librerie Originali
+# --- LIBRERIE DI BASE E ORIGINALI ---
 streamlit>=1.30.0
 streamlit-tags>=1.2.7
 pandas>=2.0.0
@@ -15,15 +15,19 @@ dataforseo-client
 markdown>=3.4.1
 streamlit-agraph==0.0.42
 
-# --- NUOVE LIBRERIE E MODELLI SPACY ---
+# --- NUOVE LIBRERIE PER ANALISI AVANZATA ---
 matplotlib
 wordcloud
 
-# Libreria spaCy
-spacy>=3.7.0
+# --- LIBRERIA SPACY E MODELLI (METODO CORRETTO PER IL DEPLOYMENT) ---
 
-# Modelli spaCy installati come pacchetti (RISOLVE L'ERRORE DI DEPLOYMENT)
-# Modello Inglese (piccolo)
-https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz
-# Modello Italiano (piccolo)
-https://github.com/explosion/spacy-models/releases/download/it_core_news_sm-3.7.0/it_core_news_sm-3.7.0.tar.gz
+# Specifichiamo la versione esatta di spaCy per evitare conflitti
+spacy==3.7.4
+
+# Modelli spaCy installati come pacchetti tramite URL diretto.
+# Questo è il modo corretto per dire a Streamlit Cloud di scaricarli.
+# Modello Inglese (compatibile con spacy v3.7.4)
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz#egg=en_core_web_sm
+
+# Modello Italiano (compatibile con spacy v3.7.4)
+https://github.com/explosion/spacy-models/releases/download/it_core_news_sm-3.7.0/it_core_news_sm-3.7.0.tar.gz#egg=it_core_news_sm
