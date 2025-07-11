@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 
 # --- 1. CONFIGURAZIONE INIZIALE E API KEY ---
 
-# Configurazione della pagina (deve essere il primo comando Streamlit)
 st.set_page_config(
     page_title="Qforia - GEO & AI Content Architect", 
     layout="wide",
@@ -17,62 +16,48 @@ st.set_page_config(
     page_icon="🧠"
 )
 
-# --- NUOVO: Caricamento automatico della chiave API da st.secrets ---
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
 except KeyError:
-    st.error(" Chiave API di Gemini non trovata! Per favore, aggiungi 'GEMINI_API_KEY = \"tua_chiave\"' al tuo file .streamlit/secrets.toml.")
+    st.error(" Chiave API di Gemini non trovata! Aggiungi 'GEMINI_API_KEY = \"tua_chiave\"' al tuo file .streamlit/secrets.toml.")
     st.stop()
 except Exception as e:
     st.error(f" Impossibile configurare Gemini. Errore: {e}")
     st.stop()
 
-
 # --- CACHING E INIZIALIZZAZIONE ---
 
-# Caricamento del modello spaCy (messo in cache per non ricaricarlo ogni volta)
 @st.cache_resource
 def load_spacy_model(model_name):
     try:
         nlp = spacy.load(model_name)
         return nlp
     except OSError:
-        st.error(f"Modello spaCy '{model_name}' non trovato. Esegui 'python -m spacy download {model_name}' nel tuo terminale.")
+        st.error(f"Modello spaCy '{model_name}' non trovato. Assicurati che sia specificato correttamente nel tuo file requirements.txt.")
         st.stop()
-
-nlp = load_spacy_model("en_core_web_sm")
 
 # Inizializzazione dello stato della sessione per la cronologia
 if 'history' not in st.session_state:
     st.session_state.history = []
-
 
 # --- 2. STYLING E INTERFACCIA UTENTE ---
 
 def load_custom_css():
     st.markdown("""
     <style>
-    /* ... [Il tuo CSS completo va qui, l'ho omesso per brevità] ... */
+    /* Il tuo CSS completo va qui... */
     .main { background-color: #F5F7FA; }
     .main-header { background: linear-gradient(135deg, #0D47A1 0%, #4285F4 100%); color: white; padding: 2rem; border-radius: 10px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); text-align: center; }
-    .main-header h1 { color: white !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
-    .main-header p { color: #E3F2FD !important; }
+    .main-header h1 { color: white !important; }
     .sidebar-header { background: linear-gradient(135deg, #00796B 0%, #009688 100%); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center; }
     .sidebar-header h2 { color: white !important; margin:0; }
-    .stButton > button { background: linear-gradient(135deg, #0D47A1 0%, #4285F4 100%); color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-weight: bold; font-size: 1.1rem; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2); width: 100%; }
-    .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.3); filter: brightness(1.1); }
-    .generation-details { background-color: #E0F2F1; padding: 1.5rem; border-radius: 10px; margin: 1rem 0; border-left: 5px solid #009688; }
-    .stDownloadButton > button { background: linear-gradient(135deg, #28A745 0%, #20C997 100%); color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-weight: bold; transition: all 0.3s ease; }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    #MainMenu, footer, header { visibility: hidden; }
     </style>
     """, unsafe_allow_html=True)
 
 load_custom_css()
 
-# Intestazione principale
 st.markdown("""
 <div class="main-header">
     <h1>🧠 Qforia - GEO & AI Content Architect</h1>
@@ -87,29 +72,28 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# --- NUOVO: Selezione della lingua ---
+language_map = {
+    "Italiano": "it_core_news_sm",
+    "Inglese": "en_core_web_sm"
+}
+selected_language_name = st.sidebar.selectbox(
+    "🌍 Lingua di Analisi",
+    options=list(language_map.keys()),
+    help="Seleziona la lingua della query per un'analisi delle entità più accurata."
+)
+# Ottiene il nome del modello tecnico dalla selezione dell'utente
+selected_model = language_map[selected_language_name]
+
+
 user_query = st.sidebar.text_area("💭 Inserisci la tua query principale", "miglior macchina per caffè in grani", height=100)
-
-user_industry = st.sidebar.text_input(
-    "🎯 Qual è il tuo settore o caso d'uso? (Opzionale)",
-    placeholder="Es. Content Marketing, Ricerca di Mercato"
-)
-
-mode = st.sidebar.radio(
-    "🔍 Livello di Analisi", 
-    ["AI Overview (Veloce)", "AI Mode (Approfondita)"],
-    captions=["10+ query mirate", "20+ query strategiche"],
-    horizontal=True
-)
-
-exclude_brands = st.sidebar.toggle(
-    "🚫 Escludi Brand Specifici", 
-    value=False,
-    help="Se attivato, l'IA non menzionerà nomi di brand commerciali (es. De'Longhi, Dyson), concentrandosi su categorie e feature. Utile per query generiche come 'olio extravergine'."
-)
+user_industry = st.sidebar.text_input("🎯 Qual è il tuo settore o caso d'uso? (Opzionale)", placeholder="Es. Content Marketing")
+mode = st.sidebar.radio("🔍 Livello di Analisi", ["AI Overview (Veloce)", "AI Mode (Approfondita)"], horizontal=True)
+exclude_brands = st.sidebar.toggle("🚫 Escludi Brand Specifici", value=False)
 
 
-# --- 3. LOGICA DI GENERAZIONE E PROMPT ENGINEERING ---
-
+# --- 3. LOGICA DI GENERAZIONE E PROMPT ENGINEERING (Invariata) ---
+# ... (la funzione QUERY_FANOUT_PROMPT rimane identica a prima) ...
 def QUERY_FANOUT_PROMPT(q, mode, industry, exclude_brands_flag):
     min_queries_simple = 10
     min_queries_complex = 20
@@ -144,7 +128,6 @@ def QUERY_FANOUT_PROMPT(q, mode, industry, exclude_brands_flag):
         "  \"expanded_queries\": [ { \"query\": \"...\", \"type\": \"...\", \"user_intent\": \"...\", \"reasoning\": \"...\", \"possible_usage_in_industry\": \"...\" } ]\n"
         "}"
     )
-
 @st.cache_data(show_spinner=False)
 def generate_fanout_cached(_query, _mode, _industry, _exclude_brands):
     prompt = QUERY_FANOUT_PROMPT(_query, _mode, _industry, _exclude_brands)
@@ -172,7 +155,6 @@ def generate_fanout_cached(_query, _mode, _industry, _exclude_brands):
             st.expander("🔍 Visualizza Risposta Grezza").text(raw_response_text)
         return None, None
 
-
 # --- 4. ESECUZIONE E VISUALIZZAZIONE DEI RISULTATI ---
 
 if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
@@ -180,13 +162,16 @@ if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
         st.warning("⚠️ Inserisci una query da analizzare.")
         st.stop()
         
+    # --- MODIFICATO: Caricamento del modello linguistico corretto PRIMA dell'analisi ---
+    with st.spinner(f"Caricamento del modello linguistico ({selected_language_name})..."):
+        nlp = load_spacy_model(selected_model)
+
     with st.spinner("🤖 L'Architetto IA sta costruendo il tuo blueprint di contenuti..."):
         results_data, usage_metadata = generate_fanout_cached(user_query, mode, user_industry, exclude_brands)
 
     if results_data:
         st.success("✅ Blueprint di contenuti generato con successo!")
         
-        # Estrazione e salvataggio
         expanded_queries = results_data.get("expanded_queries", [])
         if not expanded_queries:
              st.warning("L'IA ha restituito una risposta valida ma senza query. Prova a riformulare la tua richiesta.")
@@ -194,42 +179,47 @@ if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
         
         st.session_state.history.insert(0, {
             "query": user_query, "mode": mode, "results_data": results_data, 
-            "usage_metadata": usage_metadata, "timestamp": pd.Timestamp.now()
+            "usage_metadata": usage_metadata, "timestamp": pd.Timestamp.now(), "language": selected_language_name
         })
         
         df = pd.DataFrame(expanded_queries)
         tab1, tab2, tab3 = st.tabs(["📊 Blueprint Principale", "🧠 Analisi Avanzata", "📜 Cronologia Analisi"])
 
+        # Tab 1: Blueprint (invariato)
         with tab1:
-            details = results_data.get("generation_details", {})
-            st.markdown("### Strategia di Generazione dell'IA")
-            col1, col2, col3 = st.columns(3)
-            target_count, generated_count = details.get('target_query_count', 'N/A'), len(df)
-            col1.metric("🎯 Query Previste", target_count)
-            col2.metric("✅ Query Generate", generated_count)
-            col3.metric("📊 Corrispondenza", "Perfetta" if target_count == generated_count else "Varianza")
-            st.markdown(f"**🤔 Ragionamento dell'IA:** *{details.get('reasoning_for_count', 'Non fornito.')}*")
-            if usage_metadata:
-                 st.info(f"💡 Token utilizzati: {usage_metadata.total_token_count}", icon="🪙")
+            # ... (codice tab1 invariato)
+             details = results_data.get("generation_details", {})
+             st.markdown("### Strategia di Generazione dell'IA")
+             col1, col2, col3 = st.columns(3)
+             target_count, generated_count = details.get('target_query_count', 'N/A'), len(df)
+             col1.metric("🎯 Query Previste", target_count)
+             col2.metric("✅ Query Generate", generated_count)
+             col3.metric("📊 Corrispondenza", "Perfetta" if target_count == generated_count else "Varianza")
+             st.markdown(f"**🤔 Ragionamento dell'IA:** *{details.get('reasoning_for_count', 'Non fornito.')}*")
+             if usage_metadata:
+                  st.info(f"💡 Token utilizzati: {usage_metadata.total_token_count}", icon="🪙")
 
-            st.markdown("---")
-            st.markdown("### Query Generate (Blueprint del Contenuto)")
-            st.dataframe(df, use_container_width=True, height=min(len(df) + 1, 20) * 35 + 3)
+             st.markdown("---")
+             st.markdown("### Query Generate (Blueprint del Contenuto)")
+             st.dataframe(df, use_container_width=True, height=min(len(df) + 1, 20) * 35 + 3)
 
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button("📥 Download Blueprint (CSV)", csv, f"geo_blueprint_{user_query[:20]}.csv", "text/csv")
-            json_data = json.dumps(results_data, indent=2).encode("utf-8")
-            st.download_button("📥 Download Dati Grezzi (JSON)", json_data, f"geo_raw_{user_query[:20]}.json", "application/json")
+             csv = df.to_csv(index=False).encode("utf-8")
+             st.download_button("📥 Download Blueprint (CSV)", csv, f"geo_blueprint_{user_query[:20]}.csv", "text/csv")
+             json_data = json.dumps(results_data, indent=2).encode("utf-8")
+             st.download_button("📥 Download Dati Grezzi (JSON)", json_data, f"geo_raw_{user_query[:20]}.json", "application/json")
 
+
+        # Tab 2: Analisi Avanzata (qui usiamo il modello nlp caricato dinamicamente)
         with tab2:
             st.markdown("### Analisi Approfondita del Blueprint")
             st.subheader("Distribuzione dei Tipi di Query")
             type_counts = df['type'].value_counts()
             st.bar_chart(type_counts)
             
-            st.subheader("Entità Chiave Estratte")
+            st.subheader(f"Entità Chiave Estratte (Lingua: {selected_language_name})")
             all_queries_text = " ".join(df['query'].tolist())
-            doc = nlp(all_queries_text)
+            doc = nlp(all_queries_text) # <<< Usa il modello nlp corretto
+            
             entities = [(ent.text, ent.label_) for ent in doc.ents if ent.label_ in ["ORG", "PRODUCT", "PERSON", "GPE", "FAC", "LOC"]]
             if entities:
                 entity_df = pd.DataFrame(entities, columns=['Entità', 'Tipo']).value_counts().reset_index(name='Frequenza')
@@ -238,7 +228,7 @@ if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
                 st.info("Nessuna entità chiave (Brand, Prodotti, Luoghi) trovata nelle query.")
                 
             st.subheader("Termini Ricorrenti")
-            if len(all_queries_text) > 10:
+            if len(all_queries_text.split()) > 5:
                 wordcloud = WordCloud(width=800, height=300, background_color="white", colormap="viridis").generate(all_queries_text)
                 fig, ax = plt.subplots()
                 ax.imshow(wordcloud, interpolation='bilinear')
@@ -247,13 +237,15 @@ if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
             else:
                 st.warning("Testo insufficiente per generare una word cloud.")
 
+        # Tab 3: Cronologia (invariato)
         with tab3:
+            # ... (codice tab3 invariato)
             st.markdown("### Cronologia delle Analisi Recenti")
             if not st.session_state.history:
                 st.info("Nessuna analisi eseguita in questa sessione.")
             else:
                 for record in st.session_state.history:
-                    with st.expander(f"**{record['timestamp'].strftime('%H:%M:%S')}** - Query: `{record['query']}`"):
+                    with st.expander(f"**{record['timestamp'].strftime('%H:%M:%S')}** [{record.get('language', 'N/A')}] - Query: `{record['query']}`"):
                         queries_in_record = record['results_data'].get('expanded_queries', [])
                         st.metric("Query Generate", len(queries_in_record))
                         st.dataframe(pd.DataFrame(queries_in_record), use_container_width=True)
