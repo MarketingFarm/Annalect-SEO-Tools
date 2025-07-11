@@ -133,7 +133,7 @@ def generate_fanout_cached(query, industry, exclude_brands, destination_code):
     prompt = get_strategic_prompt(destination_code, query, industry, exclude_brands)
     raw_response_text = ""
     try:
-        model = genai.GenerativeModel("gemini-2.5-pro-latest")
+        model = genai.GenerativeModel("gemini-2.5-pro")
         response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.7))
         raw_response_text = response.text
         
