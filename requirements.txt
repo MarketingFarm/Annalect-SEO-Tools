@@ -14,6 +14,16 @@ reportlab>=3.6.12
 dataforseo-client
 markdown>=3.4.1
 streamlit-agraph==0.0.42
+
+# --- NUOVE LIBRERIE E MODELLI SPACY ---
 matplotlib
-spacy
 wordcloud
+
+# Libreria spaCy
+spacy>=3.7.0
+
+# Modelli spaCy installati come pacchetti (RISOLVE L'ERRORE DI DEPLOYMENT)
+# Modello Inglese (piccolo)
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz
+# Modello Italiano (piccolo)
+https://github.com/explosion/spacy-models/releases/download/it_core_news_sm-3.7.0/it_core_news_sm-3.7.0.tar.gz
