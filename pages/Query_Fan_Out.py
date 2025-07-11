@@ -1,3 +1,5 @@
+# Incolla qui il codice Python completo che ti ho fornito prima.
+# Inizia con 'import streamlit as st' e finisce con la gestione della cronologia.
 import streamlit as st
 import google.generativeai as genai
 import pandas as pd
