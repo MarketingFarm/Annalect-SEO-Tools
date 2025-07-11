@@ -144,12 +144,19 @@ def generate_fanout_cached(_query, _mode, _industry, _exclude_brands):
         if match:
             json_text = match.group(1)
         
+        # --- NUOVA RIGA DI CODICE PER LA CORREZIONE AUTOMATICA ---
+        # Questo cerca i punti in cui una } è seguita da una { (con spazi/a capo in mezzo)
+        # e inserisce la virgola mancante. Risolve l'errore più comune degli LLM.
+        json_text = re.sub(r'}\s*{', '},{', json_text)
+        # -----------------------------------------------------------
+        
         data = json.loads(json_text)
         return data, response.usage_metadata
         
     except json.JSONDecodeError as e:
+        # Ora l'errore dovrebbe essere molto più raro, ma lo manteniamo per sicurezza
         st.error(f"🔴 Errore nel decodificare la risposta JSON: {e}")
-        st.expander("🔍 Visualizza Risposta Grezza").text(raw_response_text)
+        st.expander("🔍 Visualizza Risposta Grezza (Dopo Correzione Automatica)").text(json_text)
         return None, None
     except Exception as e:
         st.error(f"🔴 Errore inatteso durante la generazione: {e}")
