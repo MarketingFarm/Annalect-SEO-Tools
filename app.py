@@ -22,7 +22,8 @@ pages = {
     "On-Page SEO": [
         st.Page("pages/seo_extractor.py", title="🔍 SEO Extractor"),
         st.Page("pages/NLP_Rank_Boost.py", title="🚀 Rank Booster Analysis"),
-        st.Page("pages/NLP_Rank_Boost_2.py", title="🚀 Rank Booster Processing")
+        st.Page("pages/NLP_Rank_Boost_2.py", title="🚀 Rank Booster Processing"),
+        st.Page("pages/Query_Fan_Out.py", title="🚀 Query Fan-Out Analysis")
     ],
     "Technical SEO": [],
     "Off-Page SEO": []
