@@ -19,13 +19,17 @@ streamlit-agraph==0.0.42
 matplotlib
 wordcloud
 
-# --- LIBRERIA SPACY E MODELLI (METODO CORRETTO PER IL DEPLOYMENT) ---
+# --- LIBRERIE CRITICHE CON VERSIONI "BLOCCATE" PER RISOLVERE IL CONFLITTO ---
 
-# Specifichiamo la versione esatta di spaCy per evitare conflitti
+# Blocchiamo la versione di numpy per garantire la compatibilità binaria.
+# Questa è la modifica più importante per risolvere l'errore "numpy.dtype size changed".
+numpy==1.26.4
+
+# Blocchiamo la versione di spacy e del suo motore (thinc) per una stabilità massima.
 spacy==3.7.4
+thinc==8.2.3
 
-# Modelli spaCy installati come pacchetti tramite URL diretto.
-# Questo è il modo corretto per dire a Streamlit Cloud di scaricarli.
+# --- MODELLI SPACY (METODO CORRETTO PER IL DEPLOYMENT) ---
 # Modello Inglese (compatibile con spacy v3.7.4)
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz#egg=en_core_web_sm
 
