@@ -135,7 +135,7 @@ def generate_fanout_cached(_query, _mode, _industry, _exclude_brands):
     prompt = QUERY_FANOUT_PROMPT(_query, _mode, _industry, _exclude_brands)
     raw_response_text = ""
     try:
-        model = genai.GenerativeModel("gemini-1.5-pro-latest")
+        model = genai.GenerativeModel("gemini-2.5-pro")
         response = model.generate_content(prompt)
         raw_response_text = response.text
         
