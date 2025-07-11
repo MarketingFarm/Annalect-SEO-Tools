@@ -132,7 +132,7 @@ def QUERY_FANOUT_PROMPT(q, mode, industry, exclude_brands_flag):
     )
 @st.cache_data(show_spinner=False)
 def generate_fanout_cached(query, mode, industry, exclude_brands):
-    prompt = QUERY_FANOUT_PROMPT(_query, _mode, _industry, _exclude_brands)
+    prompt = QUERY_FANOUT_PROMPT(query, mode, industry, exclude_brands)
     raw_response_text = ""
     try:
         model = genai.GenerativeModel("gemini-2.5-pro")
