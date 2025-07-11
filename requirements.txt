@@ -1,3 +1,4 @@
+# Librerie Originali
 streamlit>=1.30.0
 streamlit-tags>=1.2.7
 pandas>=2.0.0
@@ -13,3 +14,6 @@ reportlab>=3.6.12
 dataforseo-client
 markdown>=3.4.1
 streamlit-agraph==0.0.42
+matplotlib
+spacy
+wordcloud
