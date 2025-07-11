@@ -7,9 +7,9 @@ import spacy
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
-# --- 1. CONFIGURAZIONE INIZIALE E CACHING ---
+# --- 1. CONFIGURAZIONE INIZIALE E API KEY ---
 
-# App config (va messa all'inizio)
+# Configurazione della pagina (deve essere il primo comando Streamlit)
 st.set_page_config(
     page_title="Qforia - GEO & AI Content Architect", 
     layout="wide",
@@ -17,24 +17,39 @@ st.set_page_config(
     page_icon="🧠"
 )
 
+# --- NUOVO: Caricamento automatico della chiave API da st.secrets ---
+try:
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=GEMINI_API_KEY)
+except KeyError:
+    st.error(" Chiave API di Gemini non trovata! Per favore, aggiungi 'GEMINI_API_KEY = \"tua_chiave\"' al tuo file .streamlit/secrets.toml.")
+    st.stop()
+except Exception as e:
+    st.error(f" Impossibile configurare Gemini. Errore: {e}")
+    st.stop()
+
+
+# --- CACHING E INIZIALIZZAZIONE ---
+
 # Caricamento del modello spaCy (messo in cache per non ricaricarlo ogni volta)
-# Usiamo @st.cache_resource perché il modello è una risorsa che non cambia.
 @st.cache_resource
 def load_spacy_model(model_name):
-    print(f"Loading spaCy model: {model_name}")
-    nlp = spacy.load(model_name)
-    return nlp
+    try:
+        nlp = spacy.load(model_name)
+        return nlp
+    except OSError:
+        st.error(f"Modello spaCy '{model_name}' non trovato. Esegui 'python -m spacy download {model_name}' nel tuo terminale.")
+        st.stop()
 
-# Carichiamo il modello 'en_core_web_sm'. Adatto per query in inglese.
 nlp = load_spacy_model("en_core_web_sm")
 
 # Inizializzazione dello stato della sessione per la cronologia
 if 'history' not in st.session_state:
     st.session_state.history = []
 
+
 # --- 2. STYLING E INTERFACCIA UTENTE ---
 
-# Custom CSS (invariato, ma essenziale)
 def load_custom_css():
     st.markdown("""
     <style>
@@ -72,8 +87,6 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-gemini_key = st.sidebar.text_input("🔑 Gemini API Key", type="password")
-
 user_query = st.sidebar.text_area("💭 Inserisci la tua query principale", "miglior macchina per caffè in grani", height=100)
 
 user_industry = st.sidebar.text_input(
@@ -88,21 +101,18 @@ mode = st.sidebar.radio(
     horizontal=True
 )
 
-# NUOVO: Toggle per l'esclusione dei brand
 exclude_brands = st.sidebar.toggle(
     "🚫 Escludi Brand Specifici", 
     value=False,
     help="Se attivato, l'IA non menzionerà nomi di brand commerciali (es. De'Longhi, Dyson), concentrandosi su categorie e feature. Utile per query generiche come 'olio extravergine'."
 )
 
+
 # --- 3. LOGICA DI GENERAZIONE E PROMPT ENGINEERING ---
 
-# Il prompt potenziato con la Persona e le nuove opzioni
 def QUERY_FANOUT_PROMPT(q, mode, industry, exclude_brands_flag):
     min_queries_simple = 10
     min_queries_complex = 20
-    
-    # Definizione della Persona
     persona_prompt = (
         "You are an 'Expert SEO & AI Content Architect'. Your primary mission is to deconstruct a user's query "
         "to create a comprehensive content blueprint. This blueprint must be designed to create a single piece of content "
@@ -111,24 +121,13 @@ def QUERY_FANOUT_PROMPT(q, mode, industry, exclude_brands_flag):
         "You think in terms of entities, topic clusters, and user intent funnels. Every query you generate is a strategic component "
         "of this master content plan. Your goal is not just to answer the user's question, but to answer every possible follow-up question."
     )
-    
-    # Istruzione per il numero di query
     if mode == "AI Overview (Veloce)":
         num_queries_instruction = f"Decide on an optimal number of queries to generate, **at least {min_queries_simple}**."
     else:
         num_queries_instruction = f"Decide on an optimal number of queries to generate, **at least {min_queries_complex}**. For this deep analysis, aim for a comprehensive set."
-        
-    # Istruzione per l'esclusione dei brand
-    brand_instruction = ""
-    if exclude_brands_flag:
-        brand_instruction = "IMPORTANT CONSTRAINT: The user has requested to exclude specific brand names. DO NOT mention any commercial brands (e.g., De'Longhi, Dyson, Sony). Instead, focus entirely on product categories, technical features, material types, and user needs."
-    else:
-        brand_instruction = "You are encouraged to mention specific, relevant brand names as they are key entities for competitor analysis and user searches."
-
-    # Contesto del settore
-    industry_context = ""
-    if industry:
-        industry_context = f"The user is operating in the '{industry}' sector. Tailor the 'possible_usage_in_industry' field to be highly relevant and specific to this context."
+    
+    brand_instruction = "IMPORTANT CONSTRAINT: The user has requested to exclude specific brand names. DO NOT mention any commercial brands (e.g., De'Longhi, Dyson, Sony). Instead, focus entirely on product categories, technical features, material types, and user needs." if exclude_brands_flag else "You are encouraged to mention specific, relevant brand names as they are key entities for competitor analysis and user searches."
+    industry_context = f"The user is operating in the '{industry}' sector. Tailor the 'possible_usage_in_industry' field to be highly relevant and specific to this context." if industry else ""
 
     return (
         f"{persona_prompt}\n\n"
@@ -141,29 +140,21 @@ def QUERY_FANOUT_PROMPT(q, mode, industry, exclude_brands_flag):
         f"4.  **JSON Output:** Return ONLY a valid JSON object following the specified format. Do not include any text before or after the JSON object.\n\n"
         f"**JSON Format:**\n"
         "{\n"
-        "  \"generation_details\": {\n"
-        "    \"target_query_count\": <your_determined_number>,\n"
-        "    \"reasoning_for_count\": \"<your_reasoning>\"\n"
-        "  },\n"
-        "  \"expanded_queries\": [\n"
-        "    { \"query\": \"...\", \"type\": \"...\", \"user_intent\": \"...\", \"reasoning\": \"...\", \"possible_usage_in_industry\": \"...\" },\n"
-        "    // ... more query objects ...\n"
-        "  ]\n"
+        "  \"generation_details\": { \"target_query_count\": <your_determined_number>, \"reasoning_for_count\": \"<your_reasoning>\" },\n"
+        "  \"expanded_queries\": [ { \"query\": \"...\", \"type\": \"...\", \"user_intent\": \"...\", \"reasoning\": \"...\", \"possible_usage_in_industry\": \"...\" } ]\n"
         "}"
     )
 
-# Funzione di generazione messa in cache
-# @st.cache_data esegue la funzione solo se gli argomenti non sono mai stati visti prima.
 @st.cache_data(show_spinner=False)
 def generate_fanout_cached(_query, _mode, _industry, _exclude_brands):
-    # Il carattere _ all'inizio evita che Streamlit pensi che la funzione modifichi gli argomenti
     prompt = QUERY_FANOUT_PROMPT(_query, _mode, _industry, _exclude_brands)
+    raw_response_text = ""
     try:
         model = genai.GenerativeModel("gemini-1.5-pro-latest")
         response = model.generate_content(prompt)
+        raw_response_text = response.text
         
-        # Pulizia della risposta per estrarre solo il JSON
-        json_text = response.text.strip()
+        json_text = raw_response_text.strip()
         match = re.search(r'```json\s*(\{.*?\})\s*```', json_text, re.DOTALL)
         if match:
             json_text = match.group(1)
@@ -173,69 +164,58 @@ def generate_fanout_cached(_query, _mode, _industry, _exclude_brands):
         
     except json.JSONDecodeError as e:
         st.error(f"🔴 Errore nel decodificare la risposta JSON: {e}")
-        st.expander("🔍 Visualizza Risposta Grezza").text(response.text)
+        st.expander("🔍 Visualizza Risposta Grezza").text(raw_response_text)
         return None, None
     except Exception as e:
         st.error(f"🔴 Errore inatteso durante la generazione: {e}")
-        if 'response' in locals():
-            st.expander("🔍 Visualizza Risposta Grezza").text(response.text)
+        if raw_response_text:
+            st.expander("🔍 Visualizza Risposta Grezza").text(raw_response_text)
         return None, None
+
 
 # --- 4. ESECUZIONE E VISUALIZZAZIONE DEI RISULTATI ---
 
 if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
-    if not gemini_key:
-        st.error("🔐 Inserisci la tua chiave API Gemini per procedere.")
-        st.stop()
     if not user_query.strip():
         st.warning("⚠️ Inserisci una query da analizzare.")
         st.stop()
         
-    # Configurazione di Gemini (solo se la chiave è presente)
-    genai.configure(api_key=gemini_key)
-
     with st.spinner("🤖 L'Architetto IA sta costruendo il tuo blueprint di contenuti..."):
         results_data, usage_metadata = generate_fanout_cached(user_query, mode, user_industry, exclude_brands)
 
     if results_data:
         st.success("✅ Blueprint di contenuti generato con successo!")
-
-        # Salvataggio nella cronologia
+        
+        # Estrazione e salvataggio
+        expanded_queries = results_data.get("expanded_queries", [])
+        if not expanded_queries:
+             st.warning("L'IA ha restituito una risposta valida ma senza query. Prova a riformulare la tua richiesta.")
+             st.stop()
+        
         st.session_state.history.insert(0, {
-            "query": user_query,
-            "mode": mode,
-            "results_data": results_data,
-            "usage_metadata": usage_metadata,
-            "timestamp": pd.Timestamp.now()
+            "query": user_query, "mode": mode, "results_data": results_data, 
+            "usage_metadata": usage_metadata, "timestamp": pd.Timestamp.now()
         })
         
-        # Estrazione dati
-        details = results_data.get("generation_details", {})
-        expanded_queries = results_data.get("expanded_queries", [])
         df = pd.DataFrame(expanded_queries)
-
-        # Creazione delle schede per i risultati
         tab1, tab2, tab3 = st.tabs(["📊 Blueprint Principale", "🧠 Analisi Avanzata", "📜 Cronologia Analisi"])
 
         with tab1:
+            details = results_data.get("generation_details", {})
             st.markdown("### Strategia di Generazione dell'IA")
             col1, col2, col3 = st.columns(3)
-            target_count = details.get('target_query_count', 'N/A')
-            generated_count = len(df)
+            target_count, generated_count = details.get('target_query_count', 'N/A'), len(df)
             col1.metric("🎯 Query Previste", target_count)
             col2.metric("✅ Query Generate", generated_count)
             col3.metric("📊 Corrispondenza", "Perfetta" if target_count == generated_count else "Varianza")
-            
             st.markdown(f"**🤔 Ragionamento dell'IA:** *{details.get('reasoning_for_count', 'Non fornito.')}*")
-            
             if usage_metadata:
-                 st.info(f"💡 Token utilizzati per questa generazione: {usage_metadata.total_token_count}", icon="🪙")
+                 st.info(f"💡 Token utilizzati: {usage_metadata.total_token_count}", icon="🪙")
 
             st.markdown("---")
             st.markdown("### Query Generate (Blueprint del Contenuto)")
             st.dataframe(df, use_container_width=True, height=min(len(df) + 1, 20) * 35 + 3)
 
-            # Opzioni di download
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button("📥 Download Blueprint (CSV)", csv, f"geo_blueprint_{user_query[:20]}.csv", "text/csv")
             json_data = json.dumps(results_data, indent=2).encode("utf-8")
@@ -243,44 +223,37 @@ if st.sidebar.button("🚀 Avvia Analisi GEO", type="primary"):
 
         with tab2:
             st.markdown("### Analisi Approfondita del Blueprint")
+            st.subheader("Distribuzione dei Tipi di Query")
+            type_counts = df['type'].value_counts()
+            st.bar_chart(type_counts)
             
-            if not df.empty:
-                # 1. Analisi per tipo
-                st.subheader("Distribuzione dei Tipi di Query")
-                type_counts = df['type'].value_counts()
-                st.bar_chart(type_counts)
-                
-                # 2. Analisi delle Entità (NER)
-                st.subheader("Entità Chiave Estratte")
-                all_queries_text = " ".join(df['query'].tolist())
-                doc = nlp(all_queries_text)
-                
-                entities = [(ent.text, ent.label_) for ent in doc.ents if ent.label_ in ["ORG", "PRODUCT", "PERSON", "GPE"]]
-                if entities:
-                    entity_df = pd.DataFrame(entities, columns=['Entità', 'Tipo']).value_counts().reset_index(name='Frequenza')
-                    st.dataframe(entity_df, use_container_width=True)
-                else:
-                    st.info("Nessuna entità chiave (Brand, Prodotti, Luoghi) trovata nelle query.")
-                    
-                # 3. Word Cloud
-                st.subheader("Termini Ricorrenti")
-                try:
-                    wordcloud = WordCloud(width=800, height=300, background_color="white", colormap="viridis").generate(all_queries_text)
-                    fig, ax = plt.subplots()
-                    ax.imshow(wordcloud, interpolation='bilinear')
-                    ax.axis("off")
-                    st.pyplot(fig)
-                except ValueError:
-                    st.warning("Testo insufficiente per generare una word cloud significativa.")
+            st.subheader("Entità Chiave Estratte")
+            all_queries_text = " ".join(df['query'].tolist())
+            doc = nlp(all_queries_text)
+            entities = [(ent.text, ent.label_) for ent in doc.ents if ent.label_ in ["ORG", "PRODUCT", "PERSON", "GPE", "FAC", "LOC"]]
+            if entities:
+                entity_df = pd.DataFrame(entities, columns=['Entità', 'Tipo']).value_counts().reset_index(name='Frequenza')
+                st.dataframe(entity_df, use_container_width=True)
             else:
-                st.warning("Nessun dato da analizzare.")
+                st.info("Nessuna entità chiave (Brand, Prodotti, Luoghi) trovata nelle query.")
+                
+            st.subheader("Termini Ricorrenti")
+            if len(all_queries_text) > 10:
+                wordcloud = WordCloud(width=800, height=300, background_color="white", colormap="viridis").generate(all_queries_text)
+                fig, ax = plt.subplots()
+                ax.imshow(wordcloud, interpolation='bilinear')
+                ax.axis("off")
+                st.pyplot(fig)
+            else:
+                st.warning("Testo insufficiente per generare una word cloud.")
 
         with tab3:
             st.markdown("### Cronologia delle Analisi Recenti")
             if not st.session_state.history:
                 st.info("Nessuna analisi eseguita in questa sessione.")
             else:
-                for i, record in enumerate(st.session_state.history):
+                for record in st.session_state.history:
                     with st.expander(f"**{record['timestamp'].strftime('%H:%M:%S')}** - Query: `{record['query']}`"):
-                        st.metric("Query Generate", len(record['results_data'].get('expanded_queries', [])))
-                        st.dataframe(pd.DataFrame(record['results_data'].get('expanded_queries', [])), use_container_width=True)
+                        queries_in_record = record['results_data'].get('expanded_queries', [])
+                        st.metric("Query Generate", len(queries_in_record))
+                        st.dataframe(pd.DataFrame(queries_in_record), use_container_width=True)
